@@ -15,7 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Cache:** Redis 7 (sessions + caching)
 - **AI:** Ollama (Qwen3-32B) + Flowise + OpenAI/Anthropic SDKs
 - **Voice:** Whisper STT + XTTS v2 TTS (FastAPI Python server on port 8100)
-- **Deployment:** Kubernetes (namespace: `fs-linkedeye`) + nerdctl container builds
+- **Deployment:** Kubernetes (namespace: `linkedeye-core` on the wecrew kind cluster) + nerdctl container builds
 
 ## Common Commands
 
@@ -38,20 +38,35 @@ npm run build                # tsc -b && vite build → outputs to dist/
 ```
 
 ### K8s Build & Deploy
-```bash
-# Frontend
-sudo nerdctl --namespace k8s.io build --no-cache -t linkedeye/frontend:vN ./frontend-react
-sudo kubectl set image deployment/linkedeye-frontend frontend=linkedeye/frontend:vN -n fs-linkedeye
 
-# Backend
-sudo nerdctl --namespace k8s.io build --no-cache -t linkedeye/api:vN ./backend
-sudo kubectl set image deployment/linkedeye-api api=linkedeye/api:vN -n fs-linkedeye
+Live on the `wecrew` kind cluster: namespace **`linkedeye-core`**, host `https://itsm.wecrew.in`
+(API also at `https://itsm.api.wecrew.in`). Images live in Harbor project `linkedeye`
+(private — pulled with the `harbor-linkedeye-pull` Secret, a pull-only Harbor robot).
+
+```bash
+TAG=$(date +%Y%m%d)-$(git rev-parse --short HEAD)
+
+# Build inside the kind node's containerd, then push to Harbor
+sudo nerdctl --namespace k8s.io build -t harbor.wecrew.in/linkedeye/argus-itsm-frontend:$TAG ./frontend-react
+sudo nerdctl --namespace k8s.io build -t harbor.wecrew.in/linkedeye/argus-itsm-api:$TAG ./backend
+sudo nerdctl --namespace k8s.io push harbor.wecrew.in/linkedeye/argus-itsm-{frontend,api}:$TAG
+
+kubectl -n linkedeye-core set image deployment/linkedeye-frontend \
+  frontend=harbor.wecrew.in/linkedeye/argus-itsm-frontend:$TAG
+kubectl -n linkedeye-core set image deployment/linkedeye-api \
+  api=harbor.wecrew.in/linkedeye/argus-itsm-api:$TAG
 ```
+
+The node runs at ~99% CPU requests, so both Deployments use `maxSurge: 0` — a rollout
+replaces the pod in place (a few seconds of downtime) rather than scheduling a surge pod.
+
+Full apply (`kubectl apply -k k8s/overlays/kind`) requires `k8s/overlays/kind/secrets.yml`
+to exist first — it is gitignored; copy `secrets.example.yml` and fill in real values.
 
 ### Database
 ```bash
 # Local dev: localhost:5432
-# K8s production: postgres.fs-linkedeye:5432 (ClusterIP 10.97.121.123)
+# K8s production: postgres.linkedeye-core:5432 (ClusterIP 10.97.121.123)
 # These are SEPARATE databases — always update K8s postgres for production changes
 
 npx prisma migrate deploy     # Production migration (non-interactive, safe for K8s)
@@ -255,6 +270,6 @@ K8s and Prometheus data for remote client orgs is accessed via SSH tunneling:
 ## Domain & Infrastructure
 
 - Production URL: https://fs-le-dev-inc.finspot.in
-- K8s namespace: `fs-linkedeye`
+- K8s namespace: `linkedeye-core`
 - 13 client orgs with SSH connectivity (see memory for full server mapping)
 - Lemonn Mumbai: 154.210.170.126:4422 (primary test org)

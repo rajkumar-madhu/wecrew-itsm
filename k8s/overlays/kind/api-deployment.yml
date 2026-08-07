@@ -9,6 +9,13 @@ metadata:
     app.kubernetes.io/part-of: linkedeye
 spec:
   replicas: 1
+  # Single node sitting at ~99% CPU requests: a surge pod cannot be scheduled,
+  # so replace in place (brief downtime) instead of surging.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   selector:
     matchLabels:
       app: linkedeye-api
@@ -21,9 +28,11 @@ spec:
         prometheus.io/port: "5000"
         prometheus.io/path: "/metrics"
     spec:
+      imagePullSecrets:
+        - name: harbor-linkedeye-pull
       containers:
         - name: api
-          image: linkedeye/api:kind
+          image: harbor.wecrew.in/linkedeye/argus-itsm-api:20260807-835d794
           imagePullPolicy: IfNotPresent
           command: ["sh","-c"]
           args:
@@ -38,13 +47,14 @@ spec:
                 name: linkedeye-secrets
             - configMapRef:
                 name: linkedeye-config
+          # Sized down for the single-node kind cluster; matches what is live.
           resources:
             requests:
-              cpu: 250m
-              memory: 256Mi
+              cpu: 50m
+              memory: 128Mi
             limits:
-              cpu: 1000m
-              memory: 1Gi
+              cpu: 500m
+              memory: 512Mi
           livenessProbe:
             httpGet:
               path: /health
