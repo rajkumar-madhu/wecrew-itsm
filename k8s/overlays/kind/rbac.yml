@@ -1,0 +1,61 @@
+# Read-only cluster access for the Argus API pod.
+#
+# k8sService.js shells out to `kubectl` inside the api container for the local
+# cluster ("wecrew"). The pod previously ran as the namespace `default`
+# ServiceAccount, which has no cluster read permission — every call returned
+# `items: []`, and because the service pipes stderr to /dev/null the UI showed
+# an empty cluster instead of an error.
+#
+# Scope is deliberately read-only (get/list/watch); the ITSM K8s module only
+# reads nodes, pods, deployments, services, events and pod logs.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: linkedeye-k8s-viewer
+  namespace: linkedeye-core
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: linkedeye-k8s-viewer
+rules:
+  - apiGroups: [""]
+    resources:
+      - nodes
+      - namespaces
+      - pods
+      - pods/log
+      - services
+      - events
+      - endpoints
+      - persistentvolumeclaims
+      - configmaps
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["nodes", "pods"]
+    verbs: ["get", "list"]
+  - apiGroups: ["events.k8s.io"]
+    resources: ["events"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: linkedeye-k8s-viewer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: linkedeye-k8s-viewer
+subjects:
+  - kind: ServiceAccount
+    name: linkedeye-k8s-viewer
+    namespace: linkedeye-core

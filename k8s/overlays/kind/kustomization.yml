@@ -5,6 +5,7 @@ resources:
   - namespace.yml
   - configmap.yml
   - secrets.yml
+  - rbac.yml
   - postgres-statefulset.yml
   - redis-deployment.yml
   - api-deployment.yml

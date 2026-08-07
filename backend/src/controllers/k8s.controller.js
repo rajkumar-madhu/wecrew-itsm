@@ -19,7 +19,7 @@ async function resolveK8sTarget(req) {
 
   // No org selected → use the local LinkedEye K8s cluster
   if (!orgId) {
-    return { method: 'local', serverIp: 'local', sshPort: null, sshUser: null, orgName: 'LinkedEye Platform (Local)' };
+    return { method: 'local', serverIp: 'local', sshPort: null, sshUser: null, orgName: 'wecrew' };
   }
 
   const [integration, org] = await Promise.all([
@@ -31,7 +31,7 @@ async function resolveK8sTarget(req) {
   ]);
 
   if (!org) {
-    return { method: 'local', serverIp: 'local', sshPort: null, sshUser: null, orgName: 'LinkedEye Platform (Local)' };
+    return { method: 'local', serverIp: 'local', sshPort: null, sshUser: null, orgName: 'wecrew' };
   }
 
   if (integration?.config) {

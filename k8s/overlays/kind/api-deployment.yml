@@ -28,11 +28,13 @@ spec:
         prometheus.io/port: "5000"
         prometheus.io/path: "/metrics"
     spec:
+      # Read-only cluster access for the in-app Kubernetes module (see rbac.yml).
+      serviceAccountName: linkedeye-k8s-viewer
       imagePullSecrets:
         - name: harbor-linkedeye-pull
       containers:
         - name: api
-          image: harbor.wecrew.in/linkedeye/argus-itsm-api:20260807-835d794
+          image: harbor.wecrew.in/linkedeye/argus-itsm-api:20260807-794da2b-k8sfix
           imagePullPolicy: IfNotPresent
           command: ["sh","-c"]
           args:
