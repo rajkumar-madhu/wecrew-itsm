@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: linkedeye-api
+  namespace: linkedeye-core
+spec:
+  template:
+    spec:
+      containers:
+        - name: api
+          image: linkedeye/api:kind
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c"]
+          args:
+            - |
+              npx prisma db push --accept-data-loss --skip-generate || true
+              node src/server.js
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: linkedeye-frontend
+  namespace: linkedeye-core
+spec:
+  template:
+    spec:
+      containers:
+        - name: frontend
+          image: linkedeye/frontend:kind
+          imagePullPolicy: IfNotPresent

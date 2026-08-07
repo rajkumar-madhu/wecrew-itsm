@@ -1,0 +1,404 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+    --argus-void: #060a14;
+    --argus-surface: #0b1424;
+    --argus-elevated: #0f1b2d;
+    --argus-border: rgba(99, 179, 255, 0.1);
+    --argus-ink: #e8f1fa;
+    --argus-muted: #8aabc4;
+    --argus-accent: #6366f1;
+  }
+
+  html {
+    @apply bg-void text-ink font-body antialiased;
+  }
+  body {
+    @apply min-h-screen m-0 bg-void text-ink;
+  }
+
+  /* Form controls default to dark surfaces */
+  input,
+  select,
+  textarea {
+    color-scheme: dark;
+  }
+
+  ::-webkit-scrollbar {
+    @apply w-1.5;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(138, 171, 196, 0.25);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(138, 171, 196, 0.4);
+  }
+
+  ::selection {
+    background: rgba(99, 102, 241, 0.35);
+    color: #fff;
+  }
+}
+
+@layer components {
+  /* Surfaces */
+  .glass-card {
+    @apply bg-obsidian rounded-2xl;
+    border: 1px solid var(--argus-border);
+    box-shadow: 0 8px 24px -12px rgba(0, 0, 0, 0.55);
+  }
+  .glass-card-hover {
+    @apply glass-card transition-all duration-300;
+  }
+  .glass-card-hover:hover {
+    border-color: rgba(99, 102, 241, 0.35);
+    box-shadow: 0 12px 32px -12px rgba(0, 0, 0, 0.65);
+  }
+  .glass-frosted {
+    background: rgba(11, 20, 36, 0.85);
+    @apply backdrop-blur-xl rounded-2xl;
+    border: 1px solid rgba(99, 179, 255, 0.12);
+  }
+
+  /* Buttons — indigo primary (ops), not amber consumer */
+  .btn-primary {
+    @apply px-4 py-2 rounded-lg font-medium text-sm text-white transition-all duration-200;
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    border: 1px solid rgba(129, 140, 248, 0.4);
+    box-shadow: 0 0 16px -6px rgba(99, 102, 241, 0.45);
+  }
+  .btn-primary:hover {
+    background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
+  }
+  .btn-gradient {
+    @apply px-5 py-2.5 rounded-xl font-medium text-sm text-white transition-all duration-200 active:scale-[0.98];
+    background: linear-gradient(135deg, #6366f1 0%, #22d3ee 100%);
+    box-shadow: 0 0 20px -6px rgba(34, 211, 238, 0.35);
+  }
+  .btn-gradient:hover {
+    filter: brightness(1.08);
+  }
+  .btn-danger {
+    @apply px-4 py-2 rounded-lg font-medium text-sm text-white transition-all duration-200;
+    background: rgba(244, 63, 94, 0.9);
+    border: 1px solid rgba(244, 63, 94, 0.5);
+  }
+  .btn-danger:hover {
+    background: #f43f5e;
+  }
+  .btn-ghost {
+    @apply px-4 py-2 rounded-lg text-sm transition-all duration-200;
+    color: #8aabc4;
+  }
+  .btn-ghost:hover {
+    color: #e8f1fa;
+    background: rgba(99, 179, 255, 0.08);
+  }
+
+  /* Inputs */
+  .input-field {
+    @apply w-full px-3 py-2 rounded-lg text-sm transition-all;
+    background: rgba(6, 10, 20, 0.6);
+    border: 1px solid rgba(99, 179, 255, 0.12);
+    color: #e8f1fa;
+  }
+  .input-field::placeholder {
+    color: #5a7d99;
+  }
+  .input-field:focus {
+    outline: none;
+    border-color: rgba(99, 102, 241, 0.55);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  }
+
+  .filter-select {
+    @apply appearance-none text-xs font-medium py-2 pl-3 pr-8 rounded-lg transition-all duration-200 cursor-pointer;
+    background-color: rgba(11, 20, 36, 0.9);
+    color: #8aabc4;
+    border: 1px solid rgba(99, 179, 255, 0.12);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238AABC4' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.6rem center;
+    min-width: 140px;
+  }
+  .filter-select:hover {
+    border-color: rgba(99, 179, 255, 0.22);
+    color: #e8f1fa;
+  }
+  .filter-select:focus {
+    outline: none;
+    border-color: rgba(99, 102, 241, 0.5);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+  }
+  .filter-select--active {
+    color: #c7d2fe;
+    background-color: rgba(99, 102, 241, 0.12);
+    border-color: rgba(99, 102, 241, 0.35);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23A5B4FC' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  }
+
+  /* Badges */
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .priority-p1 {
+    background: rgba(244, 63, 94, 0.12);
+    color: #fb7185;
+    border: 1px solid rgba(244, 63, 94, 0.28);
+  }
+  .priority-p2 {
+    background: rgba(245, 158, 11, 0.12);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.28);
+  }
+  .priority-p3 {
+    background: rgba(99, 102, 241, 0.14);
+    color: #a5b4fc;
+    border: 1px solid rgba(99, 102, 241, 0.3);
+  }
+  .priority-p4 {
+    background: rgba(16, 185, 129, 0.12);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.28);
+  }
+
+  .state-new {
+    background: rgba(167, 139, 250, 0.12);
+    color: #c4b5fd;
+  }
+  .state-in-progress {
+    background: rgba(99, 102, 241, 0.14);
+    color: #a5b4fc;
+  }
+  .state-on-hold {
+    background: rgba(245, 158, 11, 0.12);
+    color: #fbbf24;
+  }
+  .state-escalated {
+    background: rgba(244, 63, 94, 0.12);
+    color: #fb7185;
+  }
+  .state-resolved {
+    background: rgba(16, 185, 129, 0.12);
+    color: #34d399;
+  }
+  .state-closed {
+    background: rgba(90, 125, 153, 0.15);
+    color: #7a9bb5;
+  }
+
+  .row-accent-p1 {
+    border-left: 3px solid #f43f5e;
+  }
+  .row-accent-p2 {
+    border-left: 3px solid #f59e0b;
+  }
+  .row-accent-p3 {
+    border-left: 3px solid #6366f1;
+  }
+  .row-accent-p4 {
+    border-left: 3px solid #10b981;
+  }
+
+  .glow-critical {
+    box-shadow: 0 0 20px -4px rgba(244, 63, 94, 0.25);
+  }
+  .glow-amber {
+    box-shadow: 0 0 20px -4px rgba(245, 158, 11, 0.22);
+  }
+
+  /* Page chrome helpers */
+  .page-title {
+    @apply font-display font-semibold tracking-tight text-ink;
+  }
+  .page-subtitle {
+    color: #8aabc4;
+    @apply text-sm;
+  }
+  .section-label {
+    @apply text-[10px] font-bold tracking-[0.16em] uppercase;
+    color: #5a7d99;
+  }
+}
+
+/* Motion */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+@keyframes float-up {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes scale-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes glow-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 8px -2px rgba(244, 63, 94, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 16px -2px rgba(244, 63, 94, 0.5);
+  }
+}
+
+.animate-float-up {
+  animation: float-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+}
+.animate-scale-in {
+  animation: scale-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+}
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 25%,
+    rgba(99, 102, 241, 0.12) 50%,
+    transparent 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+.animate-glow-pulse {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-float-up,
+  .animate-scale-in,
+  .animate-shimmer,
+  .animate-glow-pulse {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+}
+
+/*
+ * Compatibility layer for dark app shell only (.app-shell).
+ * Login/signup use .auth-light-panel and keep light form styles.
+ */
+@layer utilities {
+  .app-shell .text-stone-950,
+  .app-shell .text-stone-900,
+  .app-shell .text-stone-800 {
+    color: #e8f1fa !important;
+  }
+  .app-shell .text-stone-700,
+  .app-shell .text-stone-600 {
+    color: #c5d8e8 !important;
+  }
+  .app-shell .text-stone-500,
+  .app-shell .text-stone-400 {
+    color: #8aabc4 !important;
+  }
+  .app-shell .text-stone-300 {
+    color: #5a7d99 !important;
+  }
+
+  .app-shell .bg-white {
+    background-color: #0b1424 !important;
+  }
+  .app-shell .bg-stone-50,
+  .app-shell .bg-stone-100 {
+    background-color: rgba(15, 27, 45, 0.9) !important;
+  }
+  .app-shell .bg-stone-50\/50 {
+    background-color: rgba(15, 27, 45, 0.55) !important;
+  }
+
+  .app-shell .border-stone-200,
+  .app-shell .border-stone-200\/80,
+  .app-shell .border-stone-100 {
+    border-color: rgba(99, 179, 255, 0.1) !important;
+  }
+  .app-shell .border-stone-300 {
+    border-color: rgba(99, 179, 255, 0.16) !important;
+  }
+
+  .app-shell .bg-indigo-50,
+  .app-shell .bg-indigo-50\/70 {
+    background-color: rgba(99, 102, 241, 0.12) !important;
+  }
+  .app-shell .text-indigo-700 {
+    color: #a5b4fc !important;
+  }
+  .app-shell .border-indigo-200,
+  .app-shell .border-indigo-300 {
+    border-color: rgba(99, 102, 241, 0.3) !important;
+  }
+
+  .app-shell .bg-red-50 {
+    background-color: rgba(244, 63, 94, 0.1) !important;
+  }
+  .app-shell .bg-amber-50 {
+    background-color: rgba(245, 158, 11, 0.1) !important;
+  }
+  .app-shell .bg-emerald-50 {
+    background-color: rgba(16, 185, 129, 0.1) !important;
+  }
+  .app-shell .bg-violet-50 {
+    background-color: rgba(167, 139, 250, 0.1) !important;
+  }
+
+  .app-shell .divide-stone-100 > :not([hidden]) ~ :not([hidden]),
+  .app-shell .divide-stone-200 > :not([hidden]) ~ :not([hidden]) {
+    border-color: rgba(99, 179, 255, 0.08) !important;
+  }
+
+  .app-shell .placeholder-stone-400::placeholder {
+    color: #5a7d99 !important;
+  }
+}
+
+/* Explicit light auth form contrast (never remapped) */
+.auth-light-panel {
+  color-scheme: light;
+}
+.auth-light-panel input,
+.auth-light-panel textarea {
+  color: #0f172a !important;
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+.auth-light-panel input::placeholder {
+  color: #94a3b8 !important;
+}
+.auth-light-panel .text-stone-900,
+.auth-light-panel h1,
+.auth-light-panel h2 {
+  color: #0f172a !important;
+}
+.auth-light-panel .text-stone-500,
+.auth-light-panel .text-stone-400 {
+  color: #64748b !important;
+}

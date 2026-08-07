@@ -1,0 +1,164 @@
+# ═══════════════════════════════════════════════════════════
+# LinkedEye ITSM Platform — Docker Compose
+# Full stack: API + Frontend + PostgreSQL + Redis + Observability
+# ═══════════════════════════════════════════════════════════
+
+version: "3.9"
+
+services:
+  # ── Database ────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: linkedeye-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: linkedeye
+      POSTGRES_USER: linkedeye
+      POSTGRES_PASSWORD: LinkedEye@2026
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U linkedeye"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: linkedeye-redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Backend API ─────────────────────────────────────────
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: linkedeye-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      DATABASE_URL: postgresql://linkedeye:LinkedEye@2026@postgres:5432/linkedeye?schema=public
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-linkedeye-jwt-secret-change-me}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-linkedeye-refresh-secret-change-me}
+      FRONTEND_URL: http://localhost
+      CORS_ORIGINS: http://localhost,http://localhost:3000
+      PROMETHEUS_URL: http://prometheus:9090
+      LOKI_URL: http://loki:3100
+      GRAFANA_URL: http://grafana:3000
+      OLLAMA_URL: http://ollama:11434
+    ports:
+      - "5000:5000"
+
+  # ── Frontend ────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend-react
+      dockerfile: Dockerfile
+    container_name: linkedeye-frontend
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+
+  # ── Observability Stack ─────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: linkedeye-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./infra/prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=30d"
+      - "--web.enable-lifecycle"
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: linkedeye-alertmanager
+    restart: unless-stopped
+    volumes:
+      - ./infra/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+    ports:
+      - "9093:9093"
+
+  loki:
+    image: grafana/loki:2.9.4
+    container_name: linkedeye-loki
+    restart: unless-stopped
+    volumes:
+      - loki_data:/loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+
+  promtail:
+    image: grafana/promtail:2.9.4
+    container_name: linkedeye-promtail
+    restart: unless-stopped
+    volumes:
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ./infra/promtail/promtail.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: linkedeye-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: LinkedEye@2026
+      GF_SERVER_ROOT_URL: http://localhost:3001
+    volumes:
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3001:3000"
+
+  # ── AI Stack ────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: linkedeye-ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  loki_data:
+  grafana_data:
+  ollama_data:

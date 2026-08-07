@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: linkedeye-core
+resources:
+  - namespace.yml
+  - configmap.yml
+  - secrets.yml
+  - postgres-statefulset.yml
+  - redis-deployment.yml
+  - api-deployment.yml
+  - frontend-deployment.yml
+  - ingress-kind.yml

@@ -1,0 +1,1085 @@
+// ═══════════════════════════════════════════════════════════
+// LinkedEye ITSM Platform — Complete Prisma Schema
+// Database: PostgreSQL | ORM: Prisma 5.x
+// © 2026 Santhira (Terv Pro Technology Pvt Ltd)
+// Multi-Tenant: Organization-scoped data isolation
+// ═══════════════════════════════════════════════════════════
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── ENUMS ────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  MANAGER
+  ENGINEER
+  OPERATOR
+  VIEWER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  LOCKED
+}
+
+enum TeamMemberRole {
+  LEAD
+  MEMBER
+  OBSERVER
+}
+
+enum IncidentState {
+  NEW
+  IN_PROGRESS
+  ON_HOLD
+  ESCALATED
+  RESOLVED
+  CLOSED
+  CANCELLED
+}
+
+enum Impact {
+  ENTERPRISE
+  DEPARTMENT
+  TEAM
+  INDIVIDUAL
+}
+
+enum Urgency {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum Priority {
+  P1
+  P2
+  P3
+  P4
+}
+
+enum IncidentSource {
+  MANUAL
+  PROMETHEUS
+  GRAFANA
+  API
+  EMAIL
+  VOICE
+  SLACK
+}
+
+enum ChangeType {
+  NORMAL
+  STANDARD
+  EMERGENCY
+}
+
+enum ChangeState {
+  NEW
+  ASSESSMENT
+  APPROVAL
+  SCHEDULED
+  IMPLEMENTING
+  REVIEW
+  CLOSED
+  CANCELLED
+}
+
+enum RiskLevel {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum ProblemState {
+  NEW
+  INVESTIGATION
+  RCA_IN_PROGRESS
+  KNOWN_ERROR
+  RESOLVED
+  CLOSED
+}
+
+enum ApprovalState {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum CIType {
+  SERVER
+  KUBERNETES_CLUSTER
+  DATABASE
+  APPLICATION
+  NETWORK
+  STORAGE
+  CONTAINER
+  VM
+  LOAD_BALANCER
+}
+
+enum CIStatus {
+  LIVE
+  MAINTENANCE
+  DECOMMISSIONED
+  PLANNED
+}
+
+enum AlertSeverity {
+  CRITICAL
+  WARNING
+  INFO
+}
+
+enum AlertStatus {
+  FIRING
+  RESOLVED
+  ACKNOWLEDGED
+  SILENCED
+}
+
+enum AlertSource {
+  PROMETHEUS
+  GRAFANA
+  CUSTOM
+}
+
+enum WorkNoteSource {
+  MANUAL
+  AI
+  SYSTEM
+  SLACK
+}
+
+enum NotificationType {
+  INCIDENT
+  CHANGE
+  PROBLEM
+  ALERT
+  SLA
+  SYSTEM
+}
+
+enum NotificationChannel {
+  WEB
+  EMAIL
+  SMS
+  SLACK
+  VOICE
+}
+
+enum IntegrationType {
+  SLACK
+  SERVICENOW
+  PROMETHEUS
+  GRAFANA
+  LOKI
+  EMAIL
+  TWILIO
+  MSG91
+  KALEYRA
+  WEBHOOK
+  N8N
+  KUBERNETES_CLUSTER
+  STACKSTORM
+  PAGERDUTY
+  APPRISE
+}
+
+enum IntegrationStatus {
+  ACTIVE
+  INACTIVE
+  ERROR
+}
+
+enum EmailStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum SMSProvider {
+  TWILIO
+  MSG91
+  KALEYRA
+}
+
+enum SMSDirection {
+  OUTBOUND
+  INBOUND
+}
+
+enum VoiceDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum VoiceHandler {
+  AI_BOT
+  HUMAN
+  IVR
+}
+
+enum LinkType {
+  CAUSED_BY
+  RESOLVED_BY
+  RELATED
+}
+
+enum ProblemLinkType {
+  CAUSED_BY
+  RELATED
+  SYMPTOM_OF
+}
+
+enum ClosureCode {
+  SUCCESSFUL
+  FAILED
+  PARTIAL
+}
+
+enum NotifyType {
+  SMS_NOTIFY
+  EMAIL_NOTIFY
+  SLACK_NOTIFY
+  VOICE_NOTIFY
+  ALL
+}
+
+enum Environment {
+  PROD
+  DR
+  UAT
+  DEV
+}
+
+// ─── MULTI-TENANT: ORGANIZATION ──────────────────────────
+
+model Organization {
+  id          String      @id @default(uuid())
+  name        String      @unique
+  slug        String      @unique
+  environment Environment @default(PROD)
+  serverIp    String?
+  fqdn        String?
+  description        String?
+  preferredLanguage  String?     @default("en")
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  users              User[]
+  teams              Team[]
+  incidents          Incident[]
+  changes            Change[]
+  problems           Problem[]
+  configurationItems ConfigurationItem[]
+  alerts             Alert[]
+  integrations       Integration[]
+  slaDefinitions     SLADefinition[]
+  smsLogs            SMSLog[]
+  voiceCallLogs      VoiceCallLog[]
+  slackIntegrations  SlackIntegration[]
+
+  @@index([slug])
+  @@index([isActive])
+}
+
+// ─── CORE MODELS ──────────────────────────────────────────
+
+model User {
+  id                String     @id @default(uuid())
+  email             String     @unique
+  password          String
+  firstName         String
+  lastName          String
+  phone             String?
+  avatar            String?
+  role              Role       @default(VIEWER)
+  status            UserStatus @default(ACTIVE)
+  department        String?
+  jobTitle          String?
+  timezone          String     @default("Asia/Kolkata")
+  mfaEnabled        Boolean    @default(false)
+  mfaSecret         String?
+  lastLogin         DateTime?
+  loginAttempts     Int        @default(0)
+  lockedUntil       DateTime?
+  passwordChangedAt DateTime?
+  ssoProvider       String?
+  ssoId             String?
+  skills            String[]
+  preferredLanguage String?    @default("en")
+  organizationId    String?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  organization         Organization?       @relation(fields: [organizationId], references: [id])
+  sessions             Session[]
+  teamMembers          TeamMember[]
+  managedTeams         Team[]              @relation("TeamManager")
+  createdIncidents     Incident[]          @relation("IncidentCreator")
+  assignedIncidents    Incident[]          @relation("IncidentAssignee")
+  createdChanges       Change[]            @relation("ChangeCreator")
+  assignedChanges      Change[]            @relation("ChangeAssignee")
+  createdProblems      Problem[]           @relation("ProblemCreator")
+  assignedProblems     Problem[]           @relation("ProblemAssignee")
+  approvals            Approval[]
+  ownedCIs             ConfigurationItem[] @relation("CIOwner")
+  workNotes            WorkNote[]
+  activities           Activity[]
+  attachments          Attachment[]
+  notifications        Notification[]
+  auditLogs            AuditLog[]
+  onCallSchedules      OnCallSchedule[]
+  linkedIncidentChanges IncidentChange[]
+  linkedIncidentProblems IncidentProblem[]
+  chatMessages         ChatMessage[]
+
+  @@index([email])
+  @@index([role])
+  @@index([status])
+  @@index([organizationId])
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  token        String   @unique
+  refreshToken String   @unique
+  userId       String
+  userAgent    String?
+  ipAddress    String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Team {
+  id             String  @id @default(uuid())
+  name           String
+  description    String?
+  email          String?
+  slackChannel   String?
+  managerId      String?
+  isActive       Boolean @default(true)
+  organizationId String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization       Organization?       @relation(fields: [organizationId], references: [id])
+  manager            User?              @relation("TeamManager", fields: [managerId], references: [id])
+  members            TeamMember[]
+  assignedIncidents  Incident[]
+  assignedChanges    Change[]
+  assignedProblems   Problem[]
+  supportedCIs       ConfigurationItem[] @relation("CISupportGroup")
+  escalationPolicies EscalationPolicy[]
+  onCallSchedules    OnCallSchedule[]
+  chatMessages       ChatMessage[]
+
+  @@unique([name, organizationId])
+  @@index([name])
+  @@index([organizationId])
+}
+
+// ─── TEAM CHAT ────────────────────────────────────────────
+
+model ChatMessage {
+  id        String   @id @default(uuid())
+  teamId    String
+  userId    String
+  body      String
+  createdAt DateTime @default(now())
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([teamId, createdAt])
+  @@index([userId])
+}
+
+model TeamMember {
+  id       String         @id @default(uuid())
+  teamId   String
+  userId   String
+  role     TeamMemberRole @default(MEMBER)
+  joinedAt DateTime       @default(now())
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+}
+
+// ─── ITIL MODULES ─────────────────────────────────────────
+
+model Incident {
+  id                  String        @id @default(uuid())
+  number              String        @unique
+  shortDescription    String
+  description         String?
+  state               IncidentState @default(NEW)
+  impact              Impact        @default(INDIVIDUAL)
+  urgency             Urgency       @default(LOW)
+  priority            Priority      @default(P4)
+  category            String?
+  subcategory         String?
+  assignedToId        String?
+  assignmentGroupId   String?
+  createdById         String
+  configItemId        String?
+  slaBreached         Boolean       @default(false)
+  responseTime        DateTime?
+  resolutionTime      DateTime?
+  slaTargetResponse   DateTime?
+  slaTargetResolution DateTime?
+  slaPausedAt         DateTime?
+  slaPausedDuration   Int           @default(0)
+  source              IncidentSource @default(MANUAL)
+  sourceAlertId       String?
+  sourceAlertName     String?
+  resolvedAt          DateTime?
+  closedAt            DateTime?
+  resolutionCode      String?
+  resolutionNotes     String?
+  escalationLevel     Int           @default(0)
+  lastEscalatedAt     DateTime?
+  organizationId      String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  organization    Organization?      @relation(fields: [organizationId], references: [id])
+  assignedTo      User?              @relation("IncidentAssignee", fields: [assignedToId], references: [id])
+  assignmentGroup Team?              @relation(fields: [assignmentGroupId], references: [id])
+  createdBy       User               @relation("IncidentCreator", fields: [createdById], references: [id])
+  configItem      ConfigurationItem? @relation(fields: [configItemId], references: [id])
+  workNotes       WorkNote[]
+  relatedAlerts   Alert[]
+  attachments     Attachment[]
+  activities      Activity[]
+  linkedChanges   IncidentChange[]
+  linkedProblems  IncidentProblem[]
+  smsLogs         SMSLog[]
+  escalationLogs  EscalationLog[]
+
+  @@index([state])
+  @@index([priority])
+  @@index([assignedToId])
+  @@index([createdAt])
+  @@index([number])
+  @@index([assignmentGroupId])
+  @@index([slaBreached])
+  @@index([organizationId])
+  // Composite indexes for multi-column dashboard/list queries
+  @@index([organizationId, state])
+  @@index([organizationId, priority, state])
+  @@index([organizationId, createdAt])
+  @@index([organizationId, slaBreached])
+}
+
+model Change {
+  id                  String      @id @default(uuid())
+  number              String      @unique
+  shortDescription    String
+  description         String?
+  type                ChangeType  @default(NORMAL)
+  state               ChangeState @default(NEW)
+  riskLevel           RiskLevel   @default(MEDIUM)
+  category            String?
+  assignedToId        String?
+  assignmentGroupId   String?
+  createdById         String
+  justification       String?
+  implementationPlan  String?
+  rollbackPlan        String?
+  testPlan            String?
+  communicationPlan   String?
+  plannedStartDate    DateTime?
+  plannedEndDate      DateTime?
+  actualStartDate     DateTime?
+  actualEndDate       DateTime?
+  affectedServices    String?
+  downtime            Int?
+  userImpact          String?
+  gitRepoUrl          String?
+  gitBranch           String?
+  gitCommitHash       String?
+  pullRequestUrl      String?
+  reviewNotes         String?
+  closureCode         ClosureCode?
+  organizationId      String?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  organization    Organization?    @relation(fields: [organizationId], references: [id])
+  assignedTo      User?            @relation("ChangeAssignee", fields: [assignedToId], references: [id])
+  assignmentGroup Team?            @relation(fields: [assignmentGroupId], references: [id])
+  createdBy       User             @relation("ChangeCreator", fields: [createdById], references: [id])
+  approvals       Approval[]
+  affectedCIs     ChangeCI[]
+  workNotes       WorkNote[]
+  attachments     Attachment[]
+  activities      Activity[]
+  linkedIncidents IncidentChange[]
+
+  @@index([state])
+  @@index([type])
+  @@index([assignedToId])
+  @@index([createdAt])
+  @@index([number])
+  @@index([organizationId])
+}
+
+model Problem {
+  id                 String       @id @default(uuid())
+  number             String       @unique
+  shortDescription   String
+  description        String?
+  state              ProblemState @default(NEW)
+  priority           Priority     @default(P4)
+  category           String?
+  assignedToId       String?
+  assignmentGroupId  String?
+  createdById        String
+  rootCause          String?
+  rootCauseAnalysis  Json?
+  workaround         String?
+  workaroundEffective Boolean     @default(false)
+  permanentFix       String?
+  fixImplemented     Boolean      @default(false)
+  relatedChangeId    String?
+  isKnownError       Boolean      @default(false)
+  knownErrorId       String?
+  organizationId     String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  organization    Organization?    @relation(fields: [organizationId], references: [id])
+  assignedTo      User?            @relation("ProblemAssignee", fields: [assignedToId], references: [id])
+  assignmentGroup Team?            @relation(fields: [assignmentGroupId], references: [id])
+  createdBy       User             @relation("ProblemCreator", fields: [createdById], references: [id])
+  workNotes       WorkNote[]
+  attachments     Attachment[]
+  activities      Activity[]
+  linkedIncidents IncidentProblem[]
+
+  @@index([state])
+  @@index([priority])
+  @@index([isKnownError])
+  @@index([number])
+  @@index([organizationId])
+}
+
+model Approval {
+  id         String        @id @default(uuid())
+  changeId   String
+  approverId String
+  state      ApprovalState @default(PENDING)
+  comments   String?
+  approvedAt DateTime?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  change   Change @relation(fields: [changeId], references: [id], onDelete: Cascade)
+  approver User   @relation(fields: [approverId], references: [id])
+
+  @@index([changeId])
+  @@index([approverId])
+}
+
+// ─── CMDB ─────────────────────────────────────────────────
+
+model ConfigurationItem {
+  id                String   @id @default(uuid())
+  name              String
+  type              CIType
+  status            CIStatus @default(PLANNED)
+  category          String?
+  subcategory       String?
+  description       String?
+  serialNumber      String?
+  assetTag          String?
+  manufacturer      String?
+  model             String?
+  version           String?
+  location          String?
+  rackPosition      String?
+  dataCenter        String?
+  ipAddress         String?
+  macAddress        String?
+  hostname          String?
+  fqdn              String?
+  cpu               String?
+  memory            String?
+  storage           String?
+  os                String?
+  osVersion         String?
+  ownerId           String?
+  supportGroupId    String?
+  vendor            String?
+  purchaseDate      DateTime?
+  warrantyExpiry    DateTime?
+  endOfLife         DateTime?
+  endOfSupport      DateTime?
+  purchaseCost      Float?
+  monthlyCost       Float?
+  costCenter        String?
+  monitoringEnabled Boolean  @default(false)
+  prometheusJob     String?
+  grafanaDashboard  String?
+  lokiLabels        String?
+  organizationId    String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  organization Organization?  @relation(fields: [organizationId], references: [id])
+  owner        User?      @relation("CIOwner", fields: [ownerId], references: [id])
+  supportGroup Team?      @relation("CISupportGroup", fields: [supportGroupId], references: [id])
+  incidents    Incident[]
+  changes      ChangeCI[]
+  alerts       Alert[]
+  activities   Activity[]
+
+  @@index([type])
+  @@index([status])
+  @@index([name])
+  @@index([organizationId])
+}
+
+model Alert {
+  id             String        @id @default(uuid())
+  alertId        String
+  name           String
+  severity       AlertSeverity
+  status         AlertStatus   @default(FIRING)
+  source         AlertSource   @default(PROMETHEUS)
+  description    String?
+  metric         String?
+  currentValue   String?
+  threshold      String?
+  labels         String?
+  annotations    String?
+  configItemId   String?
+  incidentId     String?
+  firedAt        DateTime
+  resolvedAt     DateTime?
+  acknowledgedAt DateTime?
+  acknowledgedBy String?
+  silenceUntil   DateTime?
+  organizationId String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization Organization?      @relation(fields: [organizationId], references: [id])
+  configItem   ConfigurationItem? @relation(fields: [configItemId], references: [id])
+  incident     Incident?          @relation(fields: [incidentId], references: [id])
+
+  @@unique([alertId, organizationId])
+  @@index([status])
+  @@index([severity])
+  @@index([firedAt])
+  @@index([configItemId])
+  @@index([organizationId])
+  // Composite indexes for alert list + stats queries
+  @@index([organizationId, status])
+  @@index([organizationId, severity])
+  @@index([organizationId, firedAt])
+}
+
+// ─── SUPPORT MODELS ───────────────────────────────────────
+
+model WorkNote {
+  id         String         @id @default(uuid())
+  content    String
+  isInternal Boolean        @default(false)
+  authorId   String
+  source     WorkNoteSource @default(MANUAL)
+  incidentId String?
+  changeId   String?
+  problemId  String?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  author   User      @relation(fields: [authorId], references: [id])
+  incident Incident? @relation(fields: [incidentId], references: [id])
+  change   Change?   @relation(fields: [changeId], references: [id])
+  problem  Problem?  @relation(fields: [problemId], references: [id])
+
+  @@index([incidentId])
+  @@index([changeId])
+  @@index([problemId])
+  @@index([createdAt])
+}
+
+model Activity {
+  id             String   @id @default(uuid())
+  action         String
+  description    String?
+  oldValue       String?
+  newValue       String?
+  userId         String?
+  incidentId     String?
+  changeId       String?
+  problemId      String?
+  configItemId   String?
+  createdAt      DateTime @default(now())
+
+  user       User?              @relation(fields: [userId], references: [id])
+  incident   Incident?          @relation(fields: [incidentId], references: [id])
+  change     Change?            @relation(fields: [changeId], references: [id])
+  problem    Problem?           @relation(fields: [problemId], references: [id])
+  configItem ConfigurationItem? @relation(fields: [configItemId], references: [id])
+
+  @@index([incidentId])
+  @@index([changeId])
+  @@index([problemId])
+  @@index([createdAt])
+}
+
+model Attachment {
+  id           String   @id @default(uuid())
+  filename     String
+  originalName String
+  mimeType     String
+  size         Int
+  path         String
+  incidentId   String?
+  changeId     String?
+  problemId    String?
+  uploadedById String
+  createdAt    DateTime @default(now())
+
+  uploadedBy User      @relation(fields: [uploadedById], references: [id])
+  incident   Incident? @relation(fields: [incidentId], references: [id])
+  change     Change?   @relation(fields: [changeId], references: [id])
+  problem    Problem?  @relation(fields: [problemId], references: [id])
+
+  @@index([incidentId])
+  @@index([changeId])
+  @@index([problemId])
+}
+
+model Notification {
+  id        String              @id @default(uuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  link      String?
+  isRead    Boolean             @default(false)
+  readAt    DateTime?
+  channel   NotificationChannel @default(WEB)
+  createdAt DateTime            @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  action     String
+  entityType String
+  entityId   String
+  oldData    Json?
+  newData    Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@index([userId])
+}
+
+model SLADefinition {
+  id                    String   @id @default(uuid())
+  name                  String
+  priority              Priority
+  responseTimeMinutes   Int
+  resolutionTimeMinutes Int
+  businessHoursOnly     Boolean  @default(false)
+  isActive              Boolean  @default(true)
+  organizationId        String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+
+  @@unique([priority, organizationId])
+  @@index([organizationId])
+}
+
+model EscalationPolicy {
+  id          String   @id @default(uuid())
+  teamId      String
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  team  Team             @relation(fields: [teamId], references: [id])
+  rules EscalationRule[]
+
+  @@index([teamId])
+}
+
+model EscalationRule {
+  id                String     @id @default(uuid())
+  policyId          String
+  level             Int
+  delayMinutes      Int
+  notifyType        NotifyType
+  notifyTargets     String
+  conditionPriority String?    // If set, rule only fires for this priority (e.g. 'P1')
+  createdAt         DateTime   @default(now())
+
+  policy EscalationPolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@index([policyId])
+}
+
+model OnCallSchedule {
+  id        String   @id @default(uuid())
+  teamId    String
+  userId    String
+  startTime DateTime
+  endTime   DateTime
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  team Team @relation(fields: [teamId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([teamId])
+  @@index([startTime, endTime])
+}
+
+model EscalationLog {
+  id            String   @id @default(uuid())
+  incidentId    String
+  level         Int
+  notifyType    String
+  targetContact String
+  targetUserId  String?
+  targetName    String?
+  status        String   // ATTEMPTED, DELIVERED, NO_ANSWER, BUSY, FAILED, ACKNOWLEDGED
+  callSid       String?
+  attemptedAt   DateTime @default(now())
+  respondedAt   DateTime?
+  notes         String?
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId])
+  @@index([attemptedAt])
+}
+
+// ─── LINKING TABLES ───────────────────────────────────────
+
+model IncidentChange {
+  id         String   @id @default(uuid())
+  incidentId String
+  changeId   String
+  linkType   LinkType
+  notes      String?
+  linkedById String?
+  createdAt  DateTime @default(now())
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  change   Change   @relation(fields: [changeId], references: [id], onDelete: Cascade)
+  linkedBy User?    @relation(fields: [linkedById], references: [id])
+
+  @@unique([incidentId, changeId])
+}
+
+model IncidentProblem {
+  id         String          @id @default(uuid())
+  incidentId String
+  problemId  String
+  linkType   ProblemLinkType
+  notes      String?
+  linkedById String?
+  createdAt  DateTime        @default(now())
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  problem  Problem  @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  linkedBy User?    @relation(fields: [linkedById], references: [id])
+
+  @@unique([incidentId, problemId])
+}
+
+model ChangeCI {
+  id             String @id @default(uuid())
+  changeId       String
+  configItemId   String
+  impactType     String?
+  createdAt      DateTime @default(now())
+
+  change     Change            @relation(fields: [changeId], references: [id], onDelete: Cascade)
+  configItem ConfigurationItem @relation(fields: [configItemId], references: [id])
+
+  @@unique([changeId, configItemId])
+}
+
+// ─── COMMUNICATION ────────────────────────────────────────
+
+model EmailQueue {
+  id           String      @id @default(uuid())
+  to           String
+  subject      String
+  body         String
+  templateId   String?
+  templateData Json?
+  status       EmailStatus @default(PENDING)
+  priority     Int         @default(5)
+  attempts     Int         @default(0)
+  lastError    String?
+  sentAt       DateTime?
+  scheduledAt  DateTime?
+  createdAt    DateTime    @default(now())
+
+  @@index([status])
+  @@index([scheduledAt])
+}
+
+model SMSLog {
+  id             String       @id @default(uuid())
+  recipient      String
+  message        String
+  templateId     String?
+  provider       SMSProvider
+  status         String
+  messageId      String?
+  cost           Float?
+  latency        Int?
+  direction      SMSDirection @default(OUTBOUND)
+  incidentId     String?
+  organizationId String?
+  createdAt      DateTime     @default(now())
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  incident     Incident?     @relation(fields: [incidentId], references: [id])
+
+  @@index([incidentId])
+  @@index([createdAt])
+  @@index([organizationId])
+}
+
+model VoiceCallLog {
+  id               String         @id @default(uuid())
+  callSid          String?
+  direction        VoiceDirection
+  callerNumber     String?
+  callerName       String?
+  handler          VoiceHandler   @default(AI_BOT)
+  duration         Int?
+  status           String?
+  recordingUrl     String?
+  transcript       String?
+  sentiment        String?
+  language         String?
+  linkedIncidentId String?
+  organizationId   String?
+  createdAt        DateTime       @default(now())
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+
+  @@index([createdAt])
+  @@index([organizationId])
+}
+
+// ─── INTEGRATIONS ─────────────────────────────────────────
+
+model Integration {
+  id             String            @id @default(uuid())
+  name           String
+  type           IntegrationType
+  status         IntegrationStatus @default(INACTIVE)
+  config         String?
+  lastSyncAt     DateTime?
+  syncStatus     String?
+  errorMessage   String?
+  organizationId String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  organization Organization?        @relation(fields: [organizationId], references: [id])
+  webhooks     IntegrationWebhook[]
+
+  @@index([type])
+  @@index([status])
+  @@index([organizationId])
+}
+
+model IntegrationWebhook {
+  id            String   @id @default(uuid())
+  integrationId String
+  name          String
+  url           String
+  secret        String?
+  events        String
+  isActive      Boolean  @default(true)
+  lastTriggered DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  integration Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  @@index([integrationId])
+}
+
+model SlackIntegration {
+  id             String  @id @default(uuid())
+  workspaceId    String?
+  workspaceName  String?
+  botToken       String?
+  accessToken    String?
+  channelId      String?
+  channelName    String?
+  webhookUrl     String?
+  isActive       Boolean @default(true)
+  organizationId String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+}
+
+// ─── SCHEDULING ───────────────────────────────────────────
+
+model ScheduledJob {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  cronPattern String
+  isActive    Boolean   @default(true)
+  lastRunAt   DateTime?
+  nextRunAt   DateTime?
+  lastStatus  String?
+  lastError   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}

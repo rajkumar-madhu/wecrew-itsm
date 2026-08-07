@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LinkedEye — ITSM Operations Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --void:#030508;--abyss:#060a12;--deep:#0a1020;--plate:#0e1628;--surface:#121d34;--edge:#182640;--ridge:#1e3050;
+  --nc:#00f0ff;--nb:#3b82f6;--nv:#8b5cf6;--nr:#f43f5e;--na:#f59e0b;--ne:#10b981;--np:#ec4899;--nw:#fff;
+  --gc:linear-gradient(135deg,#00f0ff,#3b82f6,#8b5cf6);
+  --gl:rgba(14,22,40,0.55);--glb:rgba(0,240,255,0.08);--glg:rgba(0,240,255,0.04);
+  --t0:#fff;--t1:#e2e8f0;--t2:#94a3b8;--t3:#64748b;--t4:#475569;
+  --fd:'Sora',sans-serif;--fb:'Instrument Sans',sans-serif;--fm:'JetBrains Mono',monospace;
+  --sw:240px;--r:14px;--rs:8px
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html{font-size:13px;-webkit-font-smoothing:antialiased}
+body{font-family:var(--fb);background:var(--void);color:var(--t1);overflow-x:hidden;min-height:100vh}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--edge);border-radius:2px}
+body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse 80% 60% at 20% 30%,rgba(0,240,255,0.03) 0%,transparent 70%),radial-gradient(ellipse 60% 80% at 80% 70%,rgba(139,92,246,0.03) 0%,transparent 70%)}
+
+/* SHELL */
+.shell{display:flex;min-height:100vh;position:relative;z-index:1}
+
+/* SIDEBAR */
+.sb{width:var(--sw);position:fixed;top:0;left:0;bottom:0;background:var(--abyss);border-right:1px solid var(--glb);display:flex;flex-direction:column;z-index:100;backdrop-filter:blur(20px)}
+.brand{height:60px;display:flex;align-items:center;gap:11px;padding:0 16px;border-bottom:1px solid var(--glb)}
+.bic{width:32px;height:32px;border-radius:9px;background:var(--gc);display:flex;align-items:center;justify-content:center;box-shadow:0 0 18px rgba(0,240,255,0.3);font-size:14px;font-weight:800;color:var(--void)}
+.bn{font-family:var(--fd);font-weight:700;font-size:13.5px;color:var(--t0);letter-spacing:-0.3px}
+.bt{font-size:8px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;background:var(--gc);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.nav{flex:1;overflow-y:auto;padding:8px 0}
+.ng{margin-bottom:2px}
+.ngl{font-size:8px;font-weight:600;letter-spacing:1.6px;text-transform:uppercase;color:var(--t4);padding:10px 16px 4px}
+.ni{display:flex;align-items:center;gap:8px;padding:7px 16px;cursor:pointer;transition:all 0.15s;color:var(--t3);font-size:11.5px;font-weight:500;border-left:2px solid transparent;user-select:none}
+.ni:hover{color:var(--t1);background:var(--glg);border-left-color:rgba(0,240,255,0.2)}
+.ni.a{color:var(--nc);background:rgba(0,240,255,0.06);border-left-color:var(--nc)}
+.ni .ic{width:14px;text-align:center;font-size:11px;flex-shrink:0}
+.nb{margin-left:auto;font-size:8px;font-weight:700;padding:1px 6px;border-radius:10px;background:rgba(0,240,255,0.12);color:var(--nc);min-width:18px;text-align:center}
+.nb.r{background:rgba(244,63,94,0.15);color:var(--nr)}
+.nb.a{background:rgba(245,158,11,0.15);color:var(--na)}
+.sbf{padding:10px 16px;border-top:1px solid var(--glb);display:flex;align-items:center;gap:9px}
+.av{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--nv),var(--np));display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0}
+
+/* MAIN */
+.mn{flex:1;margin-left:var(--sw)}
+.hd{height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;border-bottom:1px solid var(--glb);background:rgba(6,10,18,0.85);backdrop-filter:blur(12px);position:sticky;top:0;z-index:50}
+.pt{font-family:var(--fd);font-size:14.5px;font-weight:700;color:var(--t0)}
+.pt span{background:var(--gc);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hr{display:flex;align-items:center;gap:12px}
+.srch{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:8px;background:rgba(255,255,255,0.04);border:1px solid var(--glb);font-size:10.5px;color:var(--t3);cursor:pointer;transition:border-color .2s}
+.srch:hover{border-color:rgba(0,240,255,0.2)}
+.srch kbd{font-family:var(--fm);font-size:8.5px;padding:1px 5px;border-radius:3px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08)}
+.bell{position:relative;cursor:pointer;font-size:14px;color:var(--t3);transition:color .2s}
+.bell:hover{color:var(--nc)}
+.bell-c{position:absolute;top:-4px;right:-6px;font-size:7px;font-weight:700;padding:1px 4px;border-radius:8px;background:var(--nr);color:#fff;min-width:14px;text-align:center}
+.ct{padding:18px 22px 50px}
+
+/* CARDS */
+.gc{background:var(--gl);border:1px solid var(--glb);border-radius:var(--r);position:relative;overflow:hidden;transition:all 0.3s cubic-bezier(.4,0,.2,1)}
+.gc:hover{transform:translateY(-1px);box-shadow:0 6px 24px rgba(0,240,255,0.06);border-color:rgba(0,240,255,0.14)}
+.gc::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,240,255,0.12),transparent)}
+.cd{background:var(--gl);border:1px solid var(--glb);border-radius:var(--r);backdrop-filter:blur(12px);overflow:hidden}
+.ch{padding:12px 16px;border-bottom:1px solid var(--glb);display:flex;align-items:center;justify-content:space-between}
+.ctl{font-family:var(--fd);font-size:11.5px;font-weight:600;color:var(--t1);display:flex;align-items:center;gap:6px}
+.cb{padding:14px 16px}
+
+/* GRIDS */
+.g2{display:grid;gap:12px;grid-template-columns:repeat(2,1fr)}
+.g3{display:grid;gap:12px;grid-template-columns:repeat(3,1fr)}
+.g4{display:grid;gap:12px;grid-template-columns:repeat(4,1fr)}
+.g5{display:grid;gap:12px;grid-template-columns:repeat(5,1fr)}
+.g6{display:grid;gap:12px;grid-template-columns:repeat(6,1fr)}
+.g23{display:grid;gap:14px;grid-template-columns:2fr 1fr}
+
+/* KPI */
+.kp{padding:14px 16px}
+.kv{font-family:var(--fd);font-size:24px;font-weight:700;letter-spacing:-0.5px;line-height:1}
+.kl{font-size:9px;color:var(--t3);letter-spacing:0.3px;margin-top:3px}
+.kt{display:flex;align-items:center;gap:4px;margin-top:6px;font-size:9px;font-weight:600}
+.kt.up{color:var(--ne)}.kt.dn{color:var(--nr)}
+
+/* SPARKLINE */
+.spark{display:flex;align-items:flex-end;gap:2px;height:24px;margin-top:8px}
+.spark i{width:4px;border-radius:1px;transition:height .6s ease;background:var(--nc);opacity:.7}
+
+/* TAGS */
+.tg{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:14px;font-size:9px;font-weight:600;letter-spacing:0.2px;white-space:nowrap}
+.tc{background:rgba(0,240,255,0.1);color:var(--nc);border:1px solid rgba(0,240,255,0.14)}
+.tv{background:rgba(139,92,246,0.1);color:var(--nv);border:1px solid rgba(139,92,246,0.14)}
+.tr{background:rgba(244,63,94,0.1);color:var(--nr);border:1px solid rgba(244,63,94,0.14)}
+.tam{background:rgba(245,158,11,0.1);color:var(--na);border:1px solid rgba(245,158,11,0.14)}
+.tge{background:rgba(16,185,129,0.1);color:var(--ne);border:1px solid rgba(16,185,129,0.14)}
+.tbl{background:rgba(59,130,246,0.1);color:var(--nb);border:1px solid rgba(59,130,246,0.14)}
+
+/* PRIORITY */
+.pr{font-family:var(--fm);font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;white-space:nowrap}
+.p1{background:rgba(244,63,94,0.15);color:#ff4466;border:1px solid rgba(244,63,94,0.3)}
+.p2{background:rgba(245,158,11,0.15);color:#ffb833;border:1px solid rgba(245,158,11,0.3)}
+.p3{background:rgba(59,130,246,0.15);color:#60a5fa;border:1px solid rgba(59,130,246,0.3)}
+.p4{background:rgba(100,116,139,0.15);color:#94a3b8;border:1px solid rgba(100,116,139,0.3)}
+
+/* STATE BADGES */
+.st-new{background:rgba(59,130,246,0.12);color:var(--nb);border:1px solid rgba(59,130,246,0.2);padding:2px 7px;border-radius:4px;font-size:9px;font-weight:600}
+.st-ip{background:rgba(0,240,255,0.12);color:var(--nc);border:1px solid rgba(0,240,255,0.2);padding:2px 7px;border-radius:4px;font-size:9px;font-weight:600}
+.st-oh{background:rgba(245,158,11,0.12);color:var(--na);border:1px solid rgba(245,158,11,0.2);padding:2px 7px;border-radius:4px;font-size:9px;font-weight:600}
+.st-esc{background:rgba(244,63,94,0.12);color:var(--nr);border:1px solid rgba(244,63,94,0.2);padding:2px 7px;border-radius:4px;font-size:9px;font-weight:600}
+.st-res{background:rgba(16,185,129,0.12);color:var(--ne);border:1px solid rgba(16,185,129,0.2);padding:2px 7px;border-radius:4px;font-size:9px;font-weight:600}
+.st-cls{background:rgba(100,116,139,0.12);color:var(--t3);border:1px solid rgba(100,116,139,0.2);padding:2px 7px;border-radius:4px;font-size:9px;font-weight:600}
+
+/* TABLE */
+table{width:100%;border-collapse:collapse;font-size:11px}
+th{text-align:left;padding:8px 10px;font-size:9px;font-weight:600;letter-spacing:.7px;text-transform:uppercase;color:var(--t3);border-bottom:1px solid var(--glb);background:rgba(0,0,0,0.2);cursor:pointer;user-select:none;white-space:nowrap}
+th:hover{color:var(--nc)}
+td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,0.03);color:var(--t2);white-space:nowrap}
+tr:hover td{background:rgba(0,240,255,0.02)}
+.mn0{font-family:var(--fm);font-size:10.5px;color:var(--nc);cursor:pointer}
+.mn0:hover{text-decoration:underline}
+td .av-sm{width:22px;height:22px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff;vertical-align:middle;margin-right:4px}
+.ck{width:14px;height:14px;accent-color:var(--nc)}
+
+/* DOTS */
+.dl{width:7px;height:7px;border-radius:50%;display:inline-block;vertical-align:middle}
+.dlg{background:var(--ne);box-shadow:0 0 5px var(--ne)}.dlr{background:var(--nr);box-shadow:0 0 5px var(--nr);animation:pulse 1.5s infinite}
+.dla{background:var(--na);box-shadow:0 0 5px var(--na)}.dlo{background:var(--t4)}
+
+/* SLA BADGE */
+.sla-ok{color:var(--ne);font-family:var(--fm);font-size:10px;font-weight:600}
+.sla-warn{color:var(--na);font-family:var(--fm);font-size:10px;font-weight:600}
+.sla-br{color:var(--nr);font-family:var(--fm);font-size:10px;font-weight:600;animation:pulse 2s infinite}
+
+/* PROGRESS */
+.pg-bar{height:4px;background:rgba(255,255,255,0.04);border-radius:2px;overflow:hidden}
+.pg-fill{height:100%;border-radius:2px;transition:width 1s ease}
+
+/* DONUT CHART */
+.donut{position:relative;width:140px;height:140px;margin:0 auto}
+.donut svg{width:100%;height:100%;transform:rotate(-90deg)}
+.donut-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.donut-val{font-family:var(--fd);font-size:22px;font-weight:700;color:var(--t0)}
+.donut-lbl{font-size:9px;color:var(--t3)}
+
+/* BAR CHART */
+.bars{display:flex;align-items:flex-end;gap:6px;height:120px;padding-top:8px}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
+.bar{width:100%;border-radius:3px 3px 0 0;transition:height .8s ease;min-height:2px}
+.bar-lbl{font-size:8px;color:var(--t4);writing-mode:vertical-rl;text-orientation:mixed;max-height:50px;overflow:hidden}
+
+/* GAUGE */
+.gauge{position:relative;width:90px;height:50px;overflow:hidden;margin:0 auto}
+.gauge svg{width:100%;height:100%}
+.gauge-val{position:absolute;bottom:2px;left:50%;transform:translateX(-50%);font-family:var(--fd);font-size:14px;font-weight:700}
+
+/* AREA CHART */
+.area-chart{width:100%;height:140px;position:relative}
+.area-chart svg{width:100%;height:100%}
+
+/* FILTER BAR */
+.fbar{display:flex;align-items:center;gap:8px;padding:10px 0;flex-wrap:wrap}
+.fbar select,.fbar input{font-family:var(--fb);font-size:10.5px;padding:6px 10px;border-radius:6px;border:1px solid var(--glb);background:var(--gl);color:var(--t1);outline:none;transition:border-color .2s}
+.fbar select:focus,.fbar input:focus{border-color:rgba(0,240,255,0.3)}
+.fbar input{width:180px}
+.btn{font-family:var(--fd);font-size:10px;font-weight:600;padding:6px 14px;border-radius:6px;border:none;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:5px}
+.btn-c{background:rgba(0,240,255,0.12);color:var(--nc);border:1px solid rgba(0,240,255,0.2)}
+.btn-c:hover{background:rgba(0,240,255,0.2);box-shadow:0 0 14px rgba(0,240,255,0.15)}
+.btn-r{background:rgba(244,63,94,0.12);color:var(--nr);border:1px solid rgba(244,63,94,0.2)}
+.btn-g{background:rgba(16,185,129,0.12);color:var(--ne);border:1px solid rgba(16,185,129,0.2)}
+.btn-a{background:rgba(245,158,11,0.12);color:var(--na);border:1px solid rgba(245,158,11,0.2)}
+.btn-sm{padding:4px 9px;font-size:9px}
+
+/* TIMELINE */
+.tl{position:relative;padding-left:22px}
+.tl::before{content:'';position:absolute;left:6px;top:0;bottom:0;width:1px;background:var(--glb)}
+.ti{position:relative;padding:8px 0 14px}
+.td{position:absolute;left:-19px;top:12px;width:9px;height:9px;border-radius:50%;border:2px solid var(--nc);background:var(--void)}
+.td.r{border-color:var(--nr)}.td.ag{border-color:var(--na)}.td.e{border-color:var(--ne)}.td.v{border-color:var(--nv)}
+.tt{font-family:var(--fm);font-size:9px;color:var(--t4)}
+.tcn{font-size:11px;color:var(--t2);margin-top:2px}
+.tcn strong{color:var(--t1)}
+
+/* LOG VIEWER */
+.log-v{background:rgba(0,0,0,0.35);border:1px solid var(--glb);border-radius:var(--rs);max-height:260px;overflow-y:auto;font-family:var(--fm);font-size:10px;line-height:1.7}
+.log-l{display:flex;gap:8px;padding:2px 10px;border-bottom:1px solid rgba(255,255,255,0.02)}
+.log-l:hover{background:rgba(0,240,255,0.02)}
+.log-ts{color:var(--t4);flex-shrink:0;width:70px}
+.log-lv{flex-shrink:0;width:36px;font-weight:700;text-align:center}
+.log-err{color:var(--nr)}.log-wrn{color:var(--na)}.log-inf{color:var(--nc)}
+.log-svc{color:var(--nv);flex-shrink:0;width:80px}
+.log-msg{color:var(--t2);overflow:hidden;text-overflow:ellipsis}
+
+/* TABS */
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--glb);margin-bottom:14px}
+.tab{padding:8px 16px;font-size:10.5px;font-weight:600;color:var(--t3);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;user-select:none}
+.tab:hover{color:var(--t1)}
+.tab.a{color:var(--nc);border-bottom-color:var(--nc)}
+.tab-p{display:none}.tab-p.a{display:block;animation:fadeIn .3s ease}
+
+/* TOAST */
+.toast-c{position:fixed;top:60px;right:20px;z-index:200;display:flex;flex-direction:column;gap:8px}
+.toast{padding:10px 16px;border-radius:8px;font-size:11px;font-weight:500;backdrop-filter:blur(12px);border:1px solid;animation:slideIn .3s ease,fadeOut .3s ease 4s forwards;max-width:320px;display:flex;align-items:center;gap:8px}
+.toast-i{background:rgba(0,240,255,0.1);border-color:rgba(0,240,255,0.2);color:var(--nc)}
+.toast-e{background:rgba(244,63,94,0.1);border-color:rgba(244,63,94,0.2);color:var(--nr)}
+.toast-s{background:rgba(16,185,129,0.1);border-color:rgba(16,185,129,0.2);color:var(--ne)}
+.toast-w{background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.2);color:var(--na)}
+
+/* MODAL */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(3,5,8,0.7);backdrop-filter:blur(6px);z-index:150;align-items:center;justify-content:center}
+.modal-bg.open{display:flex}
+.modal{background:var(--plate);border:1px solid var(--glb);border-radius:var(--r);width:520px;max-height:80vh;overflow-y:auto;animation:fadeIn .25s ease}
+.modal-h{padding:14px 18px;border-bottom:1px solid var(--glb);font-family:var(--fd);font-size:13px;font-weight:700;color:var(--t0);display:flex;justify-content:space-between;align-items:center}
+.modal-b{padding:18px}
+.modal-close{cursor:pointer;color:var(--t3);font-size:16px;transition:color .2s}
+.modal-close:hover{color:var(--nr)}
+.form-g{margin-bottom:12px}
+.form-g label{display:block;font-size:9.5px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.form-g input,.form-g select,.form-g textarea{width:100%;font-family:var(--fb);font-size:11px;padding:8px 12px;border-radius:6px;border:1px solid var(--glb);background:rgba(0,0,0,0.25);color:var(--t1);outline:none;transition:border-color .2s}
+.form-g input:focus,.form-g select:focus,.form-g textarea:focus{border-color:rgba(0,240,255,0.3)}
+.form-g textarea{resize:vertical;min-height:70px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-pr{padding:10px 14px;border-radius:8px;background:rgba(0,0,0,0.2);border:1px solid var(--glb);text-align:center;margin-top:8px}
+.form-pr .kv{font-size:20px}
+
+/* ANIMS */
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+@keyframes fadeOut{from{opacity:1}to{opacity:0}}
+@keyframes barGrow{from{height:0}to{height:var(--h)}}
+@keyframes countUp{from{opacity:.3}to{opacity:1}}
+.pg0{display:none}.pg0.ac{display:block;animation:fadeIn .3s ease}
+.stg>*{opacity:0;animation:fadeIn .4s ease forwards}
+.stg>*:nth-child(1){animation-delay:.04s}.stg>*:nth-child(2){animation-delay:.08s}
+.stg>*:nth-child(3){animation-delay:.12s}.stg>*:nth-child(4){animation-delay:.16s}
+.stg>*:nth-child(5){animation-delay:.2s}.stg>*:nth-child(6){animation-delay:.24s}
+.stg>*:nth-child(7){animation-delay:.28s}.stg>*:nth-child(8){animation-delay:.32s}
+
+/* MISC */
+.flex{display:flex}.aic{align-items:center}.jcb{justify-content:space-between}.gap4{gap:4px}.gap6{gap:6px}.gap8{gap:8px}.gap12{gap:12px}.gap14{gap:14px}.fw{flex-wrap:wrap}
+.mt8{margin-top:8px}.mt12{margin-top:12px}.mt16{margin-top:16px}
+.sec-t{font-family:var(--fd);font-size:13px;font-weight:700;color:var(--t0);margin:18px 0 10px;display:flex;align-items:center;gap:8px}
+.sec-t .nm{font-family:var(--fm);font-size:9.5px;color:var(--nc);opacity:.5}
+@media(max-width:1200px){.g4,.g5,.g6{grid-template-columns:repeat(3,1fr)}.g23{grid-template-columns:1fr}}
+@media(max-width:900px){.g3,.g4,.g5,.g6{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="shell">
+<!-- ═══════════ SIDEBAR ═══════════ -->
+<aside class="sb">
+<div class="brand"><div class="bic">◉</div><div><div class="bn">LinkedEye</div><div class="bt">ITSM Operations v2.0</div></div></div>
+<nav class="nav">
+  <div class="ng"><div class="ngl">Operations</div>
+    <div class="ni a" data-p="dash"><span class="ic">◈</span>Dashboard<span class="nb" id="nb-dash">Live</span></div>
+    <div class="ni" data-p="inc"><span class="ic">⚡</span>Incidents<span class="nb r" id="nb-inc">47</span></div>
+    <div class="ni" data-p="chg"><span class="ic">⟲</span>Changes<span class="nb">12</span></div>
+    <div class="ni" data-p="prb"><span class="ic">◉</span>Problems<span class="nb">8</span></div>
+  </div>
+  <div class="ng"><div class="ngl">Monitoring</div>
+    <div class="ni" data-p="alt"><span class="ic">△</span>Alerts<span class="nb r" id="nb-alt">14</span></div>
+    <div class="ni" data-p="cmdb"><span class="ic">▣</span>Assets / CMDB<span class="nb">30</span></div>
+  </div>
+  <div class="ng"><div class="ngl">Intelligence</div>
+    <div class="ni" data-p="rpt"><span class="ic">◎</span>Reports</div>
+  </div>
+  <div class="ng"><div class="ngl">Platform</div>
+    <div class="ni" data-p="intg"><span class="ic">⬡</span>Integrations<span class="nb">9</span></div>
+    <div class="ni" data-p="team"><span class="ic">◬</span>Teams<span class="nb">5</span></div>
+  </div>
+</nav>
+<div class="sbf"><div class="av" id="user-avatar">RM</div><div><div style="font-size:11px;font-weight:600;color:var(--t1)" id="user-name">Rajkumar M</div><div style="font-size:9px;color:var(--t3)" id="user-role">Platform Admin</div></div></div>
+</aside>
+
+<main class="mn">
+<!-- ═══════════ TOAST CONTAINER ═══════════ -->
+<div class="toast-c" id="toasts"></div>
+
+<!-- ═══════════ PAGE: DASHBOARD ═══════════ -->
+<div class="pg0 ac" id="pg-dash">
+<div class="hd"><div class="pt">◈ Operations <span>Dashboard</span></div><div class="hr"><div class="srch" onclick="toast('Search coming soon','i')">🔍 Search... <kbd>⌘K</kbd></div><div class="bell" onclick="toast('3 unread notifications','i')">🔔<span class="bell-c">3</span></div></div></div>
+<div class="ct">
+<!-- KPI ROW -->
+<div class="g6 stg" id="kpi-row">
+  <div class="gc kp"><div class="flex aic jcb"><span style="opacity:.5;font-size:10px">⚡</span><span class="tg tr">LIVE</span></div><div class="kv cc" id="kpi-open">47</div><div class="kl">Open Incidents</div><div class="spark" id="spark1"></div></div>
+  <div class="gc kp" style="border-top:2px solid var(--nr)"><div class="flex aic jcb"><span style="opacity:.5;font-size:10px">🔴</span><span class="tg tr" style="animation:pulse 2s infinite">CRIT</span></div><div class="kv cr" id="kpi-p1p2">5</div><div class="kl">P1/P2 Active</div><div class="kt dn">↑ 2 since yesterday</div></div>
+  <div class="gc kp"><div class="flex aic jcb"><span style="opacity:.5;font-size:10px">⏱</span><span class="tg tc">AVG</span></div><div class="kv cc" id="kpi-mttr">2h 14m</div><div class="kl">MTTR (Mean Time to Resolve)</div><div class="kt up">↓ 18% vs last week</div></div>
+  <div class="gc kp"><div class="flex aic jcb"><span style="opacity:.5;font-size:10px">✓</span><span class="tg tge">SLA</span></div><div class="kv ce" id="kpi-sla">94.2%</div><div class="kl">SLA Compliance</div><div class="pg-bar mt8"><div class="pg-fill" style="width:94%;background:var(--gc)"></div></div></div>
+  <div class="gc kp"><div class="flex aic jcb"><span style="opacity:.5;font-size:10px">△</span><span class="tg tam">FIRE</span></div><div class="kv ca" id="kpi-alerts">14</div><div class="kl">Active Alerts</div><div class="spark" id="spark2"></div></div>
+  <div class="gc kp"><div class="flex aic jcb"><span style="opacity:.5;font-size:10px">⟲</span><span class="tg tbl">WIP</span></div><div class="kv cbl" id="kpi-chg">4</div><div class="kl">Changes In Progress</div><div class="kt up">2 scheduled today</div></div>
+</div>
+
+<!-- MAIN GRID: CHARTS + TABLES -->
+<div class="g23 mt16">
+<div>
+  <div class="sec-t"><span class="nm">01</span> Incident Trend — 7 Days</div>
+  <div class="cd"><div class="cb"><div class="area-chart" id="trend-chart"></div><div class="flex aic gap12 mt8" style="justify-content:center"><span class="flex aic gap4" style="font-size:9px"><span style="width:8px;height:3px;background:var(--nr);border-radius:1px;display:inline-block"></span><span style="color:var(--t3)">P1</span></span><span class="flex aic gap4" style="font-size:9px"><span style="width:8px;height:3px;background:var(--na);border-radius:1px;display:inline-block"></span><span style="color:var(--t3)">P2</span></span><span class="flex aic gap4" style="font-size:9px"><span style="width:8px;height:3px;background:var(--nb);border-radius:1px;display:inline-block"></span><span style="color:var(--t3)">P3</span></span><span class="flex aic gap4" style="font-size:9px"><span style="width:8px;height:3px;background:var(--t3);border-radius:1px;display:inline-block"></span><span style="color:var(--t3)">P4</span></span></div></div></div>
+
+  <div class="sec-t mt16"><span class="nm">02</span> Recent Incidents</div>
+  <div class="cd"><table><thead><tr><th>Number</th><th>Priority</th><th>State</th><th>Description</th><th>Assigned</th><th>SLA</th><th>Created</th></tr></thead><tbody id="tbl-inc"></tbody></table></div>
+
+  <div class="sec-t mt16"><span class="nm">03</span> Active Alerts — Firing</div>
+  <div class="cd"><table><thead><tr><th></th><th>Alert Name</th><th>Severity</th><th>Config Item</th><th>Fired</th><th>Action</th></tr></thead><tbody id="tbl-alt"></tbody></table></div>
+</div>
+
+<div>
+  <div class="sec-t"><span class="nm">04</span> By State</div>
+  <div class="cd" style="text-align:center"><div class="cb"><div class="donut" id="donut1"></div><div id="donut1-legend" class="mt8"></div></div></div>
+
+  <div class="sec-t mt16"><span class="nm">05</span> By Category</div>
+  <div class="cd"><div class="cb"><div class="bars" id="cat-bars"></div></div></div>
+
+  <div class="sec-t mt16"><span class="nm">06</span> On-Call Team</div>
+  <div class="gc" style="padding:14px 16px">
+    <div class="flex aic gap8" style="margin-bottom:10px"><span class="dlg"></span><span style="font-family:var(--fd);font-size:11.5px;font-weight:600;color:var(--t0)">Platform Engineering</span></div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div class="flex aic gap8"><div class="av-sm" style="background:linear-gradient(135deg,var(--nc),var(--nb));width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--void)">VK</div><div><div style="font-size:11px;font-weight:600;color:var(--t1)">Vivek K</div><div style="font-size:9px;color:var(--t3)">Primary On-Call • 📱 +91-9876XXXXX</div></div></div>
+      <div class="flex aic gap8"><div class="av-sm" style="background:linear-gradient(135deg,var(--nv),var(--np));width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff">SP</div><div><div style="font-size:11px;font-weight:600;color:var(--t1)">Santhosh P</div><div style="font-size:9px;color:var(--t3)">Secondary • DevOps</div></div></div>
+    </div>
+  </div>
+
+  <div class="sec-t mt16"><span class="nm">07</span> SLA Compliance</div>
+  <div class="g2">
+    <div class="gc" style="padding:10px;text-align:center"><div class="gauge" id="gauge-p1"></div><div style="font-size:9px;color:var(--t3)">P1 — 87%</div></div>
+    <div class="gc" style="padding:10px;text-align:center"><div class="gauge" id="gauge-p2"></div><div style="font-size:9px;color:var(--t3)">P2 — 92%</div></div>
+    <div class="gc" style="padding:10px;text-align:center"><div class="gauge" id="gauge-p3"></div><div style="font-size:9px;color:var(--t3)">P3 — 97%</div></div>
+    <div class="gc" style="padding:10px;text-align:center"><div class="gauge" id="gauge-p4"></div><div style="font-size:9px;color:var(--t3)">P4 — 99%</div></div>
+  </div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- ═══════════ PAGE: INCIDENTS ═══════════ -->
+<div class="pg0" id="pg-inc">
+<div class="hd"><div class="pt">⚡ Incident <span>Management</span></div><div class="hr"><div class="flex aic gap6"><span class="dlr"></span><span style="font-size:10px;color:var(--t3)">P1 Active</span></div><div class="flex aic gap6"><span class="dla"></span><span style="font-size:10px;color:var(--t3)">SLA Watch</span></div></div></div>
+<div class="ct">
+<div class="g4 stg">
+  <div class="gc kp" style="border-top:2px solid var(--nc)"><div class="kv cc" id="inc-open">32</div><div class="kl">Total Open</div></div>
+  <div class="gc kp" style="border-top:2px solid var(--nr)"><div class="kv cr" id="inc-p1">3</div><div class="kl">P1 — Critical</div></div>
+  <div class="gc kp" style="border-top:2px solid var(--na)"><div class="kv ca" id="inc-p2">7</div><div class="kl">P2 — High</div></div>
+  <div class="gc kp" style="border-top:2px solid var(--nr)"><div class="kv cr" id="inc-sla">4</div><div class="kl">SLA Breached</div></div>
+</div>
+<div class="fbar mt12">
+  <input type="text" placeholder="🔍 Search incidents..." id="inc-search" oninput="filterInc()">
+  <select id="inc-state" onchange="filterInc()"><option value="">All States</option><option>NEW</option><option>IN_PROGRESS</option><option>ON_HOLD</option><option>ESCALATED</option><option>RESOLVED</option></select>
+  <select id="inc-pri" onchange="filterInc()"><option value="">All Priorities</option><option>P1</option><option>P2</option><option>P3</option><option>P4</option></select>
+  <select id="inc-cat" onchange="filterInc()"><option value="">All Categories</option><option>Kubernetes</option><option>Database</option><option>Network</option><option>Application</option><option>Security</option></select>
+  <button class="btn btn-c" onclick="openModal('create-inc')">+ Create Incident</button>
+</div>
+<div class="cd mt8"><table><thead><tr><th><input type="checkbox" class="ck" onclick="toggleAll(this)"></th><th>Number</th><th>Priority</th><th>State</th><th>Description</th><th>Assigned To</th><th>SLA</th><th>Created</th><th>Actions</th></tr></thead><tbody id="tbl-inc-full"></tbody></table></div>
+</div>
+</div>
+
+<!-- ═══════════ PAGE: CHANGES ═══════════ -->
+<div class="pg0" id="pg-chg">
+<div class="hd"><div class="pt">⟲ Change <span>Management</span></div><div class="hr"><div class="flex aic gap6"><span class="dlg"></span><span style="font-size:10px;color:var(--t3)">12 Active</span></div></div></div>
+<div class="ct">
+<div class="g3 stg">
+  <div class="gc kp" style="border-top:2px solid var(--nb)"><div class="kv cbl">12</div><div class="kl">Total Changes</div></div>
+  <div class="gc kp" style="border-top:2px solid var(--na)"><div class="kv ca">3</div><div class="kl">Pending Approval</div></div>
+  <div class="gc kp" style="border-top:2px solid var(--ne)"><div class="kv ce">92%</div><div class="kl">Success Rate</div></div>
+</div>
+<div class="cd mt16"><table><thead><tr><th>Number</th><th>Type</th><th>State</th><th>Risk</th><th>Description</th><th>Assigned</th><th>Planned Start</th><th>Approval</th></tr></thead><tbody id="tbl-chg"></tbody></table></div>
+</div>
+</div>
+
+<!-- ═══════════ PAGE: PROBLEMS ═══════════ -->
+<div class="pg0" id="pg-prb">
+<div class="hd"><div class="pt">◉ Problem <span>& KEDB</span></div><div class="hr"><div class="flex aic gap6"><span class="dlg"></span><span style="font-size:10px;color:var(--t3)">Root Cause Analysis</span></div></div></div>
+<div class="ct">
+<div class="g4 stg">
+  <div class="gc kp" style="border-top:2px solid var(--nv)"><div class="kv cv">8</div><div class="kl">Total Problems</div></div>
+  <div class="gc kp" style="border-top:2px solid var(--nc)"><div class="kv cc">3</div><div class="kl">Under Investigation</div></div>
+  <div class="gc kp" style="border-top:2px solid var(--na)"><div class="kv ca">4</div><div class="kl">Known Errors</div></div>
+  <div class="gc kp" style="border-top:2px solid var(--ne)"><div class="kv ce">2</div><div class="kl">RCA Complete</div></div>
+</div>
+<div class="sec-t mt16">Problem List</div>
+<div class="cd"><table><thead><tr><th>Number</th><th>Priority</th><th>State</th><th>Description</th><th>Known Error</th><th>Linked INC</th><th>RCA Status</th></tr></thead><tbody id="tbl-prb"></tbody></table></div>
+<div class="sec-t mt16">Known Error Database (KEDB)</div>
+<div class="cd"><table><thead><tr><th>KE ID</th><th>Problem</th><th>Root Cause</th><th>Workaround</th><th>Uses</th></tr></thead><tbody>
+  <tr><td class="mn0">KE0012</td><td>etcd slow → API latency</td><td>auto-compaction disabled</td><td>Manual compact+defrag</td><td><span class="tg tam">5×</span></td></tr>
+  <tr><td class="mn0">KE0011</td><td>MongoDB pool exhaustion</td><td>maxPoolSize=50 too low</td><td>Restart pods, increase pool</td><td><span class="tg tc">3×</span></td></tr>
+  <tr><td class="mn0">KE0010</td><td>cert-manager CRD mismatch</td><td>CRD v1.12 vs operator v1.14</td><td>Manual cert renewal</td><td><span class="tg tbl">2×</span></td></tr>
+  <tr><td class="mn0">KE0009</td><td>Ollama GPU OOM Qwen3-32B</td><td>32B needs 48GB, 4090=24GB</td><td>Use Q4 quantized model</td><td><span class="tg tv">4×</span></td></tr>
+</tbody></table></div>
+</div>
+</div>
+
+<!-- ═══════════ PAGE: ALERTS ═══════════ -->
+<div class="pg0" id="pg-alt">
+<div class="hd"><div class="pt">△ Alert <span>Engine</span></div><div class="hr"><div class="flex aic gap6"><span class="dlr"></span><span style="font-size:10px;color:var(--nr)" id="alt-firing">14 Firing</span></div></div></div>
+<div class="ct">
+<div class="g4 stg">
+  <div class="gc kp" style="border-top:2px solid var(--nr)"><div class="kv cr" id="alt-crit">5</div><div class="kl">Critical</div></div>
+  <div class="gc kp" style="border-top:2px solid var(--na)"><div class="kv ca" id="alt-warn">7</div><div class="kl">Warning</div></div>
+  <div class="gc kp" style="border-top:2px solid var(--nb)"><div class="kv cbl" id="alt-info">2</div><div class="kl">Info</div></div>
+  <div class="gc kp" style="border-top:2px solid var(--ne)"><div class="kv ce">23</div><div class="kl">Resolved (24h)</div></div>
+</div>
+<div class="cd mt16"><table><thead><tr><th></th><th>Alert Name</th><th>Severity</th><th>Status</th><th>Source</th><th>Config Item</th><th>Fired At</th><th>Actions</th></tr></thead><tbody id="tbl-alt-full"></tbody></table></div>
+</div>
+</div>
+
+<!-- ═══════════ PAGE: ASSETS ═══════════ -->
+<div class="pg0" id="pg-cmdb">
+<div class="hd"><div class="pt">▣ Assets / <span>CMDB</span></div><div class="hr"><div class="flex aic gap6"><span class="dlg"></span><span style="font-size:10px;color:var(--t3)">30 Configuration Items</span></div></div></div>
+<div class="ct">
+<div class="g3 stg">
+  <div class="gc kp" style="border-top:2px solid var(--ne)"><div class="kv ce">24</div><div class="kl">Live</div></div>
+  <div class="gc kp" style="border-top:2px solid var(--na)"><div class="kv ca">4</div><div class="kl">Maintenance</div></div>
+  <div class="gc kp" style="border-top:2px solid var(--t3)"><div class="kv" style="color:var(--t3)">2</div><div class="kl">Decommissioned</div></div>
+</div>
+<div class="fbar mt12"><input type="text" placeholder="🔍 Search assets..." id="cmdb-search"><select><option value="">All Types</option><option>SERVER</option><option>KUBERNETES_CLUSTER</option><option>DATABASE</option><option>APPLICATION</option><option>NETWORK</option><option>LOAD_BALANCER</option></select></div>
+<div class="g3 mt8" id="cmdb-grid"></div>
+</div>
+</div>
+
+<!-- ═══════════ PAGE: REPORTS ═══════════ -->
+<div class="pg0" id="pg-rpt">
+<div class="hd"><div class="pt">◎ Reports <span>& Analytics</span></div></div>
+<div class="ct">
+<div class="tabs"><div class="tab a" data-rt="inc-rpt">Incidents</div><div class="tab" data-rt="sla-rpt">SLA</div><div class="tab" data-rt="team-rpt">Teams</div><div class="tab" data-rt="chg-rpt">Changes</div></div>
+<div class="tab-p a" id="inc-rpt">
+  <div class="g4 stg">
+    <div class="gc kp"><div class="kv cc">312</div><div class="kl">Total (30 days)</div></div>
+    <div class="gc kp"><div class="kv ce">278</div><div class="kl">Resolved</div></div>
+    <div class="gc kp"><div class="kv ca">2h 14m</div><div class="kl">Avg MTTR</div></div>
+    <div class="gc kp"><div class="kv cr">12</div><div class="kl">SLA Breaches</div></div>
+  </div>
+  <div class="g2 mt16">
+    <div class="cd"><div class="ch"><div class="ctl">Priority Distribution</div></div><div class="cb"><div class="bars" id="rpt-pri-bars" style="height:100px"></div></div></div>
+    <div class="cd"><div class="ch"><div class="ctl">Category Breakdown</div></div><div class="cb"><div class="donut" id="rpt-donut" style="width:120px;height:120px"></div></div></div>
+  </div>
+</div>
+<div class="tab-p" id="sla-rpt"><div class="g4 stg"><div class="gc" style="padding:14px;text-align:center"><div class="gauge" id="rpt-g1"></div><div style="font-size:10px;color:var(--t3);margin-top:4px">P1 — 87%</div></div><div class="gc" style="padding:14px;text-align:center"><div class="gauge" id="rpt-g2"></div><div style="font-size:10px;color:var(--t3);margin-top:4px">P2 — 92%</div></div><div class="gc" style="padding:14px;text-align:center"><div class="gauge" id="rpt-g3"></div><div style="font-size:10px;color:var(--t3);margin-top:4px">P3 — 97%</div></div><div class="gc" style="padding:14px;text-align:center"><div class="gauge" id="rpt-g4"></div><div style="font-size:10px;color:var(--t3);margin-top:4px">P4 — 99%</div></div></div></div>
+<div class="tab-p" id="team-rpt"><div class="cd"><table><thead><tr><th>Team</th><th>Assigned</th><th>Resolved</th><th>MTTR</th><th>SLA %</th></tr></thead><tbody><tr><td style="font-weight:600;color:var(--t0)">Platform Engineering</td><td>42</td><td>38</td><td class="mn0">1h 52m</td><td><span class="tg tge">96%</span></td></tr><tr><td style="font-weight:600;color:var(--t0)">DevOps</td><td>31</td><td>28</td><td class="mn0">2h 06m</td><td><span class="tg tge">93%</span></td></tr><tr><td style="font-weight:600;color:var(--t0)">DBA</td><td>18</td><td>16</td><td class="mn0">3h 24m</td><td><span class="tg tam">88%</span></td></tr><tr><td style="font-weight:600;color:var(--t0)">AI/ML Engineering</td><td>12</td><td>10</td><td class="mn0">4h 10m</td><td><span class="tg tam">85%</span></td></tr><tr><td style="font-weight:600;color:var(--t0)">Network Operations</td><td>9</td><td>9</td><td class="mn0">1h 30m</td><td><span class="tg tge">100%</span></td></tr></tbody></table></div></div>
+<div class="tab-p" id="chg-rpt"><div class="g3 stg"><div class="gc kp"><div class="kv ce">92%</div><div class="kl">Success Rate</div></div><div class="gc kp"><div class="kv cr">3%</div><div class="kl">Rollback Rate</div></div><div class="gc kp"><div class="kv ca">45m</div><div class="kl">Avg Downtime</div></div></div></div>
+</div>
+</div>
+
+<!-- ═══════════ PAGE: INTEGRATIONS ═══════════ -->
+<div class="pg0" id="pg-intg">
+<div class="hd"><div class="pt">⬡ Integration <span>Hub</span></div></div>
+<div class="ct">
+<div class="g3 stg" id="intg-grid"></div>
+</div>
+</div>
+
+<!-- ═══════════ PAGE: TEAMS ═══════════ -->
+<div class="pg0" id="pg-team">
+<div class="hd"><div class="pt">◬ Teams <span>& On-Call</span></div></div>
+<div class="ct">
+<div class="g3 stg" id="team-grid"></div>
+</div>
+</div>
+
+<!-- ═══════════ CREATE INCIDENT MODAL ═══════════ -->
+<div class="modal-bg" id="create-inc">
+<div class="modal">
+  <div class="modal-h"><span>⚡ Create New Incident</span><span class="modal-close" onclick="closeModal('create-inc')">✕</span></div>
+  <div class="modal-b">
+    <div class="form-g"><label>Short Description *</label><input type="text" placeholder="Brief incident summary..." id="f-desc"></div>
+    <div class="form-row">
+      <div class="form-g"><label>Impact</label><select id="f-impact" onchange="calcPri()"><option value="INDIVIDUAL">Individual</option><option value="TEAM">Team</option><option value="DEPARTMENT">Department</option><option value="ENTERPRISE">Enterprise</option></select></div>
+      <div class="form-g"><label>Urgency</label><select id="f-urgency" onchange="calcPri()"><option value="LOW">Low</option><option value="MEDIUM">Medium</option><option value="HIGH">High</option><option value="CRITICAL">Critical</option></select></div>
+    </div>
+    <div class="form-pr"><div class="kl">Auto-Calculated Priority</div><div class="kv" id="f-pri" style="font-size:20px;margin-top:4px;color:var(--t3)">P4</div></div>
+    <div class="form-row mt12">
+      <div class="form-g"><label>Category</label><select id="f-category"><option>Kubernetes</option><option>Database</option><option>Network</option><option>Application</option><option>Security</option></select></div>
+      <div class="form-g"><label>Assignment Group</label><select id="f-group"><option value="">— Select —</option></select></div>
+    </div>
+    <div class="form-g"><label>Description</label><textarea id="f-full-desc" placeholder="Full incident details..."></textarea></div>
+    <div class="flex gap8 mt8" style="justify-content:flex-end"><button class="btn btn-c" onclick="createInc()">Create Incident</button></div>
+  </div>
+</div>
+</div>
+
+</main>
+</div>
+
+<!-- ═══════════ LOGIN OVERLAY ═══════════ -->
+<div id="login-overlay" style="display:flex;position:fixed;inset:0;z-index:300;background:rgba(3,5,8,0.92);backdrop-filter:blur(12px);align-items:center;justify-content:center">
+<div style="background:var(--plate);border:1px solid var(--glb);border-radius:var(--r);width:380px;padding:32px;text-align:center">
+  <div style="font-family:var(--fd);font-size:22px;font-weight:800;margin-bottom:4px"><span style="background:var(--gc);-webkit-background-clip:text;-webkit-text-fill-color:transparent">LinkedEye</span></div>
+  <div style="font-size:10px;color:var(--t3);letter-spacing:1px;text-transform:uppercase;margin-bottom:24px">ITSM Operations Platform</div>
+  <div style="text-align:left;margin-bottom:12px"><label style="display:block;font-size:9.5px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Email</label><input id="login-email" type="email" value="rajkumar@santhira.com" style="width:100%;font-family:var(--fb);font-size:12px;padding:10px 14px;border-radius:8px;border:1px solid var(--glb);background:rgba(0,0,0,0.3);color:var(--t1);outline:none"></div>
+  <div style="text-align:left;margin-bottom:16px"><label style="display:block;font-size:9.5px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Password</label><input id="login-password" type="password" value="LinkedEye@2026" style="width:100%;font-family:var(--fb);font-size:12px;padding:10px 14px;border-radius:8px;border:1px solid var(--glb);background:rgba(0,0,0,0.3);color:var(--t1);outline:none" onkeydown="if(event.key==='Enter')doLogin()"></div>
+  <div id="login-error" style="color:var(--nr);font-size:11px;margin-bottom:10px;min-height:16px"></div>
+  <button id="login-btn" onclick="doLogin()" style="width:100%;font-family:var(--fd);font-size:12px;font-weight:600;padding:10px;border-radius:8px;border:none;cursor:pointer;background:var(--gc);color:var(--void);transition:opacity .2s">Sign In</button>
+  <div style="font-size:9px;color:var(--t4);margin-top:16px">© 2026 Santhira (Terv Pro Technology Pvt Ltd)</div>
+</div>
+</div>
+
+<script>
+// ═══════════ API CLIENT ═══════════
+const API_BASE = window.location.origin + '/api/v1';
+let TOKEN = null;
+let currentUser = null;
+
+async function api(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json', ...opts.headers };
+  if (TOKEN) headers['Authorization'] = 'Bearer ' + TOKEN;
+  const res = await fetch(API_BASE + path, { ...opts, headers });
+  if (res.status === 401 && !path.includes('/auth/login')) {
+    TOKEN = null; showLogin(); throw new Error('Session expired');
+  }
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error || 'API error');
+  return json;
+}
+
+// ═══════════ LOGIN ═══════════
+function showLogin() {
+  document.getElementById('login-overlay').style.display = 'flex';
+  document.querySelector('.shell').style.filter = 'blur(4px)';
+}
+function hideLogin() {
+  document.getElementById('login-overlay').style.display = 'none';
+  document.querySelector('.shell').style.filter = '';
+}
+async function doLogin() {
+  const email = document.getElementById('login-email').value;
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  const btn = document.getElementById('login-btn');
+  errEl.textContent = '';
+  btn.disabled = true; btn.textContent = 'Signing in...';
+  try {
+    const res = await api('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+    TOKEN = res.data.accessToken;
+    currentUser = res.data.user;
+    const el = id => document.getElementById(id);
+    if (el('user-name')) el('user-name').textContent = currentUser.firstName + ' ' + currentUser.lastName;
+    if (el('user-avatar')) el('user-avatar').textContent = (currentUser.firstName[0] || '') + (currentUser.lastName[0] || '');
+    if (el('user-role')) el('user-role').textContent = currentUser.role;
+    hideLogin();
+    toast('Welcome, ' + currentUser.firstName + '!', 's');
+    fetchAll();
+    startPolling();
+  } catch (e) {
+    errEl.textContent = e.message === 'Session expired' ? 'Invalid credentials' : (e.message || 'Login failed');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Sign In';
+  }
+}
+
+// ═══════════ CONSTANTS ═══════════
+const PMATRIX = {
+  ENTERPRISE: { CRITICAL: 'P1', HIGH: 'P1', MEDIUM: 'P2', LOW: 'P3' },
+  DEPARTMENT: { CRITICAL: 'P1', HIGH: 'P2', MEDIUM: 'P2', LOW: 'P3' },
+  TEAM: { CRITICAL: 'P2', HIGH: 'P2', MEDIUM: 'P3', LOW: 'P4' },
+  INDIVIDUAL: { CRITICAL: 'P3', HIGH: 'P3', MEDIUM: 'P4', LOW: 'P4' },
+};
+const STCLS = { NEW: 'st-new', IN_PROGRESS: 'st-ip', ON_HOLD: 'st-oh', ESCALATED: 'st-esc', RESOLVED: 'st-res', CLOSED: 'st-cls' };
+const STLBL = { NEW: 'NEW', IN_PROGRESS: 'IN PROGRESS', ON_HOLD: 'ON HOLD', ESCALATED: 'ESCALATED', RESOLVED: 'RESOLVED', CLOSED: 'CLOSED' };
+const AGCOLORS = [
+  ['var(--nc)','var(--nb)'],['var(--nv)','var(--np)'],['var(--ne)','var(--nb)'],
+  ['var(--na)','var(--nr)'],['var(--nb)','var(--nv)'],['var(--nr)','var(--na)'],
+  ['var(--np)','var(--nc)'],['var(--ne)','var(--na)'],['var(--nv)','var(--ne)'],
+  ['var(--nc)','var(--nv)'],
+];
+
+// ═══════════ STATE ═══════════
+let incidents = [];
+let allAlerts = [];
+let allChanges = [];
+let allProblems = [];
+let allAssets = [];
+let allIntegrations = [];
+let allTeams = [];
+let dashKpi = {};
+let slaCompliance = {};
+
+// ═══════════ MAPPING LAYER ═══════════
+function mapIncident(a) {
+  const fn = a.assignedTo?.firstName || '';
+  const ln = a.assignedTo?.lastName || '';
+  const avatar = (fn[0] || 'U') + (ln[0] || '');
+  const idx = ((fn.charCodeAt(0) || 0) + (ln.charCodeAt(0) || 0)) % AGCOLORS.length;
+  let sla = 'OK', slaMins = 0;
+  if (a.slaBreached) { sla = 'BREACHED'; }
+  else if (a.slaTargetResolution) {
+    const remaining = (new Date(a.slaTargetResolution) - Date.now()) / 60000;
+    if (remaining < 30 && remaining > 0) { sla = 'AT_RISK'; slaMins = Math.round(remaining); }
+  }
+  return {
+    id: a.number || a.id, dbId: a.id, pri: a.priority, state: a.state,
+    desc: a.shortDescription || '', assignee: (fn + ' ' + ln).trim() || 'Unassigned',
+    avatar, avColors: AGCOLORS[idx], cat: a.category || '',
+    created: new Date(a.createdAt), sla, slaMins,
+  };
+}
+
+function mapAlert(a) {
+  return {
+    dbId: a.id, name: a.name, sev: a.severity, status: a.status,
+    src: a.source || 'PROMETHEUS', ci: a.configItem?.name || '—',
+    fired: a.firedAt ? relTime(new Date(a.firedAt)) : '—',
+  };
+}
+
+function mapChange(a) {
+  const fn = a.assignedTo?.firstName || '';
+  const ln = a.assignedTo?.lastName || '';
+  const tyCls = { NORMAL: 'tbl', STANDARD: 'tge', EMERGENCY: 'tr' };
+  return {
+    num: a.number, type: a.type || 'NORMAL', state: a.state,
+    risk: a.riskLevel || 'MEDIUM', desc: a.shortDescription || '',
+    assignee: (fn + ' ' + ln).trim() || 'Unassigned',
+    start: a.plannedStartDate ? new Date(a.plannedStartDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'TBD',
+    approval: a.state === 'APPROVAL' ? 'Pending' : a.state === 'SCHEDULED' ? 'Approved' : '—',
+  };
+}
+
+function mapProblem(a) {
+  return {
+    num: a.number, pri: a.priority || 'P4', state: a.state,
+    desc: a.shortDescription || '', ke: a.isKnownError || false,
+    linked: a.linkedIncidents?.length || a._count?.linkedIncidents || 0,
+    rca: a.rootCause ? 'Complete' : 'In Progress',
+  };
+}
+
+function mapAsset(a) {
+  let health = 'ok';
+  if (a.status === 'MAINTENANCE') health = 'warn';
+  if (a.status === 'DECOMMISSIONED') health = 'crit';
+  return {
+    dbId: a.id, name: a.name, type: a.type || 'SERVER',
+    status: a.status || 'ACTIVE', health,
+    ip: a.ipAddress || a.hostname || '—',
+    dc: a.location || a.environment || '—',
+  };
+}
+
+function mapIntegration(a) {
+  const icons = { PROMETHEUS: '◎', LOKI: '◎', GRAFANA: '◎', SLACK: '#', SERVICENOW: '⬡', KEYCLOAK: '🔐', TWILIO: '📱', MSG91: '📱', FLOWISE: '◇' };
+  const colors = { PROMETHEUS: 'var(--na)', LOKI: 'var(--ne)', GRAFANA: 'var(--nb)', SLACK: 'var(--nb)', SERVICENOW: 'var(--nv)', KEYCLOAK: 'var(--na)', TWILIO: 'var(--ne)', MSG91: 'var(--ne)', FLOWISE: 'var(--np)' };
+  return {
+    dbId: a.id, name: a.name, status: a.status === 'ACTIVE' ? 'Active' : a.status,
+    icon: icons[a.type] || '⬡', color: colors[a.type] || 'var(--nc)',
+    last: a.lastSyncAt ? relTime(new Date(a.lastSyncAt)) : '—',
+    desc: a.description || a.syncStatus || '',
+  };
+}
+
+function mapTeam(t) {
+  const mgrFn = t.manager?.firstName || '';
+  const mgrLn = t.manager?.lastName || '';
+  const oncallMember = t.members?.find(m => m.role === 'ON_CALL') || t.members?.[0];
+  const oncallName = oncallMember ? ((oncallMember.user?.firstName || '') + ' ' + (oncallMember.user?.lastName || '')).trim() : '—';
+  return {
+    dbId: t.id, name: t.name,
+    manager: (mgrFn + ' ' + mgrLn).trim() || '—',
+    members: t.members?.length || 0,
+    oncall: oncallName,
+    incidents: t._count?.assignedIncidents || 0,
+    sla: '—',
+  };
+}
+
+// ═══════════ FETCH FUNCTIONS ═══════════
+async function fetchDashboard() {
+  try {
+    const res = await api('/dashboard/stats');
+    dashKpi = res.data.kpi;
+    const el = id => document.getElementById(id);
+    // KPI row
+    if (el('kpi-open')) el('kpi-open').textContent = dashKpi.openIncidents;
+    if (el('kpi-p1p2')) el('kpi-p1p2').textContent = dashKpi.p1Active + dashKpi.p2Active;
+    if (el('kpi-sla')) { el('kpi-sla').textContent = dashKpi.slaCompliance + '%'; }
+    if (el('kpi-alerts')) el('kpi-alerts').textContent = dashKpi.firingAlerts;
+    if (el('kpi-chg')) el('kpi-chg').textContent = dashKpi.activeChanges;
+    if (el('nb-inc')) el('nb-inc').textContent = dashKpi.openIncidents;
+    if (el('nb-alt')) el('nb-alt').textContent = dashKpi.firingAlerts;
+    // SLA bar
+    const slaFill = document.querySelector('.pg-fill');
+    if (slaFill) slaFill.style.width = dashKpi.slaCompliance + '%';
+    // Incident page KPIs
+    if (el('inc-open')) el('inc-open').textContent = dashKpi.openIncidents;
+    if (el('inc-p1')) el('inc-p1').textContent = dashKpi.p1Active;
+    if (el('inc-p2')) el('inc-p2').textContent = dashKpi.p2Active;
+    if (el('inc-sla')) el('inc-sla').textContent = dashKpi.slaBreached;
+    // Charts
+    const byState = res.data.charts.incidentsByState || [];
+    const byCat = res.data.charts.incidentsByCategory || [];
+    const stateColors = { NEW: '#3b82f6', IN_PROGRESS: '#00f0ff', ON_HOLD: '#f59e0b', ESCALATED: '#f43f5e', RESOLVED: '#10b981', CLOSED: '#64748b' };
+    const stateLabels = { NEW: 'New', IN_PROGRESS: 'In Progress', ON_HOLD: 'On Hold', ESCALATED: 'Escalated', RESOLVED: 'Resolved', CLOSED: 'Closed' };
+    const donutData = byState.map(s => ({ label: stateLabels[s.state] || s.state, val: s._count, color: stateColors[s.state] || '#64748b' }));
+    if (donutData.length) renderDonut('donut1', donutData, 'donut1-legend');
+    const catColors = { Kubernetes: 'var(--nc)', Database: 'var(--nv)', Network: 'var(--na)', Application: 'var(--nb)', Security: 'var(--nr)', Storage: 'var(--ne)', Monitoring: 'var(--np)' };
+    const barData = byCat.map(c => ({ label: (c.category || '?').substring(0, 6), val: c._count, color: catColors[c.category] || 'var(--nc)' }));
+    if (barData.length) renderBars('cat-bars', barData);
+    // Dashboard recent incidents
+    if (res.data.tables.recentIncidents) {
+      const mapped = res.data.tables.recentIncidents.map(i => {
+        const fn = i.assignedTo?.firstName || ''; const ln = i.assignedTo?.lastName || '';
+        const av = (fn[0]||'U')+(ln[0]||''); const ci = ((fn.charCodeAt(0)||0)+(ln.charCodeAt(0)||0)) % AGCOLORS.length;
+        return { id: i.number, pri: i.priority, state: i.state, desc: i.shortDescription, assignee: (fn+' '+ln).trim()||'Unassigned', avatar: av, avColors: AGCOLORS[ci], created: new Date(i.createdAt), sla: 'OK', slaMins: 0 };
+      });
+      renderDashIncidents(mapped);
+    }
+    // Dashboard recent alerts
+    if (res.data.tables.recentAlerts) {
+      renderDashAlerts(res.data.tables.recentAlerts.map(mapAlert));
+    }
+    // Sparklines
+    renderSparkline('spark1', Array.from({length:12}, ()=>Math.floor(Math.random()*20+5)), 'var(--nc)');
+    renderSparkline('spark2', Array.from({length:12}, ()=>Math.floor(Math.random()*15+3)), 'var(--na)');
+  } catch (e) { console.error('Dashboard fetch error:', e); }
+}
+
+async function fetchIncidents() {
+  try {
+    const q = document.getElementById('inc-search')?.value || '';
+    const st = document.getElementById('inc-state')?.value || '';
+    const pr = document.getElementById('inc-pri')?.value || '';
+    const cat = document.getElementById('inc-cat')?.value || '';
+    let qs = '?limit=20&sortBy=createdAt&sortOrder=desc';
+    if (q) qs += '&search=' + encodeURIComponent(q);
+    if (st) qs += '&state=' + st;
+    if (pr) qs += '&priority=' + pr;
+    if (cat) qs += '&category=' + cat;
+    const res = await api('/incidents' + qs);
+    incidents = (res.data || []).map(mapIncident);
+    renderFullIncidents();
+  } catch (e) { console.error('Incidents fetch error:', e); }
+}
+
+async function fetchAlerts() {
+  try {
+    const res = await api('/alerts?limit=20&sortBy=firedAt&sortOrder=desc');
+    allAlerts = (res.data || []).map(mapAlert);
+    renderFullAlerts();
+    const el = id => document.getElementById(id);
+    const firing = allAlerts.filter(a => a.status === 'FIRING');
+    if (el('alt-crit')) el('alt-crit').textContent = firing.filter(a => a.sev === 'CRITICAL').length;
+    if (el('alt-warn')) el('alt-warn').textContent = firing.filter(a => a.sev === 'WARNING').length;
+    if (el('alt-info')) el('alt-info').textContent = firing.filter(a => a.sev === 'INFO').length;
+    if (el('alt-firing')) el('alt-firing').textContent = firing.length + ' Firing';
+  } catch (e) { console.error('Alerts fetch error:', e); }
+}
+
+async function fetchChanges() {
+  try {
+    const res = await api('/changes?limit=10');
+    allChanges = (res.data || []).map(mapChange);
+  } catch (e) { console.error('Changes fetch error:', e); }
+}
+
+async function fetchProblems() {
+  try {
+    const res = await api('/problems?limit=10');
+    allProblems = (res.data || []).map(mapProblem);
+  } catch (e) { console.error('Problems fetch error:', e); }
+}
+
+async function fetchAssets() {
+  try {
+    const res = await api('/assets?limit=30');
+    allAssets = (res.data || []).map(mapAsset);
+  } catch (e) { console.error('Assets fetch error:', e); }
+}
+
+async function fetchIntegrations() {
+  try {
+    const res = await api('/integrations');
+    allIntegrations = (res.data || []).map(mapIntegration);
+  } catch (e) { console.error('Integrations fetch error:', e); }
+}
+
+async function fetchTeams() {
+  try {
+    const res = await api('/teams?limit=20');
+    allTeams = (res.data || []).map(mapTeam);
+    // Populate assignment group dropdown
+    const sel = document.getElementById('f-group');
+    if (sel && allTeams.length) {
+      sel.innerHTML = '<option value="">— Select —</option>' + allTeams.map(t => '<option value="' + t.dbId + '">' + t.name + '</option>').join('');
+    }
+  } catch (e) { console.error('Teams fetch error:', e); }
+}
+
+async function fetchSLA() {
+  try {
+    const res = await api('/dashboard/sla-compliance');
+    slaCompliance = res.data;
+    renderGauge('gauge-p1', slaCompliance.P1?.percentage || 0);
+    renderGauge('gauge-p2', slaCompliance.P2?.percentage || 0);
+    renderGauge('gauge-p3', slaCompliance.P3?.percentage || 0);
+    renderGauge('gauge-p4', slaCompliance.P4?.percentage || 0);
+  } catch (e) { console.error('SLA fetch error:', e); }
+}
+
+async function fetchTrend() {
+  try {
+    const res = await api('/dashboard/incident-trend?days=7');
+    renderAreaChartFromAPI('trend-chart', res.data);
+  } catch (e) { console.error('Trend fetch error:', e); }
+}
+
+async function fetchAll() {
+  await Promise.all([fetchDashboard(), fetchIncidents(), fetchAlerts(), fetchSLA(), fetchTrend()]);
+  fetchChanges(); fetchProblems(); fetchAssets(); fetchIntegrations(); fetchTeams();
+}
+
+// ═══════════ RENDER FUNCTIONS ═══════════
+function relTime(d) {
+  const m = Math.floor((Date.now() - d) / 60000);
+  if (m < 1) return 'just now'; if (m < 60) return m + 'm ago';
+  if (m < 1440) return Math.floor(m / 60) + 'h ago'; return Math.floor(m / 1440) + 'd ago';
+}
+
+function renderDashIncidents(list) {
+  const tb = document.getElementById('tbl-inc'); if (!tb) return;
+  const data = list || incidents.slice(0, 10);
+  tb.innerHTML = data.map(i => `<tr><td class="mn0">${i.id}</td><td><span class="pr ${i.pri.toLowerCase()}">${i.pri}</span></td><td><span class="${STCLS[i.state]||'st-new'}">${STLBL[i.state]||i.state}</span></td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${i.desc}</td><td><span class="av-sm" style="background:linear-gradient(135deg,${i.avColors[0]},${i.avColors[1]})">${i.avatar}</span>${i.assignee}</td><td class="${i.sla==='BREACHED'?'sla-br':i.sla==='AT_RISK'?'sla-warn':'sla-ok'}">${i.sla==='BREACHED'?'⚠ BREACH':i.sla==='AT_RISK'?'⏱ '+i.slaMins+'m':'✓ OK'}</td><td style="font-size:10px;color:var(--t3)">${relTime(i.created)}</td></tr>`).join('');
+}
+
+function renderDashAlerts(list) {
+  const tb = document.getElementById('tbl-alt'); if (!tb) return;
+  const data = list || allAlerts.slice(0, 8);
+  tb.innerHTML = data.slice(0, 8).map(a => `<tr><td><span class="${a.sev==='CRITICAL'?'dlr':a.sev==='WARNING'?'dla':'dlo'}"></span></td><td style="font-family:var(--fm);font-size:10.5px;color:var(--t1)">${a.name}</td><td><span class="tg ${a.sev==='CRITICAL'?'tr':a.sev==='WARNING'?'tam':'tbl'}">${a.sev}</span></td><td style="font-size:10px;color:var(--t3)">${a.ci}</td><td style="font-size:10px;color:var(--t3)">${a.fired}</td><td><button class="btn btn-sm btn-c" onclick="ackAlert('${a.dbId}')">ACK</button></td></tr>`).join('');
+}
+
+function renderFullIncidents() {
+  const tb = document.getElementById('tbl-inc-full'); if (!tb) return;
+  tb.innerHTML = incidents.map(i => `<tr><td><input type="checkbox" class="ck"></td><td class="mn0">${i.id}</td><td><span class="pr ${i.pri.toLowerCase()}">${i.pri}</span></td><td><span class="${STCLS[i.state]||'st-new'}">${STLBL[i.state]||i.state}</span></td><td style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${i.desc}</td><td><span class="av-sm" style="background:linear-gradient(135deg,${i.avColors[0]},${i.avColors[1]})">${i.avatar}</span>${i.assignee}</td><td class="${i.sla==='BREACHED'?'sla-br':i.sla==='AT_RISK'?'sla-warn':'sla-ok'}">${i.sla==='BREACHED'?'⚠ BREACH':i.sla==='AT_RISK'?'⏱ '+i.slaMins+'m':'✓ OK'}</td><td style="font-size:10px;color:var(--t3)">${relTime(i.created)}</td><td><button class="btn btn-sm btn-c" onclick="toast('Assigned to you','s')">Assign</button></td></tr>`).join('');
+}
+function filterInc() { fetchIncidents(); }
+function toggleAll(el) { document.querySelectorAll('#tbl-inc-full .ck').forEach(c => c.checked = el.checked); }
+
+function renderChanges() {
+  const tb = document.getElementById('tbl-chg'); if (!tb) return;
+  const tyCls = { NORMAL: 'tbl', STANDARD: 'tge', EMERGENCY: 'tr' };
+  const stCls = { ASSESSMENT: 'st-new', NEW: 'st-new', APPROVAL: 'st-oh', SCHEDULED: 'st-ip', IMPLEMENTING: 'st-esc', REVIEW: 'st-res', CLOSED: 'st-cls' };
+  const rkCls = { HIGH: 'tr', MEDIUM: 'tam', LOW: 'tge' };
+  tb.innerHTML = allChanges.map(c => `<tr><td class="mn0">${c.num}</td><td><span class="tg ${tyCls[c.type]||'tbl'}">${c.type}</span></td><td><span class="${stCls[c.state]||'st-new'}">${c.state}</span></td><td><span class="tg ${rkCls[c.risk]||'tam'}">${c.risk}</span></td><td style="max-width:250px;overflow:hidden;text-overflow:ellipsis">${c.desc}</td><td>${c.assignee}</td><td style="font-size:10px;color:var(--t3)">${c.start}</td><td style="font-size:10px">${c.approval}</td></tr>`).join('');
+}
+
+function renderProblems() {
+  const tb = document.getElementById('tbl-prb'); if (!tb) return;
+  const stCls2 = { NEW: 'st-new', INVESTIGATION: 'st-ip', RCA_IN_PROGRESS: 'st-oh', KNOWN_ERROR: 'st-esc', RESOLVED: 'st-res', CLOSED: 'st-cls' };
+  tb.innerHTML = allProblems.map(p => `<tr><td class="mn0">${p.num}</td><td><span class="pr ${p.pri.toLowerCase()}">${p.pri}</span></td><td><span class="${stCls2[p.state]||'st-new'}">${(p.state||'').replace(/_/g,' ')}</span></td><td style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${p.desc}</td><td>${p.ke?'<span class="tg tam">KE</span>':'—'}</td><td>${p.linked}</td><td>${p.rca==='Complete'?'<span class="tg tge">✓ Complete</span>':'<span class="tg tam">In Progress</span>'}</td></tr>`).join('');
+}
+
+function renderFullAlerts() {
+  const tb = document.getElementById('tbl-alt-full'); if (!tb) return;
+  tb.innerHTML = allAlerts.map(a => `<tr><td><span class="${a.sev==='CRITICAL'?'dlr':a.sev==='WARNING'?'dla':'dlo'}"></span></td><td style="font-family:var(--fm);font-size:10.5px;color:var(--t1)">${a.name}</td><td><span class="tg ${a.sev==='CRITICAL'?'tr':a.sev==='WARNING'?'tam':'tbl'}">${a.sev}</span></td><td><span class="tg ${a.status==='FIRING'?'tr':'tge'}">${a.status}</span></td><td><span class="tg tc">${a.src}</span></td><td style="font-size:10px;color:var(--t3)">${a.ci}</td><td style="font-size:10px;color:var(--t3)">${a.fired}</td><td class="flex gap4"><button class="btn btn-sm btn-c" onclick="ackAlert('${a.dbId}')">ACK</button><button class="btn btn-sm btn-a" onclick="silenceAlert('${a.dbId}')">Silence</button></td></tr>`).join('');
+}
+
+function renderAssets() {
+  const g = document.getElementById('cmdb-grid'); if (!g) return;
+  const hc = { ok: 'var(--ne)', warn: 'var(--na)', crit: 'var(--nr)' };
+  const sc = { LIVE: 'tge', ACTIVE: 'tge', MAINTENANCE: 'tam', DECOMMISSIONED: 'st-cls' };
+  g.innerHTML = allAssets.map(a => `<div class="gc" style="padding:14px 16px;cursor:pointer" onclick="toast('${a.name} details','i')"><div class="flex aic jcb"><span style="font-family:var(--fd);font-size:12px;font-weight:600;color:var(--t0)">${a.name}</span><span class="dl" style="background:${hc[a.health]};box-shadow:0 0 5px ${hc[a.health]}${a.health==='crit'?';animation:pulse 1.5s infinite':''}"></span></div><div class="flex aic gap6 mt8"><span class="tg tc" style="font-size:8px">${a.type}</span><span class="tg ${sc[a.status]||'tge'}" style="font-size:8px">${a.status}</span></div><div style="font-family:var(--fm);font-size:10px;color:var(--t3);margin-top:8px">${a.ip}</div><div style="font-size:9px;color:var(--t4);margin-top:3px">${a.dc}</div></div>`).join('');
+}
+
+function renderIntegrations() {
+  const g = document.getElementById('intg-grid'); if (!g) return;
+  g.innerHTML = allIntegrations.map(i => `<div class="gc" style="padding:16px"><div class="flex aic gap8"><span style="font-size:16px;color:${i.color}">${i.icon}</span><div><div style="font-family:var(--fd);font-size:12.5px;font-weight:600;color:var(--t0)">${i.name}</div><div class="flex aic gap4 mt4"><span class="${i.status==='Active'?'dlg':'dla'}"></span><span style="font-size:9px;color:${i.status==='Active'?'var(--ne)':'var(--na)'}">${i.status}</span><span style="font-size:9px;color:var(--t4)">• ${i.last}</span></div></div></div><div style="font-size:10.5px;color:var(--t3);margin-top:10px;line-height:1.5">${i.desc}</div><button class="btn btn-sm btn-c mt8" onclick="testIntegration('${i.dbId}','${i.name}')">Test Connection</button></div>`).join('');
+}
+
+function renderTeams() {
+  const g = document.getElementById('team-grid'); if (!g) return;
+  g.innerHTML = allTeams.map(t => `<div class="gc" style="padding:16px"><div style="font-family:var(--fd);font-size:13px;font-weight:700;color:var(--t0)">${t.name}</div><div style="font-size:10px;color:var(--t3);margin-top:4px">Manager: ${t.manager}</div><div class="g2 mt12"><div><div style="font-family:var(--fd);font-size:16px;font-weight:700;color:var(--nc)">${t.members}</div><div style="font-size:9px;color:var(--t3)">Members</div></div><div><div style="font-family:var(--fd);font-size:16px;font-weight:700;color:var(--nr)">${t.incidents}</div><div style="font-size:9px;color:var(--t3)">Active INC</div></div></div><div class="flex aic gap6 mt12" style="padding:8px 10px;background:rgba(0,240,255,0.04);border-radius:6px;border:1px solid var(--glb)"><span class="dlg"></span><span style="font-size:10.5px;font-weight:600;color:var(--t1)">${t.oncall}</span><span style="font-size:9px;color:var(--t3)">On-Call</span></div><div style="font-size:10px;margin-top:10px">SLA Compliance: <span style="font-weight:700;color:var(--nc)">${t.sla}</span></div></div>`).join('');
+}
+
+// ═══════════ CHARTS ═══════════
+function renderSparkline(id, vals, color) {
+  const el = document.getElementById(id); if (!el) return;
+  const max = Math.max(...vals);
+  el.innerHTML = vals.map(v => `<i style="height:${(v/max)*100}%;background:${color||'var(--nc)'}"></i>`).join('');
+}
+
+function renderDonut(id, data, legendId) {
+  const el = document.getElementById(id); if (!el) return;
+  const total = data.reduce((s, d) => s + d.val, 0);
+  const r = 52, cx = 70, cy = 70, c = 2 * Math.PI * r;
+  let offset = 0;
+  const paths = data.map(d => { const pct = d.val / total; const dash = pct * c; const gap = c - dash; const path = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${d.color}" stroke-width="14" stroke-dasharray="${dash} ${gap}" stroke-dashoffset="${-offset}" opacity="0.85"/>`; offset += dash; return path; }).join('');
+  el.innerHTML = `<svg viewBox="0 0 140 140">${paths}</svg><div class="donut-center"><div class="donut-val">${total}</div><div class="donut-lbl">Total</div></div>`;
+  if (legendId) { document.getElementById(legendId).innerHTML = data.map(d => `<span class="flex aic gap4" style="font-size:9px;display:inline-flex;margin:2px 6px"><span style="width:7px;height:7px;border-radius:2px;background:${d.color};display:inline-block"></span>${d.label}: ${d.val}</span>`).join(''); }
+}
+
+function renderBars(id, data, h) {
+  const el = document.getElementById(id); if (!el) return;
+  const max = Math.max(...data.map(d => d.val));
+  el.style.height = (h || 120) + 'px';
+  el.innerHTML = data.map(d => `<div class="bar-col"><div class="bar" style="height:${(d.val/max)*100}%;background:${d.color||'var(--nc)'};animation:barGrow .8s ease forwards;--h:${(d.val/max)*100}%"></div><div style="font-size:8px;color:var(--t3);margin-top:4px;text-align:center">${d.label}</div><div style="font-family:var(--fm);font-size:9px;color:var(--t1)">${d.val}</div></div>`).join('');
+}
+
+function renderGauge(id, pct, color) {
+  const el = document.getElementById(id); if (!el) return;
+  const r = 35, cx = 45, cy = 45; const halfC = Math.PI * r; const fill = halfC * (pct / 100);
+  const c = pct >= 95 ? 'var(--ne)' : pct >= 85 ? 'var(--na)' : 'var(--nr)';
+  el.innerHTML = `<svg viewBox="0 0 90 50"><path d="M 10 45 A 35 35 0 0 1 80 45" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="6" stroke-linecap="round"/><path d="M 10 45 A 35 35 0 0 1 80 45" fill="none" stroke="${c}" stroke-width="6" stroke-linecap="round" stroke-dasharray="${fill} ${halfC}" opacity="0.85"/></svg><div class="gauge-val" style="color:${c}">${pct}%</div>`;
+}
+
+function renderAreaChartFromAPI(id, trendData) {
+  const el = document.getElementById(id); if (!el) return;
+  if (!trendData || !trendData.length) return;
+  const days = trendData.map(d => d.date.slice(5)); // MM-DD
+  const p1 = [], p2 = [], p3 = [], p4 = [];
+  trendData.forEach(d => {
+    const c = d.counts || [];
+    p1.push(c.find(x => x.priority === 'P1')?._count || 0);
+    p2.push(c.find(x => x.priority === 'P2')?._count || 0);
+    p3.push(c.find(x => x.priority === 'P3')?._count || 0);
+    p4.push(c.find(x => x.priority === 'P4')?._count || 0);
+  });
+  const w = el.offsetWidth || 600, h = 140; const mx = 30, my = 10; const pw = w - mx * 2, ph = h - my * 2;
+  const maxV = Math.max(...days.map((_, i) => (p1[i]||0) + (p2[i]||0) + (p3[i]||0) + (p4[i]||0)), 1);
+  function area(vals, base, color) {
+    const top = vals.map((v, i) => `${mx + i * (pw / Math.max(days.length - 1, 1))},${h - my - ((base[i] + v) / maxV) * ph}`);
+    const bot = [...base].reverse().map((v, i) => `${mx + (vals.length - 1 - i) * (pw / Math.max(days.length - 1, 1))},${h - my - (v / maxV) * ph}`);
+    return `<polygon points="${top.join(' ')} ${bot.join(' ')}" fill="${color}" opacity="0.25"/><polyline points="${top.join(' ')}" fill="none" stroke="${color}" stroke-width="1.5" opacity="0.7"/>`;
+  }
+  const b0 = days.map(() => 0), b1 = p4.slice(), b2 = p4.map((v, i) => v + p3[i]), b3 = p4.map((v, i) => v + p3[i] + p2[i]);
+  const labels = days.map((d, i) => `<text x="${mx + i * (pw / Math.max(days.length - 1, 1))}" y="${h - 1}" text-anchor="middle" fill="#475569" font-size="8" font-family="var(--fm)">${d}</text>`).join('');
+  el.innerHTML = `<svg width="${w}" height="${h}">${area(p4, b0, '#64748b')}${area(p3, b1, '#3b82f6')}${area(p2, b2, '#f59e0b')}${area(p1, b3, '#f43f5e')}${labels}</svg>`;
+}
+
+// ═══════════ ACTIONS ═══════════
+async function ackAlert(id) {
+  try {
+    await api('/alerts/' + id + '/acknowledge', { method: 'POST' });
+    toast('Alert acknowledged', 's');
+    fetchAlerts(); fetchDashboard();
+  } catch (e) { toast('ACK failed: ' + e.message, 'e'); }
+}
+
+async function silenceAlert(id) {
+  try {
+    await api('/alerts/' + id + '/silence', { method: 'POST', body: JSON.stringify({ duration: 60 }) });
+    toast('Silenced for 1 hour', 'w');
+    fetchAlerts(); fetchDashboard();
+  } catch (e) { toast('Silence failed: ' + e.message, 'e'); }
+}
+
+async function testIntegration(id, name) {
+  try {
+    toast('Testing ' + name + '...', 'i');
+    const res = await api('/integrations/' + id + '/test', { method: 'POST' });
+    toast(name + ': ' + (res.data.connected ? 'Connected ✓' : res.data.message), res.data.connected ? 's' : 'e');
+    fetchIntegrations();
+  } catch (e) { toast(name + ' test failed: ' + e.message, 'e'); }
+}
+
+// ═══════════ NAVIGATION ═══════════
+document.querySelectorAll('.ni[data-p]').forEach(n => {
+  n.addEventListener('click', function () {
+    const p = this.getAttribute('data-p');
+    document.querySelectorAll('.pg0').forEach(pg => pg.classList.remove('ac'));
+    document.querySelectorAll('.ni').forEach(ni => ni.classList.remove('a'));
+    const pg = document.getElementById('pg-' + p);
+    if (pg) { pg.classList.add('ac'); this.classList.add('a'); window.scrollTo(0, 0); }
+    if (p === 'inc') renderFullIncidents();
+    if (p === 'chg') renderChanges();
+    if (p === 'prb') renderProblems();
+    if (p === 'alt') renderFullAlerts();
+    if (p === 'cmdb') renderAssets();
+    if (p === 'intg') renderIntegrations();
+    if (p === 'team') renderTeams();
+    if (p === 'rpt') {
+      renderBars('rpt-pri-bars', [{ label: 'P1', val: dashKpi.p1Active || 0, color: 'var(--nr)' }, { label: 'P2', val: dashKpi.p2Active || 0, color: 'var(--na)' }, { label: 'P3', val: 10, color: 'var(--nb)' }, { label: 'P4', val: 5, color: 'var(--t3)' }], 100);
+      renderDonut('rpt-donut', [{ label: 'K8s', val: 95, color: '#00f0ff' }, { label: 'DB', val: 72, color: '#8b5cf6' }, { label: 'Net', val: 48, color: '#f59e0b' }, { label: 'App', val: 62, color: '#3b82f6' }, { label: 'Sec', val: 35, color: '#f43f5e' }]);
+      ['rpt-g1', 'rpt-g2', 'rpt-g3', 'rpt-g4'].forEach((g, i) => renderGauge(g, [slaCompliance.P1?.percentage || 87, slaCompliance.P2?.percentage || 92, slaCompliance.P3?.percentage || 97, slaCompliance.P4?.percentage || 99][i]));
+    }
+  });
+});
+
+// REPORT TABS
+document.querySelectorAll('.tab[data-rt]').forEach(t => {
+  t.addEventListener('click', function () {
+    document.querySelectorAll('.tab[data-rt]').forEach(x => x.classList.remove('a'));
+    document.querySelectorAll('.tab-p').forEach(x => x.classList.remove('a'));
+    this.classList.add('a');
+    document.getElementById(this.getAttribute('data-rt'))?.classList.add('a');
+  });
+});
+
+// ═══════════ MODAL ═══════════
+function openModal(id) { document.getElementById(id)?.classList.add('open'); }
+function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+function calcPri() {
+  const im = document.getElementById('f-impact')?.value || 'INDIVIDUAL';
+  const ur = document.getElementById('f-urgency')?.value || 'LOW';
+  const p = PMATRIX[im]?.[ur] || 'P4';
+  const el = document.getElementById('f-pri');
+  if (el) { el.textContent = p; el.className = 'kv'; el.classList.add(p === 'P1' ? 'cr' : p === 'P2' ? 'ca' : p === 'P3' ? 'cbl' : ''); el.style.fontSize = '20px'; }
+}
+
+async function createInc() {
+  const desc = document.getElementById('f-desc')?.value;
+  if (!desc) { toast('Description is required', 'e'); return; }
+  const impact = document.getElementById('f-impact')?.value || 'INDIVIDUAL';
+  const urgency = document.getElementById('f-urgency')?.value || 'LOW';
+  const category = document.getElementById('f-category')?.value || null;
+  const groupId = document.getElementById('f-group')?.value || null;
+  const fullDesc = document.getElementById('f-full-desc')?.value || '';
+  try {
+    const body = { shortDescription: desc, description: fullDesc, impact, urgency, category, source: 'MANUAL' };
+    if (groupId) body.assignmentGroupId = groupId;
+    const res = await api('/incidents', { method: 'POST', body: JSON.stringify(body) });
+    toast('Created ' + (res.data.number || 'incident') + ' successfully', 's');
+    closeModal('create-inc');
+    document.getElementById('f-desc').value = '';
+    document.getElementById('f-full-desc').value = '';
+    fetchIncidents(); fetchDashboard();
+  } catch (e) { toast('Create failed: ' + e.message, 'e'); }
+}
+
+// ═══════════ TOAST ═══════════
+function toast(msg, type) {
+  const c = document.getElementById('toasts');
+  const t = document.createElement('div');
+  t.className = 'toast toast-' + (type || 'i');
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 4500);
+}
+
+// ═══════════ REAL-TIME POLLING ═══════════
+let pollTimer = null;
+function startPolling() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    if (!TOKEN) return;
+    try { await Promise.all([fetchDashboard(), fetchIncidents(), fetchAlerts()]); }
+    catch (e) { console.error('Polling error:', e); }
+  }, 10000);
+}
+
+// ═══════════ INIT ═══════════
+// Show login overlay on load, hide dashboard blur
+document.querySelector('.shell').style.filter = 'blur(4px)';
+window.addEventListener('resize', () => {
+  const el = document.getElementById('trend-chart');
+  if (el && el.innerHTML) fetchTrend();
+});
+
+</script>
+</body>
+</html>

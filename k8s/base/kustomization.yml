@@ -1,0 +1,23 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: linkedeye-core
+
+commonLabels:
+  app.kubernetes.io/managed-by: kustomize
+  app.kubernetes.io/part-of: linkedeye
+
+resources:
+  - namespace.yml
+  - configmap.yml
+  - postgres-statefulset.yml
+  - redis-deployment.yml
+  - api-deployment.yml
+  - frontend-deployment.yml
+  - ingress.yml
+  - hpa.yml
+  - pvc.yml
+  - cronjob-sla-check.yml
+  - cronjob-db-backup.yml
+  - networkpolicy.yml
+  - servicemonitor.yml

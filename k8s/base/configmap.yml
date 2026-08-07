@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: linkedeye-config
+  namespace: linkedeye-core
+  labels:
+    app.kubernetes.io/part-of: linkedeye
+data:
+  NODE_ENV: "production"
+  PORT: "5000"
+  FRONTEND_URL: "https://linkedeye.santhira.com"
+  CORS_ORIGINS: "https://linkedeye.santhira.com"
+  PROMETHEUS_URL: "http://prometheus-server.monitoring.svc.cluster.local:9090"
+  LOKI_URL: "http://loki.monitoring.svc.cluster.local:3100"
+  GRAFANA_URL: "http://grafana.monitoring.svc.cluster.local:3000"
+  OLLAMA_URL: "http://ollama.linkedeye-ai.svc.cluster.local:11434"
+  HF_TEI_URL: "http://tei.linkedeye-ai.svc.cluster.local:8081"
+  FLOWISE_URL: "http://flowise.linkedeye-ai.svc.cluster.local:3002"
+  VOICE_SERVER_URL: "http://voice-server.linkedeye-voice.svc.cluster.local:8100"
+  SLACK_DEFAULT_CHANNEL: "#incidents"
+  SMTP_HOST: "smtp.gmail.com"
+  SMTP_PORT: "587"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: linkedeye-secrets
+  namespace: linkedeye-core
+  labels:
+    app.kubernetes.io/part-of: linkedeye
+type: Opaque
+stringData:
+  DATABASE_URL: "postgresql://linkedeye:CHANGE_ME@postgres.linkedeye-core.svc.cluster.local:5432/linkedeye?schema=public"
+  REDIS_URL: "redis://redis.linkedeye-core.svc.cluster.local:6379"
+  JWT_SECRET: "CHANGE_ME_IN_PRODUCTION"
+  JWT_REFRESH_SECRET: "CHANGE_ME_IN_PRODUCTION"
+  SLACK_BOT_TOKEN: ""
+  SLACK_SIGNING_SECRET: ""
+  SMTP_USER: ""
+  SMTP_PASS: ""
+  GRAFANA_API_KEY: ""

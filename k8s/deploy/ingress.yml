@@ -1,0 +1,56 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: linkedeye-v2-ingress
+  namespace: fs-linkedeye
+  labels:
+    app.kubernetes.io/part-of: linkedeye-v2
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+    nginx.ingress.kubernetes.io/websocket-services: linkedeye-api
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - app.inc.santhira.com
+        - api.inc.api.santhira.com
+      secretName: santhira-tls
+  rules:
+    - host: app.inc.santhira.com
+      http:
+        paths:
+          - path: /api(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: linkedeye-api
+                port:
+                  number: 5000
+          - path: /socket.io(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: linkedeye-api
+                port:
+                  number: 5000
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: linkedeye-frontend
+                port:
+                  number: 80
+    - host: api.inc.santhira.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: linkedeye-api
+                port:
+                  number: 5000

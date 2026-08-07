@@ -1,0 +1,22 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: linkedeye-api
+  labels:
+    app.kubernetes.io/name: linkedeye-api
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: linkedeye
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: linkedeye-api
+  namespaceSelector:
+    matchNames:
+      - linkedeye-core
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s
+      honorLabels: true

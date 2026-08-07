@@ -1,0 +1,15 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: linkedeye-api
+  namespace: linkedeye-core
+spec:
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: linkedeye-frontend
+  namespace: linkedeye-core
+spec:
+  replicas: 1
