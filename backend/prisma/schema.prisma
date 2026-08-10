@@ -266,17 +266,17 @@ enum Environment {
 // ─── MULTI-TENANT: ORGANIZATION ──────────────────────────
 
 model Organization {
-  id          String      @id @default(uuid())
-  name        String      @unique
-  slug        String      @unique
-  environment Environment @default(PROD)
-  serverIp    String?
-  fqdn        String?
-  description        String?
-  preferredLanguage  String?     @default("en")
-  isActive    Boolean     @default(true)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id                String      @id @default(uuid())
+  name              String      @unique
+  slug              String      @unique
+  environment       Environment @default(PROD)
+  serverIp          String?
+  fqdn              String?
+  description       String?
+  preferredLanguage String?     @default("en")
+  isActive          Boolean     @default(true)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
 
   users              User[]
   teams              Team[]
@@ -324,27 +324,27 @@ model User {
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 
-  organization         Organization?       @relation(fields: [organizationId], references: [id])
-  sessions             Session[]
-  teamMembers          TeamMember[]
-  managedTeams         Team[]              @relation("TeamManager")
-  createdIncidents     Incident[]          @relation("IncidentCreator")
-  assignedIncidents    Incident[]          @relation("IncidentAssignee")
-  createdChanges       Change[]            @relation("ChangeCreator")
-  assignedChanges      Change[]            @relation("ChangeAssignee")
-  createdProblems      Problem[]           @relation("ProblemCreator")
-  assignedProblems     Problem[]           @relation("ProblemAssignee")
-  approvals            Approval[]
-  ownedCIs             ConfigurationItem[] @relation("CIOwner")
-  workNotes            WorkNote[]
-  activities           Activity[]
-  attachments          Attachment[]
-  notifications        Notification[]
-  auditLogs            AuditLog[]
-  onCallSchedules      OnCallSchedule[]
-  linkedIncidentChanges IncidentChange[]
+  organization           Organization?       @relation(fields: [organizationId], references: [id])
+  sessions               Session[]
+  teamMembers            TeamMember[]
+  managedTeams           Team[]              @relation("TeamManager")
+  createdIncidents       Incident[]          @relation("IncidentCreator")
+  assignedIncidents      Incident[]          @relation("IncidentAssignee")
+  createdChanges         Change[]            @relation("ChangeCreator")
+  assignedChanges        Change[]            @relation("ChangeAssignee")
+  createdProblems        Problem[]           @relation("ProblemCreator")
+  assignedProblems       Problem[]           @relation("ProblemAssignee")
+  approvals              Approval[]
+  ownedCIs               ConfigurationItem[] @relation("CIOwner")
+  workNotes              WorkNote[]
+  activities             Activity[]
+  attachments            Attachment[]
+  notifications          Notification[]
+  auditLogs              AuditLog[]
+  onCallSchedules        OnCallSchedule[]
+  linkedIncidentChanges  IncidentChange[]
   linkedIncidentProblems IncidentProblem[]
-  chatMessages         ChatMessage[]
+  chatMessages           ChatMessage[]
 
   @@index([email])
   @@index([role])
@@ -369,19 +369,19 @@ model Session {
 }
 
 model Team {
-  id             String  @id @default(uuid())
+  id             String   @id @default(uuid())
   name           String
   description    String?
   email          String?
   slackChannel   String?
   managerId      String?
-  isActive       Boolean @default(true)
+  isActive       Boolean  @default(true)
   organizationId String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   organization       Organization?       @relation(fields: [organizationId], references: [id])
-  manager            User?              @relation("TeamManager", fields: [managerId], references: [id])
+  manager            User?               @relation("TeamManager", fields: [managerId], references: [id])
   members            TeamMember[]
   assignedIncidents  Incident[]
   assignedChanges    Change[]
@@ -428,27 +428,27 @@ model TeamMember {
 // ─── ITIL MODULES ─────────────────────────────────────────
 
 model Incident {
-  id                  String        @id @default(uuid())
-  number              String        @unique
+  id                  String         @id @default(uuid())
+  number              String         @unique
   shortDescription    String
   description         String?
-  state               IncidentState @default(NEW)
-  impact              Impact        @default(INDIVIDUAL)
-  urgency             Urgency       @default(LOW)
-  priority            Priority      @default(P4)
+  state               IncidentState  @default(NEW)
+  impact              Impact         @default(INDIVIDUAL)
+  urgency             Urgency        @default(LOW)
+  priority            Priority       @default(P4)
   category            String?
   subcategory         String?
   assignedToId        String?
   assignmentGroupId   String?
   createdById         String
   configItemId        String?
-  slaBreached         Boolean       @default(false)
+  slaBreached         Boolean        @default(false)
   responseTime        DateTime?
   resolutionTime      DateTime?
   slaTargetResponse   DateTime?
   slaTargetResolution DateTime?
   slaPausedAt         DateTime?
-  slaPausedDuration   Int           @default(0)
+  slaPausedDuration   Int            @default(0)
   source              IncidentSource @default(MANUAL)
   sourceAlertId       String?
   sourceAlertName     String?
@@ -456,11 +456,11 @@ model Incident {
   closedAt            DateTime?
   resolutionCode      String?
   resolutionNotes     String?
-  escalationLevel     Int           @default(0)
+  escalationLevel     Int            @default(0)
   lastEscalatedAt     DateTime?
   organizationId      String?
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
 
   organization    Organization?      @relation(fields: [organizationId], references: [id])
   assignedTo      User?              @relation("IncidentAssignee", fields: [assignedToId], references: [id])
@@ -492,38 +492,38 @@ model Incident {
 }
 
 model Change {
-  id                  String      @id @default(uuid())
-  number              String      @unique
-  shortDescription    String
-  description         String?
-  type                ChangeType  @default(NORMAL)
-  state               ChangeState @default(NEW)
-  riskLevel           RiskLevel   @default(MEDIUM)
-  category            String?
-  assignedToId        String?
-  assignmentGroupId   String?
-  createdById         String
-  justification       String?
-  implementationPlan  String?
-  rollbackPlan        String?
-  testPlan            String?
-  communicationPlan   String?
-  plannedStartDate    DateTime?
-  plannedEndDate      DateTime?
-  actualStartDate     DateTime?
-  actualEndDate       DateTime?
-  affectedServices    String?
-  downtime            Int?
-  userImpact          String?
-  gitRepoUrl          String?
-  gitBranch           String?
-  gitCommitHash       String?
-  pullRequestUrl      String?
-  reviewNotes         String?
-  closureCode         ClosureCode?
-  organizationId      String?
-  createdAt           DateTime    @default(now())
-  updatedAt           DateTime    @updatedAt
+  id                 String       @id @default(uuid())
+  number             String       @unique
+  shortDescription   String
+  description        String?
+  type               ChangeType   @default(NORMAL)
+  state              ChangeState  @default(NEW)
+  riskLevel          RiskLevel    @default(MEDIUM)
+  category           String?
+  assignedToId       String?
+  assignmentGroupId  String?
+  createdById        String
+  justification      String?
+  implementationPlan String?
+  rollbackPlan       String?
+  testPlan           String?
+  communicationPlan  String?
+  plannedStartDate   DateTime?
+  plannedEndDate     DateTime?
+  actualStartDate    DateTime?
+  actualEndDate      DateTime?
+  affectedServices   String?
+  downtime           Int?
+  userImpact         String?
+  gitRepoUrl         String?
+  gitBranch          String?
+  gitCommitHash      String?
+  pullRequestUrl     String?
+  reviewNotes        String?
+  closureCode        ClosureCode?
+  organizationId     String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
 
   organization    Organization?    @relation(fields: [organizationId], references: [id])
   assignedTo      User?            @relation("ChangeAssignee", fields: [assignedToId], references: [id])
@@ -545,33 +545,33 @@ model Change {
 }
 
 model Problem {
-  id                 String       @id @default(uuid())
-  number             String       @unique
-  shortDescription   String
-  description        String?
-  state              ProblemState @default(NEW)
-  priority           Priority     @default(P4)
-  category           String?
-  assignedToId       String?
-  assignmentGroupId  String?
-  createdById        String
-  rootCause          String?
-  rootCauseAnalysis  Json?
-  workaround         String?
-  workaroundEffective Boolean     @default(false)
-  permanentFix       String?
-  fixImplemented     Boolean      @default(false)
-  relatedChangeId    String?
-  isKnownError       Boolean      @default(false)
-  knownErrorId       String?
-  organizationId     String?
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
+  id                  String       @id @default(uuid())
+  number              String       @unique
+  shortDescription    String
+  description         String?
+  state               ProblemState @default(NEW)
+  priority            Priority     @default(P4)
+  category            String?
+  assignedToId        String?
+  assignmentGroupId   String?
+  createdById         String
+  rootCause           String?
+  rootCauseAnalysis   Json?
+  workaround          String?
+  workaroundEffective Boolean      @default(false)
+  permanentFix        String?
+  fixImplemented      Boolean      @default(false)
+  relatedChangeId     String?
+  isKnownError        Boolean      @default(false)
+  knownErrorId        String?
+  organizationId      String?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
 
-  organization    Organization?    @relation(fields: [organizationId], references: [id])
-  assignedTo      User?            @relation("ProblemAssignee", fields: [assignedToId], references: [id])
-  assignmentGroup Team?            @relation(fields: [assignmentGroupId], references: [id])
-  createdBy       User             @relation("ProblemCreator", fields: [createdById], references: [id])
+  organization    Organization?     @relation(fields: [organizationId], references: [id])
+  assignedTo      User?             @relation("ProblemAssignee", fields: [assignedToId], references: [id])
+  assignmentGroup Team?             @relation(fields: [assignmentGroupId], references: [id])
+  createdBy       User              @relation("ProblemCreator", fields: [createdById], references: [id])
   workNotes       WorkNote[]
   attachments     Attachment[]
   activities      Activity[]
@@ -604,10 +604,10 @@ model Approval {
 // ─── CMDB ─────────────────────────────────────────────────
 
 model ConfigurationItem {
-  id                String   @id @default(uuid())
+  id                String    @id @default(uuid())
   name              String
   type              CIType
-  status            CIStatus @default(PLANNED)
+  status            CIStatus  @default(PLANNED)
   category          String?
   subcategory       String?
   description       String?
@@ -638,17 +638,17 @@ model ConfigurationItem {
   purchaseCost      Float?
   monthlyCost       Float?
   costCenter        String?
-  monitoringEnabled Boolean  @default(false)
+  monitoringEnabled Boolean   @default(false)
   prometheusJob     String?
   grafanaDashboard  String?
   lokiLabels        String?
   organizationId    String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  organization Organization?  @relation(fields: [organizationId], references: [id])
-  owner        User?      @relation("CIOwner", fields: [ownerId], references: [id])
-  supportGroup Team?      @relation("CISupportGroup", fields: [supportGroupId], references: [id])
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  owner        User?         @relation("CIOwner", fields: [ownerId], references: [id])
+  supportGroup Team?         @relation("CISupportGroup", fields: [supportGroupId], references: [id])
   incidents    Incident[]
   changes      ChangeCI[]
   alerts       Alert[]
@@ -726,17 +726,17 @@ model WorkNote {
 }
 
 model Activity {
-  id             String   @id @default(uuid())
-  action         String
-  description    String?
-  oldValue       String?
-  newValue       String?
-  userId         String?
-  incidentId     String?
-  changeId       String?
-  problemId      String?
-  configItemId   String?
-  createdAt      DateTime @default(now())
+  id           String   @id @default(uuid())
+  action       String
+  description  String?
+  oldValue     String?
+  newValue     String?
+  userId       String?
+  incidentId   String?
+  changeId     String?
+  problemId    String?
+  configItemId String?
+  createdAt    DateTime @default(now())
 
   user       User?              @relation(fields: [userId], references: [id])
   incident   Incident?          @relation(fields: [incidentId], references: [id])
@@ -851,7 +851,7 @@ model EscalationRule {
   delayMinutes      Int
   notifyType        NotifyType
   notifyTargets     String
-  conditionPriority String?    // If set, rule only fires for this priority (e.g. 'P1')
+  conditionPriority String? // If set, rule only fires for this priority (e.g. 'P1')
   createdAt         DateTime   @default(now())
 
   policy EscalationPolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
@@ -876,16 +876,16 @@ model OnCallSchedule {
 }
 
 model EscalationLog {
-  id            String   @id @default(uuid())
+  id            String    @id @default(uuid())
   incidentId    String
   level         Int
   notifyType    String
   targetContact String
   targetUserId  String?
   targetName    String?
-  status        String   // ATTEMPTED, DELIVERED, NO_ANSWER, BUSY, FAILED, ACKNOWLEDGED
+  status        String // ATTEMPTED, DELIVERED, NO_ANSWER, BUSY, FAILED, ACKNOWLEDGED
   callSid       String?
-  attemptedAt   DateTime @default(now())
+  attemptedAt   DateTime  @default(now())
   respondedAt   DateTime?
   notes         String?
 
@@ -930,11 +930,11 @@ model IncidentProblem {
 }
 
 model ChangeCI {
-  id             String @id @default(uuid())
-  changeId       String
-  configItemId   String
-  impactType     String?
-  createdAt      DateTime @default(now())
+  id           String   @id @default(uuid())
+  changeId     String
+  configItemId String
+  impactType   String?
+  createdAt    DateTime @default(now())
 
   change     Change            @relation(fields: [changeId], references: [id], onDelete: Cascade)
   configItem ConfigurationItem @relation(fields: [configItemId], references: [id])
@@ -1033,16 +1033,16 @@ model Integration {
 }
 
 model IntegrationWebhook {
-  id            String   @id @default(uuid())
+  id            String    @id @default(uuid())
   integrationId String
   name          String
   url           String
   secret        String?
   events        String
-  isActive      Boolean  @default(true)
+  isActive      Boolean   @default(true)
   lastTriggered DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   integration Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
 
@@ -1050,7 +1050,7 @@ model IntegrationWebhook {
 }
 
 model SlackIntegration {
-  id             String  @id @default(uuid())
+  id             String   @id @default(uuid())
   workspaceId    String?
   workspaceName  String?
   botToken       String?
@@ -1058,7 +1058,7 @@ model SlackIntegration {
   channelId      String?
   channelName    String?
   webhookUrl     String?
-  isActive       Boolean @default(true)
+  isActive       Boolean  @default(true)
   organizationId String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -1082,4 +1082,44 @@ model ScheduledJob {
   lastError   String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+}
+
+// ─── PUBLIC SITE ──────────────────────────────────────────
+
+// Pilot / demo requests submitted from the public marketing site.
+// Written by POST /api/v1/public/leads, which is unauthenticated — so this
+// model holds only what a visitor typed, is never organization-scoped, and is
+// deliberately not related to User or Organization.
+model Lead {
+  id        String       @id @default(uuid())
+  name      String
+  email     String
+  company   String
+  phone     String?
+  interest  LeadInterest
+  teamSize  String?
+  message   String?
+  status    LeadStatus   @default(NEW)
+  // Captured for abuse triage, not for tracking.
+  sourceIp  String?
+  userAgent String?
+  notes     String?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@index([status, createdAt])
+  @@index([email])
+}
+
+enum LeadInterest {
+  PILOT
+  DEMO
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  CLOSED
+  SPAM
 }

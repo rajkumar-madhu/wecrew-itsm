@@ -50,6 +50,7 @@ const apmRoutes = require('./routes/apm.routes');
 const statusRoutes = require('./routes/status.routes');
 const auditRoutes = require('./routes/audit.routes');
 const chatRoutes = require('./routes/chat.routes');
+const publicRoutes = require('./routes/public.routes');
 
 // ── Validate Environment ────────────────────────────────
 validateEnv();
@@ -143,6 +144,7 @@ app.use('/api/v1/apm', apmRoutes);
 app.use('/api/v1/status', statusRoutes);  // Public — no auth
 app.use('/api/v1/audit', auditRoutes);
 app.use('/api/v1/chat', chatRoutes);
+app.use('/api/v1/public', publicRoutes);  // Public — no auth (marketing site forms)
 
 // ── 404 ─────────────────────────────────────────────────
 

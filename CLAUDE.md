@@ -81,7 +81,11 @@ cd frontend-react && npm run lint  # eslint .
 
 ### Tests
 ```bash
-cd backend && npm test           # jest --coverage (infrastructure exists, no test files written yet)
+cd backend && npm test           # jest --coverage — 39 tests across 3 suites:
+                                 #   services/__tests__/k8sService.test.js      (kubectl failure handling)
+                                 #   controllers/__tests__/public.controller.test.js (lead validation)
+                                 #   routes/__tests__/public.routes.test.js     (public route + rate limit)
+                                 # No ESLint config exists, so `npm run lint` fails.
 cd backend && npm run test:watch # jest --watch
 ```
 
