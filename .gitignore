@@ -32,3 +32,6 @@ dist-ssr
 # Machine-local Claude permissions and editor logs
 .claude/settings.local.json
 .cursor/
+
+# Playwright MCP scratch output
+.playwright-mcp/

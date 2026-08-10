@@ -1,8 +1,8 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Search, Plus, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
-  AlertTriangle, ShieldAlert, Timer, X, Filter,
+  ShieldAlert, X, Filter,
   LayoutList, Kanban, CalendarClock, Flame,
   Hash, Mail, Mic, Radio, Globe, Zap, UserPlus, ArrowUpRight,
   CheckCircle2, Eye, Activity, TrendingUp,
@@ -11,15 +11,7 @@ import {
 import clsx from 'clsx';
 import { useIncidents } from '../../hooks/useIncidents';
 import { QuickReportButton } from './IncidentReportGenerator';
-import {
-  Page,
-  PageHeader,
-  KpiRow,
-  KpiCard,
-  Toolbar,
-  PrimaryButton,
-  Segmented,
-} from '../ui/PageChrome';
+import { Page, Toolbar } from '../ui/PageChrome';
 
 // =============================================================================
 // Types
@@ -814,37 +806,137 @@ export default function IncidentList() {
   // ── Render ──
   return (
     <Page>
-      <PageHeader
-        icon={ShieldAlert}
-        title="Incidents"
-        subtitle="Monitor, triage, and resolve service incidents"
-        actions={
-          <>
-            <Segmented
-              value={viewMode}
-              onChange={(v) => { setViewMode(v as ViewMode); setFocusedRowIdx(-1); }}
-              options={[
-                { value: 'table', label: 'Table', icon: LayoutList },
-                { value: 'board', label: 'Board', icon: Kanban },
-                { value: 'timeline', label: 'Timeline', icon: CalendarClock },
-              ]}
-            />
-            <PrimaryButton onClick={() => navigate('/incidents/create')}>
-              <Plus size={14} /> New incident
-            </PrimaryButton>
-          </>
-        }
-      />
+      {/* ═══════════════════════════════════════════════
+          HERO — ink panel with the queue's stats inline,
+          matching the Sovereign Agent Registry layout.
+          ═══════════════════════════════════════════════ */}
+      <div className="cx-hero">
+        <div className="flex items-start justify-between gap-6 flex-wrap">
+          <div className="min-w-0 flex-1">
+            <span className="cx-eyebrow">Operate · service desk</span>
 
-      <KpiRow>
-        <KpiCard label="Active" value={stats.active} icon={Activity} tone="info" />
-        <KpiCard label="Critical" value={stats.critical} icon={Flame} tone="danger" pulse />
-        <KpiCard label="High" value={stats.high} icon={AlertTriangle} tone="warn" />
-        <KpiCard label="SLA breach" value={stats.slaBreach} icon={Timer} tone={stats.slaBreach > 0 ? 'danger' : 'default'} />
-        <KpiCard label="Resolved" value={stats.resolvedToday} icon={CheckCircle2} tone="ok" />
-      </KpiRow>
+            <h1 className="cx-hero__title">Incidents</h1>
+
+            <p className="cx-hero__deck">
+              Monitor, triage and resolve service incidents. Select a row to open the full
+              record — timeline, evidence and linked changes stay one click away.
+            </p>
+
+            <div className="flex items-center gap-2 mt-4 flex-wrap">
+              <button
+                type="button"
+                onClick={() => navigate('/incidents/create')}
+                className="cx-hero__btn"
+              >
+                <Plus size={13} /> New incident
+              </button>
+              {/* Segmented view switcher. Uses cx-hero__btn rather than a
+                  Tailwind bg-white: the dark shim rewrites .bg-white to
+                  --argus-surface, which would leave ink text on a dark pill. */}
+              <div
+                className="flex items-center gap-0.5 rounded p-0.5"
+                style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.18)' }}
+                role="group"
+                aria-label="View mode"
+              >
+                {([
+                  { value: 'table', label: 'Table', icon: LayoutList },
+                  { value: 'board', label: 'Board', icon: Kanban },
+                  { value: 'timeline', label: 'Timeline', icon: CalendarClock },
+                ] as const).map((opt) => {
+                  const Icon = opt.icon;
+                  const isActive = viewMode === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => { setViewMode(opt.value as ViewMode); setFocusedRowIdx(-1); }}
+                      aria-pressed={isActive}
+                      className={clsx(
+                        'cx-hero__btn !min-h-[28px] !px-2.5 !text-[12px]',
+                        !isActive && 'cx-hero__btn--ghost !border-transparent !bg-transparent'
+                      )}
+                    >
+                      <Icon size={13} strokeWidth={1.75} />
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <dl className="cx-hero__kpis cx-hero__kpis--5">
+            {([
+              { label: 'Active', value: stats.active, sub: 'open', tone: undefined },
+              { label: 'Critical', value: stats.critical, sub: 'p1', tone: 'danger' as const },
+              { label: 'High', value: stats.high, sub: 'p2', tone: 'warn' as const },
+              {
+                label: 'SLA breach',
+                value: stats.slaBreach,
+                sub: 'breached',
+                tone: stats.slaBreach > 0 ? ('danger' as const) : undefined,
+              },
+              { label: 'Resolved', value: stats.resolvedToday, sub: 'today', tone: undefined },
+            ]).map((kpi) => (
+              <div
+                key={kpi.label}
+                className={clsx('cx-hero__kpi', kpi.tone && `cx-hero__kpi--${kpi.tone}`)}
+              >
+                <dt className="cx-hero__kpi-label">{kpi.label}</dt>
+                <dd>
+                  <div className="cx-hero__kpi-value">{isLoading ? '—' : kpi.value}</div>
+                  <div className="cx-hero__kpi-sub">{kpi.sub}</div>
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </div>
+
+      {/* Breadcrumb + section heading, as on the Agent Registry */}
+      <nav className="cx-crumb" aria-label="Breadcrumb">
+        <Link to="/dashboard">Operate</Link>
+        <span aria-hidden>/</span>
+        <span className="cx-crumb__current">Incidents</span>
+      </nav>
+
+      <div className="cx-sectionhead">
+        <div className="min-w-0">
+          <h2 className="cx-sectionhead__title">Queue</h2>
+          <p className="cx-sectionhead__deck">
+            Search, filter and sort the queue. Click a row to open the incident record.
+          </p>
+        </div>
+        <span className="cx-sectionhead__meta">
+          <ShieldAlert size={13} strokeWidth={1.75} />
+          Row click opens the record
+        </span>
+      </div>
+
+      <div className="cx-posture">
+        <ShieldAlert size={14} strokeWidth={1.75} className="text-emerald" aria-hidden />
+        <span className="text-[12px] font-medium text-emerald">
+          {stats.slaBreach > 0 ? `${stats.slaBreach} SLA breach${stats.slaBreach === 1 ? '' : 'es'} need attention` : 'No SLA breaches'}
+        </span>
+        <span className="cx-posture__chip">{stats.active} active</span>
+        <span className="cx-posture__chip">{stats.critical} critical</span>
+        <span className="cx-posture__chip">{stats.resolvedToday} resolved today</span>
+      </div>
 
       <Toolbar>
+          {/* Record count + summary, as on the Agent Registry panel head */}
+          <div className="cx-listhead__count">
+            <span className="cx-listhead__count-value">
+              {isLoading ? '—' : `${pagination.total} incident${pagination.total === 1 ? '' : 's'}`}
+            </span>
+            <span className="cx-listhead__count-meta">
+              {selectedIds.size > 0 ? `${selectedIds.size} selected` : `page ${pagination.page} of ${pagination.totalPages || 1}`}
+            </span>
+          </div>
+
+          <div className="w-px h-5 bg-[color:var(--argus-border)] hidden sm:block" />
+
           {/* Search */}
           <div className="relative flex-1 min-w-[200px] max-w-md">
             <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-dim" />
