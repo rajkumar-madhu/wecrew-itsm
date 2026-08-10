@@ -1,0 +1,1093 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  WeCrew ITSM — Codex-style enterprise design system
+  Quiet, dense, hairline borders. Dark rail + light workspace.
+  No neon, no gradient glows, no SaaS candy — product UI density.
+*/
+
+:root,
+html.light {
+  color-scheme: light;
+  /* ── Sovereign brand primitives (sovereign.ops.wecrew.in) ── */
+  --brand-ink: #0e1116;
+  --brand-coral: #ff5b2e;
+  --brand-blue: #2b4cff;
+  --brand-green: #0f7a55;
+  --brand-paper: #f4f1ea;
+  --brand-paper-2: #ebe6dc;
+  /* Surfaces — warm paper workspace */
+  --argus-void: var(--brand-paper);
+  --argus-surface: #fffcf7;
+  --argus-elevated: #f7f4ee;
+  --argus-gunmetal: var(--brand-paper-2);
+  --argus-steel: #ddd6c8;
+  --argus-graphite: #a8a49c;
+  --argus-border: #ddd6c8;
+  --argus-border-strong: #d4cdc0;
+  --argus-ink: var(--brand-ink);
+  --argus-muted: #5c5a56;
+  --argus-dim: #8a867e;
+  --argus-chrome: #fffcf7;
+  --argus-chrome-hover: var(--brand-paper-2);
+  --argus-overlay: rgba(14, 17, 22, 0.45);
+  --argus-panel: #fffcf7;
+  --argus-panel-border: #ddd6c8;
+  --argus-panel-shadow: 0 1px 2px rgba(14, 17, 22, 0.06), 0 12px 32px -18px rgba(14, 17, 22, 0.16);
+  --argus-input-bg: #fffcf7;
+  --argus-input-border: #d4cdc0;
+  /* Primary — brand blue; coral is the accent/attention hue */
+  --argus-signal: var(--brand-blue);
+  --argus-signal-bright: #4a66ff;
+  --argus-signal-dim: rgba(43, 76, 255, 0.08);
+  --argus-coral: var(--brand-coral);
+  --argus-coral-bright: #ff7a54;
+  --argus-coral-dim: rgba(255, 91, 46, 0.1);
+  --argus-cyan: #0e7490;
+  --argus-cyan-dim: rgba(14, 116, 144, 0.1);
+  --argus-emerald: var(--brand-green);
+  --argus-emerald-dim: rgba(15, 122, 85, 0.1);
+  --argus-amber: #d97706;
+  --argus-amber-dim: rgba(217, 119, 6, 0.1);
+  --argus-crimson: #dc2626;
+  --argus-crimson-dim: rgba(220, 38, 38, 0.08);
+  --argus-violet: #7c3aed;
+  --argus-violet-dim: rgba(124, 58, 237, 0.1);
+  --argus-shadow-card: 0 1px 2px rgba(14, 17, 22, 0.06), 0 12px 32px -18px rgba(14, 17, 22, 0.16);
+  --argus-shadow-card-hover: 0 1px 2px rgba(14, 17, 22, 0.08), 0 16px 40px -20px rgba(14, 17, 22, 0.24);
+  --argus-shadow-glow: 0 0 0 3px rgba(43, 76, 255, 0.15);
+  --argus-grid: rgba(14, 17, 22, 0.04);
+  --argus-radial-brand: transparent;
+  --argus-bg-glow-1: transparent;
+  --argus-bg-glow-2: transparent;
+  /* App navigator — ink rail, coral active */
+  --argus-nav-bg: var(--brand-ink);
+  --argus-nav-border: #252b36;
+  --argus-nav-idle: #c8c4bc;
+  --argus-nav-hover: var(--brand-paper);
+  --argus-nav-active: #ffffff;
+  --argus-nav-icon: #8a867e;
+  --argus-nav-icon-active: var(--brand-coral);
+  --argus-nav-active-bg: rgba(255, 91, 46, 0.16);
+  --argus-nav-group: #8a867e;
+  --argus-scrollbar: rgba(138, 134, 126, 0.35);
+  --argus-rib: var(--brand-coral);
+  --argus-deck: var(--brand-ink);
+  --argus-header-h: 48px;
+  --argus-nav-w: 240px;
+  --argus-nav-w-collapsed: 56px;
+  --cx-radius: 6px;
+  --cx-radius-sm: 6px;
+  --cx-row-h: 40px;
+}
+
+html.dark {
+  color-scheme: dark;
+  --argus-void: var(--brand-ink);
+  --argus-surface: #141820;
+  --argus-elevated: #1a1f28;
+  --argus-gunmetal: #1a1f28;
+  --argus-steel: #2a3140;
+  --argus-graphite: #6b7689;
+  --argus-border: #252b36;
+  --argus-border-strong: #2a3140;
+  --argus-ink: var(--brand-paper);
+  --argus-muted: #a8a49c;
+  --argus-dim: #6b7689;
+  --argus-chrome: #141820;
+  --argus-chrome-hover: #1a1f28;
+  --argus-overlay: rgba(0, 0, 0, 0.6);
+  --argus-panel: #1a1f28;
+  --argus-panel-border: #252b36;
+  --argus-panel-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 16px 40px -24px rgba(255, 91, 46, 0.25);
+  --argus-input-bg: var(--brand-ink);
+  --argus-input-border: #2a3140;
+  --argus-signal: #6b85ff;
+  --argus-signal-bright: #8a9dff;
+  --argus-signal-dim: rgba(107, 133, 255, 0.14);
+  --argus-coral: var(--brand-coral);
+  --argus-coral-bright: #ff7a54;
+  --argus-coral-dim: rgba(255, 91, 46, 0.16);
+  --argus-cyan: #38bdf8;
+  --argus-cyan-dim: rgba(56, 189, 248, 0.12);
+  --argus-emerald: #34d399;
+  --argus-emerald-dim: rgba(52, 211, 153, 0.12);
+  --argus-amber: #fbbf24;
+  --argus-amber-dim: rgba(251, 191, 36, 0.12);
+  --argus-crimson: #f87171;
+  --argus-crimson-dim: rgba(248, 113, 113, 0.12);
+  --argus-violet: #a78bfa;
+  --argus-violet-dim: rgba(167, 139, 250, 0.12);
+  --argus-shadow-card: 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --argus-shadow-card-hover: 0 0 0 1px rgba(255, 91, 46, 0.25);
+  --argus-shadow-glow: 0 0 0 3px rgba(255, 91, 46, 0.25);
+  --argus-grid: rgba(255, 255, 255, 0.03);
+  --argus-radial-brand: rgba(255, 91, 46, 0.08);
+  --argus-bg-glow-1: transparent;
+  --argus-bg-glow-2: transparent;
+  --argus-nav-bg: #0a0c10;
+  --argus-nav-border: #252b36;
+  --argus-nav-idle: #c8c4bc;
+  --argus-nav-hover: var(--brand-paper);
+  --argus-nav-active: #ffffff;
+  --argus-nav-icon: #6b7689;
+  --argus-nav-icon-active: var(--brand-coral);
+  --argus-nav-active-bg: rgba(255, 91, 46, 0.18);
+  --argus-nav-group: #6b7689;
+  --argus-scrollbar: rgba(168, 164, 156, 0.3);
+  --argus-rib: var(--brand-coral);
+  --argus-deck: #0a0c10;
+}
+
+@layer base {
+  html {
+    @apply bg-void text-ink font-body antialiased;
+    overscroll-behavior-y: none;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+  body {
+    @apply min-h-screen m-0 bg-void text-ink;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+  input,
+  select,
+  textarea {
+    color-scheme: inherit;
+  }
+  @media (max-width: 640px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px;
+    }
+  }
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--argus-scrollbar);
+    border-radius: 4px;
+  }
+  ::selection {
+    background: rgba(27, 111, 212, 0.2);
+    color: inherit;
+  }
+  :focus-visible {
+    outline: 2px solid var(--argus-signal);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* ── Codex surface primitives ── */
+  .glass-card {
+    background: var(--argus-surface);
+    border: 1px solid var(--argus-border);
+    border-radius: var(--cx-radius);
+    box-shadow: none;
+  }
+  .glass-card-hover {
+    @apply glass-card transition-colors duration-100;
+  }
+  .glass-card-hover:hover {
+    border-color: var(--argus-border-strong);
+    background: var(--argus-elevated);
+  }
+  .glass-frosted {
+    background: var(--argus-surface);
+    border-radius: var(--cx-radius);
+    border: 1px solid var(--argus-border);
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-1.5 px-3 py-1.5 font-medium text-[13px] text-white transition-colors duration-100;
+    background: var(--argus-coral);
+    border: 1px solid transparent;
+    border-radius: var(--cx-radius-sm);
+    min-height: 32px;
+  }
+  .btn-primary:hover {
+    background: var(--argus-coral-bright);
+  }
+  .btn-gradient {
+    @apply btn-primary;
+  }
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-1.5 px-3 py-1.5 font-medium text-[13px] text-white transition-colors duration-100;
+    background: var(--argus-crimson);
+    border-radius: var(--cx-radius-sm);
+    min-height: 32px;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-[13px] transition-colors duration-100;
+    color: var(--argus-muted);
+    border-radius: var(--cx-radius-sm);
+    min-height: 32px;
+  }
+  .btn-ghost:hover {
+    color: var(--argus-ink);
+    background: var(--argus-chrome-hover);
+  }
+
+  /* ── Codex page chrome ── */
+  .cx-page {
+    @apply space-y-3 animate-fade-in;
+  }
+  .cx-page-header {
+    @apply flex items-start justify-between gap-3 flex-wrap;
+  }
+  .cx-page-header__left {
+    @apply flex items-start gap-3 min-w-0;
+  }
+  .cx-page-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--cx-radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: var(--argus-coral-dim);
+    border: 1px solid var(--argus-border);
+    color: var(--argus-coral);
+  }
+  .cx-page-title {
+    font-family: Fraunces, "IBM Plex Sans", ui-serif, Georgia, serif;
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    line-height: 1.2;
+    color: var(--argus-ink);
+    margin: 0;
+  }
+  .cx-page-subtitle {
+    margin: 0.2rem 0 0;
+    font-size: 0.8125rem;
+    color: var(--argus-muted);
+    line-height: 1.4;
+  }
+  .cx-page-actions {
+    @apply flex items-center gap-2 flex-shrink-0 flex-wrap;
+  }
+
+  .cx-kpi-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+  @media (min-width: 640px) {
+    .cx-kpi-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+  @media (min-width: 1024px) {
+    .cx-kpi-row { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  }
+  .cx-kpi-row--6 {
+    @media (min-width: 1024px) { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  }
+
+  .cx-kpi {
+    background: var(--argus-surface);
+    border: 1px solid var(--argus-border);
+    border-radius: var(--cx-radius);
+    padding: 0.75rem 0.875rem;
+    min-height: 72px;
+    box-shadow: var(--argus-shadow-card);
+  }
+  .cx-kpi__top {
+    @apply flex items-center justify-between gap-2 mb-1;
+  }
+  .cx-kpi__label {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--argus-dim);
+  }
+  .cx-kpi__icon {
+    position: relative;
+    color: var(--argus-dim);
+  }
+  .cx-kpi__value {
+    font-family: Fraunces, "IBM Plex Sans", ui-serif, Georgia, serif;
+    font-size: 1.75rem;
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--argus-ink);
+  }
+  .cx-kpi--danger .cx-kpi__value { color: var(--argus-crimson); }
+  .cx-kpi--warn .cx-kpi__value { color: var(--argus-amber); }
+  .cx-kpi--ok .cx-kpi__value { color: var(--argus-emerald); }
+  .cx-kpi--info .cx-kpi__value { color: var(--argus-signal); }
+  .cx-kpi--danger .cx-kpi__icon { color: var(--argus-crimson); }
+  .cx-kpi--warn .cx-kpi__icon { color: var(--argus-amber); }
+  .cx-kpi--ok .cx-kpi__icon { color: var(--argus-emerald); }
+  .cx-kpi--info .cx-kpi__icon { color: var(--argus-signal); }
+  .cx-kpi__pulse {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--argus-crimson);
+  }
+
+  .cx-panel {
+    background: var(--argus-surface);
+    border: 1px solid var(--argus-border);
+    border-radius: var(--cx-radius);
+    overflow: hidden;
+    box-shadow: var(--argus-shadow-card);
+  }
+  .cx-panel__head {
+    @apply flex items-center justify-between gap-2;
+    padding: 0.625rem 0.875rem;
+    border-bottom: 1px solid var(--argus-border);
+    min-height: 40px;
+  }
+  .cx-panel__title {
+    @apply flex items-center gap-2;
+    font-family: Fraunces, "IBM Plex Sans", ui-serif, Georgia, serif;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--argus-ink);
+  }
+  .cx-panel__actions {
+    @apply flex items-center gap-1.5;
+  }
+  .cx-panel__body {
+    padding: 0.875rem;
+  }
+
+  .cx-toolbar {
+    @apply flex flex-wrap items-center gap-2;
+    background: var(--argus-surface);
+    border: 1px solid var(--argus-border);
+    border-radius: var(--cx-radius);
+    padding: 0.5rem 0.625rem;
+  }
+
+  .cx-btn {
+    @apply inline-flex items-center justify-center gap-1.5 font-medium transition-colors duration-100;
+    font-size: 12.5px;
+    min-height: 32px;
+    padding: 0 0.75rem;
+    border-radius: var(--cx-radius-sm);
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .cx-btn--primary {
+    background: var(--argus-coral);
+    color: #fff;
+  }
+  .cx-btn--primary:hover {
+    background: var(--argus-coral-bright);
+  }
+  .cx-btn--ghost {
+    background: transparent;
+    color: var(--argus-muted);
+    border-color: var(--argus-border);
+  }
+  .cx-btn--ghost:hover,
+  .cx-btn--active {
+    color: var(--argus-ink);
+    background: var(--argus-elevated);
+    border-color: var(--argus-border-strong);
+  }
+
+  .cx-segmented {
+    @apply inline-flex items-center p-0.5;
+    background: var(--argus-elevated);
+    border: 1px solid var(--argus-border);
+    border-radius: var(--cx-radius-sm);
+  }
+  .cx-segmented__btn {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium transition-colors;
+    color: var(--argus-muted);
+    border-radius: 4px;
+    min-height: 28px;
+  }
+  .cx-segmented__btn:hover {
+    color: var(--argus-ink);
+  }
+  .cx-segmented__btn.is-active {
+    background: var(--argus-surface);
+    color: var(--argus-ink);
+    border: 1px solid var(--argus-border);
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+  }
+
+  /* Dense list table */
+  .cx-table-wrap {
+    background: var(--argus-surface);
+    border: 1px solid var(--argus-border);
+    border-radius: var(--cx-radius);
+    overflow: hidden;
+  }
+  .cx-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .cx-table thead th {
+    text-align: left;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--argus-dim);
+    background: var(--argus-elevated);
+    border-bottom: 1px solid var(--argus-border);
+    padding: 0.5rem 0.75rem;
+    white-space: nowrap;
+  }
+  .cx-table tbody td {
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid var(--argus-border);
+    color: var(--argus-ink);
+    vertical-align: middle;
+  }
+  .cx-table tbody tr {
+    height: var(--cx-row-h);
+    transition: background 80ms ease;
+  }
+  .cx-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+  .cx-table tbody tr:hover {
+    background: var(--argus-elevated);
+  }
+  .cx-table tbody tr:hover td {
+    color: var(--argus-ink);
+  }
+
+  .page-title {
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--argus-ink);
+    line-height: 1.25;
+  }
+  .page-subtitle {
+    font-size: 0.8125rem;
+    color: var(--argus-muted);
+    margin-top: 0.2rem;
+  }
+
+  .input-field {
+    @apply w-full px-3 py-2 rounded-md text-sm transition-all;
+    background: var(--argus-input-bg);
+    border: 1px solid var(--argus-input-border);
+    color: var(--argus-ink);
+  }
+  .input-field::placeholder {
+    color: var(--argus-dim);
+  }
+  .input-field:focus {
+    outline: none;
+    border-color: var(--argus-signal);
+    box-shadow: 0 0 0 3px var(--argus-signal-dim);
+  }
+
+  .filter-select {
+    @apply appearance-none text-xs font-medium py-2 pl-3 pr-8 rounded-md transition-all duration-150 cursor-pointer;
+    background-color: var(--argus-input-bg);
+    color: var(--argus-muted);
+    border: 1px solid var(--argus-input-border);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235C677A' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.6rem center;
+    min-width: 140px;
+  }
+  .filter-select:hover {
+    color: var(--argus-ink);
+  }
+  .filter-select:focus {
+    outline: none;
+    border-color: var(--argus-signal);
+    box-shadow: 0 0 0 3px var(--argus-signal-dim);
+  }
+  .filter-select--active {
+    color: var(--argus-signal);
+    background-color: var(--argus-signal-dim);
+    border-color: color-mix(in srgb, var(--argus-signal) 35%, transparent);
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium;
+  }
+
+  .priority-p1 {
+    background: var(--argus-crimson-dim);
+    color: var(--argus-crimson);
+    border: 1px solid color-mix(in srgb, var(--argus-crimson) 22%, transparent);
+  }
+  .priority-p2 {
+    background: var(--argus-amber-dim);
+    color: var(--argus-amber);
+    border: 1px solid color-mix(in srgb, var(--argus-amber) 22%, transparent);
+  }
+  .priority-p3 {
+    background: var(--argus-signal-dim);
+    color: var(--argus-signal);
+    border: 1px solid color-mix(in srgb, var(--argus-signal) 22%, transparent);
+  }
+  .priority-p4 {
+    background: var(--argus-emerald-dim);
+    color: var(--argus-emerald);
+    border: 1px solid color-mix(in srgb, var(--argus-emerald) 22%, transparent);
+  }
+
+  .state-new {
+    background: var(--argus-violet-dim);
+    color: var(--argus-violet);
+  }
+  .state-in-progress {
+    background: var(--argus-signal-dim);
+    color: var(--argus-signal);
+  }
+  .state-on-hold {
+    background: var(--argus-amber-dim);
+    color: var(--argus-amber);
+  }
+  .state-escalated {
+    background: var(--argus-crimson-dim);
+    color: var(--argus-crimson);
+  }
+  .state-resolved {
+    background: var(--argus-emerald-dim);
+    color: var(--argus-emerald);
+  }
+  .state-closed {
+    background: color-mix(in srgb, var(--argus-muted) 12%, transparent);
+    color: var(--argus-muted);
+  }
+
+  .row-accent-p1 {
+    border-left: 3px solid var(--argus-crimson);
+  }
+  .row-accent-p2 {
+    border-left: 3px solid var(--argus-amber);
+  }
+  .row-accent-p3 {
+    border-left: 3px solid var(--argus-signal);
+  }
+  .row-accent-p4 {
+    border-left: 3px solid var(--argus-emerald);
+  }
+
+  .section-label {
+    @apply text-[11px] font-semibold tracking-[0.06em] uppercase;
+    color: var(--argus-dim);
+  }
+
+  .sn-toolbar {
+    @apply cx-toolbar mb-0;
+  }
+
+  .sn-list-header {
+    @apply cx-page-header mb-1;
+  }
+
+  /* ══════════════════════════════════════════════════════════
+     Sovereign brand primitives — eyebrow / hero / signal strip
+     Mirrors sovereign.ops.wecrew.in Command Centre.
+     ══════════════════════════════════════════════════════════ */
+
+  /* Coral uppercase mono eyebrow above a section heading */
+  .cx-eyebrow {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--argus-coral);
+  }
+
+  /* Big Fraunces section heading + muted deck */
+  .cx-section-title {
+    font-family: Fraunces, "IBM Plex Sans", ui-serif, Georgia, serif;
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    line-height: 1.2;
+    color: var(--argus-ink);
+    margin: 0.25rem 0 0;
+  }
+  .cx-section-deck {
+    margin: 0.25rem 0 0;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--argus-muted);
+    max-width: 62ch;
+  }
+
+  /* Dark ink hero panel with warm gradient wash */
+  .cx-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--cx-radius);
+    background:
+      radial-gradient(120% 140% at 82% 18%, rgba(255, 91, 46, 0.28) 0%, transparent 58%),
+      radial-gradient(120% 150% at 100% 100%, rgba(43, 76, 255, 0.32) 0%, transparent 62%),
+      var(--brand-ink);
+    color: var(--brand-paper);
+    padding: 1.5rem;
+  }
+  .cx-hero__title {
+    font-family: Fraunces, "IBM Plex Sans", ui-serif, Georgia, serif;
+    font-size: 2rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.12;
+    color: #fff;
+    margin: 0.375rem 0 0;
+  }
+  .cx-hero__deck {
+    margin: 0.5rem 0 0;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: rgba(244, 241, 234, 0.72);
+    max-width: 58ch;
+  }
+  .cx-hero__kpis {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.625rem;
+  }
+  .cx-hero__kpi {
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--cx-radius-sm);
+    padding: 0.75rem 0.875rem;
+    min-width: 118px;
+  }
+  .cx-hero__kpi-label {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(244, 241, 234, 0.62);
+  }
+  .cx-hero__kpi-value {
+    font-family: Fraunces, "IBM Plex Sans", ui-serif, Georgia, serif;
+    font-size: 1.875rem;
+    font-weight: 600;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    color: #fff;
+    margin-top: 0.125rem;
+  }
+  .cx-hero__kpi--danger .cx-hero__kpi-value { color: #ff7a6b; }
+  .cx-hero__kpi--warn .cx-hero__kpi-value { color: #fbbf24; }
+  .cx-hero__kpi-sub {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    color: rgba(244, 241, 234, 0.5);
+    margin-top: 0.125rem;
+  }
+  .cx-hero__btn {
+    @apply inline-flex items-center justify-center gap-1.5 font-medium transition-colors duration-100;
+    font-size: 12.5px;
+    min-height: 34px;
+    padding: 0 0.875rem;
+    border-radius: var(--cx-radius-sm);
+    background: #fff;
+    color: var(--brand-ink);
+    border: 1px solid transparent;
+  }
+  .cx-hero__btn:hover { background: var(--brand-paper-2); }
+  .cx-hero__btn--ghost {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.18);
+  }
+  .cx-hero__btn--ghost:hover { background: rgba(255, 255, 255, 0.18); }
+
+  /* Divided stat strip — hairline separated columns */
+  .cx-signals {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    background: var(--argus-surface);
+    border: 1px solid var(--argus-border);
+    border-radius: var(--cx-radius);
+    box-shadow: var(--argus-shadow-card);
+    overflow: hidden;
+  }
+  @media (min-width: 640px) {
+    .cx-signals { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  }
+  @media (min-width: 1024px) {
+    .cx-signals { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+  }
+  .cx-signals__cell {
+    padding: 0.75rem 0.875rem;
+    border-right: 1px solid var(--argus-border);
+    border-top: 1px solid var(--argus-border);
+  }
+  .cx-signals__cell:nth-child(-n + 2) { border-top: none; }
+  @media (min-width: 640px) {
+    .cx-signals__cell:nth-child(-n + 4) { border-top: none; }
+  }
+  @media (min-width: 1024px) {
+    .cx-signals__cell { border-top: none; }
+    .cx-signals__cell:last-child { border-right: none; }
+  }
+  .cx-signals__label {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 9.5px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--argus-dim);
+  }
+  .cx-signals__value {
+    font-family: Fraunces, "IBM Plex Sans", ui-serif, Georgia, serif;
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    color: var(--argus-ink);
+    margin-top: 0.125rem;
+  }
+  .cx-signals__value--danger { color: var(--argus-crimson); }
+  .cx-signals__value--warn { color: var(--argus-amber); }
+  .cx-signals__sub {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--argus-dim);
+    margin-top: 0.125rem;
+  }
+
+  /* Status pill — healthy / degraded / alert */
+  .cx-pill {
+    @apply inline-flex items-center gap-1;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 0.125rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid transparent;
+  }
+  .cx-pill--ok {
+    background: var(--argus-emerald-dim);
+    color: var(--argus-emerald);
+    border-color: var(--argus-emerald-dim);
+  }
+  .cx-pill--warn {
+    background: var(--argus-amber-dim);
+    color: var(--argus-amber);
+    border-color: var(--argus-amber-dim);
+  }
+  .cx-pill--alert {
+    background: var(--argus-coral-dim);
+    color: var(--argus-coral);
+    border-color: var(--argus-coral-dim);
+  }
+  .cx-pill--danger {
+    background: var(--argus-crimson-dim);
+    color: var(--argus-crimson);
+    border-color: var(--argus-crimson-dim);
+  }
+  .cx-pill--neutral {
+    background: var(--argus-elevated);
+    color: var(--argus-muted);
+    border-color: var(--argus-border);
+  }
+
+  /* Read-only / posture strip — subtle tinted bar with chips */
+  .cx-posture {
+    @apply flex flex-wrap items-center gap-2;
+    background: var(--argus-emerald-dim);
+    border: 1px solid var(--argus-border);
+    border-radius: var(--cx-radius);
+    padding: 0.5rem 0.75rem;
+  }
+  .cx-posture__chip {
+    font-size: 11px;
+    color: var(--argus-muted);
+    background: var(--argus-surface);
+    border: 1px solid var(--argus-border);
+    border-radius: 999px;
+    padding: 0.0625rem 0.5rem;
+  }
+}
+
+/* Motion — restrained */
+@keyframes float-up {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-float-up {
+  animation: float-up 0.25s ease-out forwards;
+}
+.animate-scale-in {
+  animation: float-up 0.2s ease-out forwards;
+}
+.animate-fade-in {
+  animation: float-up 0.2s ease-out forwards;
+}
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent 25%, var(--argus-signal-dim) 50%, transparent 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-float-up,
+  .animate-scale-in,
+  .animate-fade-in,
+  .animate-shimmer {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+}
+
+/* Dark mode: remap stone utilities inside app shell */
+html.dark .app-shell .text-stone-950,
+html.dark .app-shell .text-stone-900,
+html.dark .app-shell .text-stone-800 {
+  color: var(--argus-ink) !important;
+}
+html.dark .app-shell .text-stone-700,
+html.dark .app-shell .text-stone-600 {
+  color: #cfcac1 !important;
+}
+html.dark .app-shell .text-stone-500,
+html.dark .app-shell .text-stone-400 {
+  color: var(--argus-muted) !important;
+}
+html.dark .app-shell .bg-white {
+  background-color: var(--argus-surface) !important;
+}
+html.dark .app-shell .bg-stone-50,
+html.dark .app-shell .bg-stone-100 {
+  background-color: var(--argus-elevated) !important;
+}
+html.dark .app-shell .border-stone-200,
+html.dark .app-shell .border-stone-100 {
+  border-color: var(--argus-border) !important;
+}
+
+/* Light mode: keep pages that use stone-* readable (no inversion) */
+
+.auth-light-panel {
+  color-scheme: light;
+}
+.auth-light-panel input,
+.auth-light-panel textarea {
+  color: #1a1f2c !important;
+  background-color: #ffffff !important;
+  border-color: #c5cdd8 !important;
+}
+.auth-light-panel input::placeholder {
+  color: #8b95a5 !important;
+}
+
+/* Hide old gimmick classes if present */
+.ops-pulse-rail {
+  display: none !important;
+}
+.ops-status-rib {
+  display: none !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Visibility safety net — light workspace contrast
+   Leftover dark-theme white text / glass panels vanish on
+   light workspace. Remap those; keep white on solid brand
+   buttons and dark rail (nav uses --argus-nav-bg).
+   ═══════════════════════════════════════════════════════════ */
+html.light .app-shell {
+  color: var(--argus-ink);
+}
+
+/* Near-white opacity text is rarely intentional on light workspace */
+html.light .app-shell .text-white\/80,
+html.light .app-shell .text-white\/70,
+html.light .app-shell .text-white\/60,
+html.light .app-shell .text-white\/55,
+html.light .app-shell .text-white\/50,
+html.light .app-shell .text-white\/40,
+html.light .app-shell .text-white\/35 {
+  color: var(--argus-muted) !important;
+}
+
+/* Solid text-white only when the element itself has no bg-* (not a button/badge) */
+html.light .app-shell .text-white:not([class*="bg-"]):not(.btn-primary):not(.btn-gradient):not(.btn-danger) {
+  color: var(--argus-ink) !important;
+}
+
+/* Dark app navigator keeps light text */
+html.light .app-shell aside .text-white,
+html.light .app-shell aside .text-white\/80,
+html.light .app-shell aside .text-white\/70,
+html.light .app-shell aside .text-white\/60,
+html.light .app-shell aside .text-white\/55,
+html.light .app-shell aside .text-white\/50,
+html.light .app-shell aside .text-white\/40,
+html.light .app-shell aside .text-white\/35 {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+html.light .app-shell aside .text-white {
+  color: #ffffff !important;
+}
+
+/* Soft white / ghost cards → solid elevated */
+html.light .app-shell .bg-white\/\[0\.02\],
+html.light .app-shell .bg-white\/\[0\.04\],
+html.light .app-shell .bg-white\/\[0\.05\],
+html.light .app-shell .bg-white\/\[0\.06\],
+html.light .app-shell .bg-white\/\[0\.08\],
+html.light .app-shell .bg-white\/\[0\.10\],
+html.light .app-shell .bg-white\/\[0\.14\],
+html.light .app-shell .hover\:bg-white\/\[0\.02\]:hover,
+html.light .app-shell .hover\:bg-white\/\[0\.10\]:hover,
+html.light .app-shell .hover\:bg-white\/\[0\.14\]:hover {
+  background-color: var(--argus-elevated) !important;
+}
+
+/* Ring / border white ghosts */
+html.light .app-shell .ring-white\/\[0\.1\],
+html.light .app-shell .border-white\/10,
+html.light .app-shell .border-white\/20,
+html.light .app-shell .border-white\/30 {
+  --tw-ring-color: var(--argus-border);
+  border-color: var(--argus-border) !important;
+}
+
+html.light .app-shell [class*="bg-obsidian"][class*="text-white"] {
+  color: var(--argus-ink) !important;
+}
+
+/* Table headers / secondary labels */
+html.light .app-shell th {
+  color: var(--argus-muted);
+}
+html.light .app-shell td {
+  color: var(--argus-ink);
+}
+
+/* Ensure page titles and card text readable */
+html.light .app-shell h1,
+html.light .app-shell h2,
+html.light .app-shell h3,
+html.light .app-shell h4 {
+  color: var(--argus-ink);
+}
+
+/* Glass cards always solid on light */
+html.light .app-shell .glass-card {
+  background: var(--argus-surface) !important;
+  border-color: var(--argus-border) !important;
+  color: var(--argus-ink);
+}
+
+/* Card / panel surfaces readable */
+html.light .app-shell .bg-obsidian,
+html.light .app-shell .bg-void {
+  color: var(--argus-ink);
+}
+
+/* Inputs always visible */
+html.light .app-shell input,
+html.light .app-shell select,
+html.light .app-shell textarea {
+  color: var(--argus-ink);
+  background-color: var(--argus-input-bg);
+}
+
+/* Placeholder */
+html.light .app-shell input::placeholder,
+html.light .app-shell textarea::placeholder {
+  color: var(--argus-dim);
+}
+
+/* Recharts ticks/grid leftover light greys → muted ink */
+html.light .app-shell .recharts-cartesian-axis-tick text {
+  fill: var(--argus-muted) !important;
+}
+html.light .app-shell .recharts-cartesian-grid line {
+  stroke: var(--argus-border) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Dark-surface exemptions — MUST stay last
+   The light-mode safety net above forces h1-h4 and .text-white
+   to ink so legacy dark-theme pages stay readable. The ink rail
+   and the Command Centre hero are genuinely dark surfaces, so
+   they have to opt back out — and they can only do that from
+   after the shim, at higher specificity.
+   ═══════════════════════════════════════════════════════════ */
+html.light .app-shell .cx-hero h1,
+html.light .app-shell .cx-hero h2,
+html.light .app-shell .cx-hero h3,
+html.light .app-shell .cx-hero .cx-hero__title {
+  color: #ffffff !important;
+}
+html.light .app-shell .cx-hero .cx-hero__kpi-value {
+  color: #ffffff !important;
+}
+html.light .app-shell .cx-hero .cx-hero__kpi--danger .cx-hero__kpi-value {
+  color: #ff7a6b !important;
+}
+html.light .app-shell .cx-hero .cx-hero__kpi--warn .cx-hero__kpi-value {
+  color: #fbbf24 !important;
+}
+html.light .app-shell .cx-hero .cx-eyebrow {
+  color: var(--argus-coral) !important;
+}
+/* Hero body copy / meta stay on the translucent-white scale */
+html.light .app-shell .cx-hero .text-white,
+html.light .app-shell .cx-hero .text-white\/90,
+html.light .app-shell .cx-hero .text-white\/70,
+html.light .app-shell .cx-hero .text-white\/60,
+html.light .app-shell .cx-hero .text-white\/50 {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+html.light .app-shell .cx-hero .text-white\/70 { color: rgba(255, 255, 255, 0.7) !important; }
+html.light .app-shell .cx-hero .text-white\/60 { color: rgba(255, 255, 255, 0.6) !important; }
+html.light .app-shell .cx-hero .text-white\/50 { color: rgba(255, 255, 255, 0.5) !important; }
+html.light .app-shell .cx-hero .cx-hero__btn {
+  color: var(--brand-ink) !important;
+}
+html.light .app-shell .cx-hero .cx-hero__btn--ghost {
+  color: #ffffff !important;
+}
+/* Ink navigator brand mark + user footer.
+   The safety-net rule carries four :not() clauses, so an override has to
+   match its class count (7) and win on element count to take effect. */
+html.light .app-shell aside .text-white:not([class*="bg-"]):not(.btn-primary):not(.btn-gradient):not(.btn-danger) {
+  color: #ffffff !important;
+}
