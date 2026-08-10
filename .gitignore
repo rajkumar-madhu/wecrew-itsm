@@ -32,3 +32,10 @@ docker-compose.override.yml
 
 # Live secrets (applied imperatively; template in secrets.example.yml)
 k8s/overlays/kind/secrets.yml
+
+# Editor/tooling backups — never commit (a .bak of a pre-redaction file
+# re-introduces the very credential the redaction removed)
+*.bak
+*.bak-*
+*.orig
+*.rej
