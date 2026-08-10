@@ -70,6 +70,15 @@ function k8sAuth(target) {
   return { token: target.token, username: target.username, password: target.password };
 }
 
+// These routes sit behind `authenticate` + `tenantContext` only — no `authorize(...)` —
+// so every role including VIEWER can reach them. `err.message` from k8sService carries
+// the raw kubectl/SSH text (bastion SSH user, customer server IP, SSH key path on
+// timeout, in-cluster service-account names); it belongs in the log, never in a body.
+// `err.clientMessage` is the category-level replacement.
+function k8sClientError(err) {
+  return `K8s API error: ${err.clientMessage || 'The cluster request failed.'}`;
+}
+
 // GET /api/v1/k8s/overview
 async function clusterOverview(req, res, next) {
   try {
@@ -83,7 +92,7 @@ async function clusterOverview(req, res, next) {
     return success(res, { org: target.orgName, serverIp: target.serverIp || target.apiUrl, ...overview });
   } catch (err) {
     logger.error('[K8s] clusterOverview error:', err.message);
-    return error(res, `K8s API error: ${err.message}`, 503);
+    return error(res, k8sClientError(err), 503);
   }
 }
 
@@ -101,7 +110,7 @@ async function listPods(req, res, next) {
     return success(res, { namespace, pods, total: pods.length });
   } catch (err) {
     logger.error('[K8s] listPods error:', err.message);
-    return error(res, `K8s API error: ${err.message}`, 503);
+    return error(res, k8sClientError(err), 503);
   }
 }
 
@@ -120,7 +129,7 @@ async function listDeployments(req, res, next) {
     return success(res, { namespace, deployments, total: deployments.length, healthy, unhealthy: deployments.length - healthy });
   } catch (err) {
     logger.error('[K8s] listDeployments error:', err.message);
-    return error(res, `K8s API error: ${err.message}`, 503);
+    return error(res, k8sClientError(err), 503);
   }
 }
 
@@ -138,7 +147,7 @@ async function listEvents(req, res, next) {
     return success(res, { namespace, events, total: events.length });
   } catch (err) {
     logger.error('[K8s] listEvents error:', err.message);
-    return error(res, `K8s API error: ${err.message}`, 503);
+    return error(res, k8sClientError(err), 503);
   }
 }
 
@@ -156,7 +165,7 @@ async function listServices(req, res, next) {
     return success(res, { namespace, services, total: services.length });
   } catch (err) {
     logger.error('[K8s] listServices error:', err.message);
-    return error(res, `K8s API error: ${err.message}`, 503);
+    return error(res, k8sClientError(err), 503);
   }
 }
 
@@ -181,6 +190,21 @@ async function syncK8sAssets(req, res, next) {
     const overview = target.method === 'direct'
       ? await k8s.getClusterOverviewDirect(target.apiUrl, k8sAuth(target))
       : await k8s.getClusterOverview(target.serverIp, target.sshPort, target.sshUser);
+
+    // Never persist a partial overview. A failed `get nodes` yields nodeCount 0 and
+    // nodesReady 0, and the cluster status below reads `0 === 0` as LIVE — so a
+    // sync run during a nodes-RBAC outage would overwrite the cluster CI with
+    // "0 node(s)", status LIVE, and upsert no node CIs, silently stranding the
+    // previously discovered ones while the CMDB asserts everything is healthy.
+    const coreDegraded = (overview.degraded || []).filter((d) => d !== 'metrics');
+    if (coreDegraded.length) {
+      return error(
+        res,
+        `Cluster data is incomplete (${coreDegraded.join(', ')} unavailable) — not syncing. ${(overview.warnings || []).join(' ')}`.trim(),
+        503
+      );
+    }
+
     const nodes = overview.nodes || [];
 
     let created = 0, updated = 0;
@@ -248,7 +272,7 @@ async function syncK8sAssets(req, res, next) {
     return success(res, { created, updated, total: created + updated, nodes: nodes.length });
   } catch (err) {
     logger.error('[K8s] syncK8sAssets error:', err.message);
-    return error(res, `K8s sync error: ${err.message}`, 503);
+    return error(res, `K8s sync error: ${err.clientMessage || 'The cluster request failed.'}`, 503);
   }
 }
 
@@ -273,7 +297,7 @@ async function podLogs(req, res, next) {
     return success(res, { pod, namespace, logs, total: logs.length });
   } catch (err) {
     logger.error('[K8s] podLogs error:', err.message);
-    return error(res, `K8s logs error: ${err.message}`, 503);
+    return error(res, `K8s logs error: ${err.clientMessage || 'The cluster request failed.'}`, 503);
   }
 }
 

@@ -95,6 +95,14 @@ function highlightSearch(text: string, search: string) {
   );
 }
 
+// The k8s controller now sends a category-level reason (`clientMessage`) instead of
+// raw kubectl/SSH text, so it is safe — and useful — to show the server's own words
+// rather than a hardcoded "check your SSH key" guess.
+function apiErrText(err: unknown): string {
+  const e = err as { response?: { data?: { error?: string } }; message?: string };
+  return e?.response?.data?.error || e?.message || 'The cluster request failed.';
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // Main Component
 // ═════════════════════════════════════════════════════════════════════════════
@@ -123,7 +131,10 @@ export default function K8sClusterDashboard() {
     refetchInterval: 30000,
   });
 
-  const { data: podsData, isLoading: podsLoading } = useQuery({
+  // podsErr is required, not cosmetic: /k8s/pods returns 503 when the namespace
+  // lookup is denied or the host is unreachable. Without capturing it the tab
+  // renders an empty table that is indistinguishable from an empty namespace.
+  const { data: podsData, isLoading: podsLoading, error: podsErr } = useQuery({
     queryKey: ['k8s-pods', selectedOrgId, namespace],
     queryFn: () => api.get(`/k8s/pods?namespace=${namespace}`, { headers }).then(r => r.data.data),
     enabled: tab === 'Pods',
@@ -183,7 +194,7 @@ export default function K8sClusterDashboard() {
   const [logSearch, setLogSearch] = useState('');
 
   // Fetch pod list for the Logs tab pod selector
-  const { data: logPodsData } = useQuery({
+  const { data: logPodsData, error: logPodsErr } = useQuery({
     queryKey: ['k8s-pods-for-logs', selectedOrgId, namespace],
     queryFn: () => api.get(`/k8s/pods?namespace=${namespace}`, { headers }).then(r => r.data.data),
     enabled: tab === 'Logs',
@@ -203,6 +214,10 @@ export default function K8sClusterDashboard() {
   ) || [];
 
   const ov = overviewData;
+  // The server marks a partial overview rather than silently zeroing it.
+  const degraded: string[] = ov?.degraded ?? [];
+  const nodesDegraded = degraded.includes('nodes');
+  const podsDegraded = degraded.includes('pods');
 
   return (
     <div className="animate-fade-in space-y-0" style={{ background: 'linear-gradient(180deg, #020A12 0%, #020810 40%, #060606 100%)', minHeight: '100vh', margin: '-1.5rem', padding: '1.5rem' }}>
@@ -261,19 +276,32 @@ export default function K8sClusterDashboard() {
                   <p className="text-amber-400">Please select an organization from the sidebar to view its K8s cluster.</p>
                 ) : (
                   <p className="text-red-400">
-                    Unable to connect to K8s cluster{selectedOrg ? ` (${selectedOrg.name})` : ''}.
-                    {' '}Ensure SSH key is configured and server is reachable.
+                    Unable to read the K8s cluster{selectedOrg ? ` (${selectedOrg.name})` : ''}.
+                    {' '}{apiErrText(ovErr)}
                   </p>
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                <StatCard label="Nodes Ready" value={`${ov?.nodesReady ?? 0}/${ov?.nodeCount ?? 0}`} icon={Server} iconColor="text-sky-400" delay={0} />
-                <StatCard label="Pods Running" value={ov?.pods?.running ?? 0} icon={Box} iconColor="text-[#6EE7B7]" delay={100} />
-                <StatCard label="Pods Pending" value={ov?.pods?.pending ?? 0} icon={Activity} iconColor="text-[#FCD34D]" delay={200} />
-                <StatCard label="Pods Failed" value={ov?.pods?.failed ?? 0} icon={XCircle} iconColor="text-red-400" pulse={Number(ov?.pods?.failed ?? 0) > 0} delay={300} />
-                <StatCard label="Total Pods" value={ov?.pods?.total ?? 0} icon={Layers} iconColor="text-indigo-400" delay={400} />
-              </div>
+              <>
+                {/* A partial overview must not read as a healthy empty cluster: when a
+                    core lookup fails the server marks it in `degraded`, and the
+                    affected tiles show "—" rather than a 0 an operator would trust. */}
+                {nodesDegraded || podsDegraded ? (
+                  <div className="mb-3 bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 text-xs text-amber-300">
+                    <p className="font-semibold">Partial cluster data — some figures below are unavailable, not zero.</p>
+                    <ul className="mt-1 space-y-0.5">
+                      {(ov?.warnings ?? []).map((w: string) => <li key={w}>• {w}</li>)}
+                    </ul>
+                  </div>
+                ) : null}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                  <StatCard label="Nodes Ready" value={nodesDegraded ? '—' : `${ov?.nodesReady ?? 0}/${ov?.nodeCount ?? 0}`} icon={Server} iconColor="text-sky-400" delay={0} />
+                  <StatCard label="Pods Running" value={podsDegraded ? '—' : ov?.pods?.running ?? 0} icon={Box} iconColor="text-[#6EE7B7]" delay={100} />
+                  <StatCard label="Pods Pending" value={podsDegraded ? '—' : ov?.pods?.pending ?? 0} icon={Activity} iconColor="text-[#FCD34D]" delay={200} />
+                  <StatCard label="Pods Failed" value={podsDegraded ? '—' : ov?.pods?.failed ?? 0} icon={XCircle} iconColor="text-red-400" pulse={!podsDegraded && Number(ov?.pods?.failed ?? 0) > 0} delay={300} />
+                  <StatCard label="Total Pods" value={podsDegraded ? '—' : ov?.pods?.total ?? 0} icon={Layers} iconColor="text-indigo-400" delay={400} />
+                </div>
+              </>
             )}
           </div>
         </div>
@@ -407,6 +435,17 @@ export default function K8sClusterDashboard() {
           </div>
           {podsLoading ? (
             <div className="p-12 text-center text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>Loading pods…</div>
+          ) : podsErr ? (
+            /* /k8s/pods 503s on a denied or unreachable namespace. Without this
+               branch the failure was indistinguishable from an empty namespace. */
+            <div className="m-4 bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-sm text-red-400">
+              <p className="font-semibold">Could not list pods in {namespace}.</p>
+              <p className="mt-1 text-red-300/80">{apiErrText(podsErr)}</p>
+            </div>
+          ) : podsData?.pods?.length === 0 ? (
+            <div className="p-12 text-center text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
+              No pods in {namespace}.
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -584,12 +623,19 @@ export default function K8sClusterDashboard() {
                   className="flex-1 text-[12px] rounded-lg px-3 py-1.5 font-mono focus:outline-none"
                   style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#E2EEF9' }}
                 >
-                  <option value="" style={{ background: '#020A12' }}>Select a pod…</option>
+                  <option value="" style={{ background: '#020A12' }}>
+                    {/* An empty selector after a 503 used to look identical to a
+                        namespace with no pods, leaving the tab unusable with no reason. */}
+                    {logPodsErr ? 'Pod list unavailable' : 'Select a pod…'}
+                  </option>
                   {logPodsData?.pods?.map((p: any) => (
                     <option key={p.name} value={p.name} style={{ background: '#020A12' }}>{p.name}</option>
                   ))}
                 </select>
               </div>
+              {logPodsErr && (
+                <p className="w-full text-[11px] text-red-400">{apiErrText(logPodsErr)}</p>
+              )}
 
               {/* Since */}
               <div className="flex items-center gap-0.5 rounded-lg p-0.5" style={{ background: 'rgba(255,255,255,0.06)' }}>

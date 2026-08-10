@@ -25,17 +25,100 @@ function sshCmd(serverIp, sshPort = 4422, sshUser = 'finadmin', connectTimeout =
     ${sshUser}@${serverIp}`;
 }
 
+// kubectl stderr is kept, not discarded: swallowing it turns "Forbidden" or
+// "connection refused" into an empty resource list, which renders as a healthy
+// but empty cluster. Failures must reach the caller with their reason.
+//
+// Two audiences, two messages:
+//   err.message       full detail — command, host identity, raw stderr. LOG ONLY.
+//   err.clientMessage category-level text, safe for an HTTP body.
+// The split is load-bearing. k8s.routes.js mounts every read endpoint behind
+// `authenticate` + `tenantContext` with no `authorize(...)`, so a VIEWER can call
+// them; raw kubectl/SSH stderr names the bastion SSH user, the customer's server
+// IP, the SSH key path on timeout, and in-cluster service-account identities.
+const CLIENT_MESSAGES = [
+  [/forbidden|cannot list|cannot get|unauthorized|is not allowed/i,
+    'The cluster denied access for the configured credentials.'],
+  [/unable to connect to the server|connection refused|no route to host|network is unreachable|dial tcp|i\/o timeout/i,
+    'The cluster could not be reached.'],
+  [/permission denied|host key verification|connection closed by|ssh: /i,
+    'The connection to the cluster host failed.'],
+  [/command not found|executable file not found|kubectl: not found/i,
+    'kubectl is not available on the target host.'],
+  [/etimedout|timed out|timeout/i,
+    'The cluster request timed out.'],
+];
+
+const GENERIC_CLIENT_MESSAGE = 'The cluster request failed.';
+
+function clientMessageFor(text) {
+  for (const [pattern, message] of CLIENT_MESSAGES) {
+    if (pattern.test(text)) return message;
+  }
+  return GENERIC_CLIENT_MESSAGE;
+}
+
+function kubectlError(cmdDesc, err) {
+  const stderr = (err.stderr || '').trim();
+  const raw = stderr || err.message || '';
+  const detail = raw.trim().split('\n')[0] || 'unknown error';
+  const wrapped = new Error(`kubectl ${cmdDesc} failed: ${detail}`, { cause: err });
+  wrapped.kubectlStderr = stderr;
+  wrapped.clientMessage = clientMessageFor(raw);
+  return wrapped;
+}
+
+// Both core lookups down: carry both reasons. Throwing only the nodes reason sent
+// operators after an RBAC problem while the actionable cause — "unable to connect
+// to the server", present only in the pods reason — never left the server log.
+function combinedKubectlError(entries) {
+  if (entries.length === 1) return entries[0][1];
+  const message = entries
+    .map(([label, err]) => `${label}: ${err?.message || 'unknown error'}`)
+    .join('; ');
+  const wrapped = new Error(message);
+  wrapped.kubectlStderr = entries
+    .map(([label, err]) => `${label}: ${err?.kubectlStderr || '(no stderr)'}`)
+    .join('\n');
+  const clientParts = [...new Set(entries.map(([, err]) => err?.clientMessage || GENERIC_CLIENT_MESSAGE))];
+  wrapped.clientMessage = clientParts.join(' ');
+  return wrapped;
+}
+
+// One place to classify a settled kubectl result. Both getClusterOverview and
+// getNamespacePods route through it so the same condition — a missing
+// metrics-server, say — cannot log at error level in one and warn in the other.
+// `required: false` means the caller can proceed without it.
+function readSettled(label, settled, { required }) {
+  if (settled.status === 'fulfilled') return { ok: true, value: settled.value };
+  const reason = settled.reason;
+  const detail = reason?.kubectlStderr ? `\n${reason.kubectlStderr}` : '';
+  const line = `k8s: ${label} lookup failed — ${reason?.message}${detail}`;
+  if (required) logger.error(line);
+  else logger.warn(line);
+  return { ok: false, reason };
+}
+
 // Local kubectl (runs directly on the API pod — for the Argus cluster itself)
 async function localKubectl(kubectlArgs) {
-  const cmd = `kubectl ${kubectlArgs} 2>/dev/null`;
-  const { stdout } = await execAsync(cmd, { timeout: 20000, maxBuffer: 10 * 1024 * 1024 });
-  return stdout.trim();
+  try {
+    const { stdout } = await execAsync(`kubectl ${kubectlArgs}`, {
+      timeout: 20000, maxBuffer: 10 * 1024 * 1024,
+    });
+    return stdout.trim();
+  } catch (err) {
+    throw kubectlError(`${kubectlArgs} (local)`, err);
+  }
 }
 
 async function remoteKubectl(serverIp, kubectlArgs, sshPort = 4422, sshUser = 'finadmin') {
-  const cmd = `${sshCmd(serverIp, sshPort, sshUser)} "kubectl ${kubectlArgs} 2>/dev/null"`;
-  const { stdout } = await execAsync(cmd, { timeout: 15000, maxBuffer: 10 * 1024 * 1024 });
-  return stdout.trim();
+  try {
+    const cmd = `${sshCmd(serverIp, sshPort, sshUser)} "kubectl ${kubectlArgs}"`;
+    const { stdout } = await execAsync(cmd, { timeout: 15000, maxBuffer: 10 * 1024 * 1024 });
+    return stdout.trim();
+  } catch (err) {
+    throw kubectlError(`${kubectlArgs} (${sshUser}@${serverIp})`, err);
+  }
 }
 
 // Unified kubectl — uses local or remote based on whether serverIp is provided
@@ -52,16 +135,43 @@ async function getClusterOverview(serverIp, sshPort = 4422, sshUser = 'finadmin'
   const [nodesRaw, podsRaw, metricsRaw] = await Promise.allSettled([
     kubectl('get nodes -o json', serverIp, sshPort, sshUser),
     kubectl('get pods --all-namespaces -o json', serverIp, sshPort, sshUser),
-    kubectl('top nodes --no-headers 2>/dev/null || echo ""', serverIp, sshPort, sshUser),
+    // No `2>/dev/null || echo ""` here. `|| echo ""` forces shell exit status 0, so
+    // a denied or absent metrics-server resolved as an empty string: every node came
+    // back with blank CPU/memory and nothing anywhere said why. Let it reject —
+    // readSettled marks it optional, so the failure is reported, not fatal.
+    kubectl('top nodes --no-headers', serverIp, sshPort, sshUser),
   ]);
 
-  const nodes = nodesRaw.status === 'fulfilled' ? JSON.parse(nodesRaw.value).items || [] : [];
-  const pods = podsRaw.status === 'fulfilled' ? JSON.parse(podsRaw.value).items || [] : [];
+  const nodesRes = readSettled('nodes', nodesRaw, { required: true });
+  const podsRes = readSettled('pods', podsRaw, { required: true });
+  const metricsRes = readSettled('node metrics', metricsRaw, { required: false });
+
+  // Both core lookups down means the cluster is unreachable or access is denied —
+  // that is an error, not an empty cluster.
+  if (!nodesRes.ok && !podsRes.ok) {
+    throw combinedKubectlError([['nodes', nodesRes.reason], ['pods', podsRes.reason]]);
+  }
+
+  // One core lookup down is reported as a degraded response rather than a hard
+  // failure, so an operator can still read node health while pods are denied.
+  // `degraded` is the machine-readable half: syncK8sAssets refuses to write the
+  // CMDB from a partial overview, and the dashboard labels the affected panels.
+  const degraded = [];
+  const warnings = [];
+  for (const [label, res] of [['nodes', nodesRes], ['pods', podsRes], ['metrics', metricsRes]]) {
+    if (!res.ok) {
+      degraded.push(label);
+      warnings.push(`${label}: ${res.reason?.clientMessage || GENERIC_CLIENT_MESSAGE}`);
+    }
+  }
+
+  const nodes = nodesRes.ok ? JSON.parse(nodesRes.value).items || [] : [];
+  const pods = podsRes.ok ? JSON.parse(podsRes.value).items || [] : [];
 
   // Parse node metrics (kubectl top nodes --no-headers output)
   const nodeMetrics = {};
-  if (metricsRaw.status === 'fulfilled' && metricsRaw.value) {
-    for (const line of metricsRaw.value.split('\n').filter(Boolean)) {
+  if (metricsRes.ok && metricsRes.value) {
+    for (const line of metricsRes.value.split('\n').filter(Boolean)) {
       const parts = line.trim().split(/\s+/);
       if (parts.length >= 5) {
         nodeMetrics[parts[0]] = { cpu: parts[1], cpuPct: parts[2], mem: parts[3], memPct: parts[4] };
@@ -109,6 +219,10 @@ async function getClusterOverview(serverIp, sshPort = 4422, sshUser = 'finadmin'
     nodesReady: nodeList.filter(n => n.status === 'Ready').length,
     pods: { total: pods.length, running: totalRunning, pending: totalPending, failed: totalFailed },
     namespaces: nsSummary,
+    // Present only on partial failure, so the UI can say why a section is empty
+    // and syncK8sAssets can refuse to persist it. `warnings` carries the
+    // client-safe reasons; `degraded` names the sections that are not trustworthy.
+    ...(degraded.length ? { degraded, warnings } : {}),
   };
 }
 
@@ -117,15 +231,22 @@ async function getClusterOverview(serverIp, sshPort = 4422, sshUser = 'finadmin'
 async function getNamespacePods(serverIp, namespace = 'fs-linkedeye', sshPort = 4422, sshUser = 'finadmin') {
   const [podsRaw, metricsRaw] = await Promise.allSettled([
     kubectl(`get pods -n ${namespace} -o json`, serverIp, sshPort, sshUser),
-    kubectl(`top pods -n ${namespace} --no-headers 2>/dev/null || echo ""`, serverIp, sshPort, sshUser),
+    // See getClusterOverview: no `2>/dev/null || echo ""`, or the failure is invisible.
+    kubectl(`top pods -n ${namespace} --no-headers`, serverIp, sshPort, sshUser),
   ]);
 
-  const pods = podsRaw.status === 'fulfilled' ? JSON.parse(podsRaw.value).items || [] : [];
+  const podsRes = readSettled(`pods in ${namespace}`, podsRaw, { required: true });
+  const metricsRes = readSettled(`pod metrics in ${namespace}`, metricsRaw, { required: false });
+
+  // A failed pod lookup is an error, not an empty namespace.
+  if (!podsRes.ok) throw podsRes.reason;
+
+  const pods = JSON.parse(podsRes.value).items || [];
 
   // Parse pod metrics
   const podMetrics = {};
-  if (metricsRaw.status === 'fulfilled' && metricsRaw.value) {
-    for (const line of metricsRaw.value.split('\n').filter(Boolean)) {
+  if (metricsRes.ok && metricsRes.value) {
+    for (const line of metricsRes.value.split('\n').filter(Boolean)) {
       const parts = line.trim().split(/\s+/);
       if (parts.length >= 3) podMetrics[parts[0]] = { cpu: parts[1], mem: parts[2] };
     }
