@@ -10,3 +10,6 @@ README.md
 .vscode
 coverage
 .nyc_output
+__tests__
+**/__tests__
+*.test.js
