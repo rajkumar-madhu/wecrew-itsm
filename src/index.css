@@ -906,6 +906,248 @@ html.dark {
     font-size: 11.5px;
     color: var(--argus-dim);
   }
+
+  /* ── Inspector rail ──────────────────────────────────────
+     Right-hand details panel, as on the Agent Registry. A genuinely dark
+     surface on the paper workspace, so like .cx-hero it needs the opt-out
+     block at the very end of this file to keep its light text.
+     ─────────────────────────────────────────────────────── */
+  .cx-inspector {
+    position: fixed;
+    top: var(--argus-header-h);
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    background: var(--brand-ink);
+    border-left: 1px solid #252b36;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  @media (min-width: 1024px) {
+    .cx-inspector { width: 320px; }
+  }
+  /* Reserve the rail's width so the table is not sitting underneath it. */
+  @media (min-width: 1024px) {
+    .cx-page--inspect { padding-right: 336px; }
+  }
+
+  .cx-inspector__head {
+    @apply flex items-center justify-between gap-2 shrink-0;
+    padding: 0.75rem 0.875rem;
+    border-bottom: 1px solid #252b36;
+  }
+  .cx-inspector__head-label {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: rgba(244, 241, 234, 0.85);
+  }
+  .cx-inspector__close {
+    @apply grid place-items-center rounded transition-colors;
+    width: 26px;
+    height: 26px;
+    color: rgba(244, 241, 234, 0.6);
+  }
+  .cx-inspector__close:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.1);
+  }
+  .cx-inspector__body {
+    padding: 0.875rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .cx-inspector__title {
+    font-family: Fraunces, "IBM Plex Sans", ui-serif, Georgia, serif;
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    line-height: 1.15;
+    color: #fff;
+    margin: 0.125rem 0 0;
+  }
+  .cx-inspector__sub {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10.5px;
+    color: rgba(244, 241, 234, 0.5);
+    margin-top: 0.25rem;
+  }
+  .cx-inspector__deck {
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: rgba(244, 241, 234, 0.72);
+    margin: 0.375rem 0 0;
+  }
+  .cx-inspector__section {
+    font-family: Fraunces, "IBM Plex Sans", ui-serif, Georgia, serif;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #fff;
+    margin: 0;
+  }
+  .cx-inspector__muted {
+    font-size: 12px;
+    line-height: 1.5;
+    color: rgba(244, 241, 234, 0.55);
+    margin: 0.25rem 0 0;
+  }
+  .cx-inspector__eyebrow {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 9.5px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(244, 241, 234, 0.45);
+  }
+
+  /* key/value chip — mono key, lighter value */
+  .cx-inspector__chip {
+    @apply flex items-center gap-2 rounded;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 0.3125rem 0.5rem;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10.5px;
+    min-width: 0;
+  }
+  .cx-inspector__chip-key {
+    color: rgba(244, 241, 234, 0.45);
+    flex-shrink: 0;
+  }
+  .cx-inspector__chip-val {
+    color: rgba(244, 241, 234, 0.9);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .cx-inspector__stat {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--cx-radius-sm);
+    padding: 0.5rem 0.625rem;
+  }
+  .cx-inspector__stat-label {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 9.5px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(244, 241, 234, 0.5);
+  }
+  .cx-inspector__stat-value {
+    font-family: Fraunces, "IBM Plex Sans", ui-serif, Georgia, serif;
+    font-size: 1.375rem;
+    font-weight: 600;
+    line-height: 1.15;
+    color: #fff;
+    margin-top: 0.0625rem;
+  }
+  .cx-inspector__stat-value--danger { color: #ff7a6b; }
+  .cx-inspector__stat-value--warn { color: #fbbf24; }
+
+  .cx-inspector__meter {
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    overflow: hidden;
+  }
+  .cx-inspector__meter-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: var(--brand-blue);
+  }
+  .cx-inspector__meter-fill--danger { background: #ff7a6b; }
+  .cx-inspector__meter-fill--warn { background: #fbbf24; }
+
+  /* Stacked jump actions: one coral primary, the rest recessed */
+  .cx-inspector__jump {
+    @apply flex items-center gap-1.5 w-full rounded transition-colors;
+    padding: 0.4375rem 0.625rem;
+    font-size: 12px;
+    font-weight: 500;
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(244, 241, 234, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .cx-inspector__jump:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.1);
+  }
+  .cx-inspector__jump--primary {
+    background: var(--brand-coral);
+    color: #fff;
+    border-color: transparent;
+  }
+  .cx-inspector__jump--primary:hover {
+    background: var(--argus-coral-bright);
+    color: #fff;
+  }
+
+  /* Idle-state list (Sovereign shows "Lowest trust" here) */
+  .cx-inspector__row {
+    @apply flex items-center justify-between gap-2 w-full rounded text-left transition-colors;
+    padding: 0.375rem 0.5rem;
+    border: 1px solid transparent;
+  }
+  .cx-inspector__row:hover {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  .cx-inspector__row-name {
+    font-size: 12px;
+    color: rgba(244, 241, 234, 0.9);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cx-inspector__row-meta {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10px;
+    color: rgba(244, 241, 234, 0.45);
+  }
+  .cx-inspector__row-score {
+    font-family: Fraunces, "IBM Plex Sans", ui-serif, Georgia, serif;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .cx-inspector__foot {
+    font-size: 11px;
+    line-height: 1.5;
+    color: rgba(244, 241, 234, 0.4);
+    padding-top: 0.25rem;
+  }
+
+  /* Status chip for the dark rail. cx-pill is not reused here: its tones are
+     tinted for the paper workspace (dark green on 10%-alpha green), which is
+     close to unreadable on ink. */
+  .cx-inspector__status {
+    @apply inline-flex items-center gap-1 shrink-0;
+    font-size: 10.5px;
+    font-weight: 500;
+    padding: 0.125rem 0.4375rem;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(244, 241, 234, 0.85);
+  }
+  .cx-inspector__status--ok {
+    background: rgba(52, 211, 153, 0.16);
+    color: #6ee7b7;
+  }
+  .cx-inspector__status--warn {
+    background: rgba(251, 191, 36, 0.16);
+    color: #fcd34d;
+  }
+  .cx-inspector__status--danger {
+    background: rgba(255, 122, 107, 0.16);
+    color: #ff9f94;
+  }
 }
 
 /* Motion — restrained */
@@ -1167,5 +1409,41 @@ html.light .app-shell .cx-hero .cx-hero__btn--ghost {
    The safety-net rule carries four :not() clauses, so an override has to
    match its class count (7) and win on element count to take effect. */
 html.light .app-shell aside .text-white:not([class*="bg-"]):not(.btn-primary):not(.btn-gradient):not(.btn-danger) {
+  color: #ffffff !important;
+}
+
+/* Inspector rail — same opt-out reason as .cx-hero above. The safety net inks
+   h1-h4 inside .app-shell so legacy dark-theme pages stay readable on the light
+   workspace, but this rail is a genuinely dark surface, so its headings and
+   body copy have to be restored from after the shim. */
+html.light .app-shell .cx-inspector h1,
+html.light .app-shell .cx-inspector h2,
+html.light .app-shell .cx-inspector h3,
+html.light .app-shell .cx-inspector h4,
+html.light .app-shell .cx-inspector .cx-inspector__title,
+html.light .app-shell .cx-inspector .cx-inspector__section,
+html.light .app-shell .cx-inspector .cx-inspector__stat-value,
+html.light .app-shell .cx-inspector .cx-inspector__row-score {
+  color: #ffffff !important;
+}
+html.light .app-shell .cx-inspector .cx-inspector__stat-value--danger {
+  color: #ff7a6b !important;
+}
+html.light .app-shell .cx-inspector .cx-inspector__stat-value--warn {
+  color: #fbbf24 !important;
+}
+/* The rail's surfaces are white-alpha on ink; the shim would flatten them to
+   the light elevated colour and erase the panel. */
+html.light .app-shell .cx-inspector .bg-white\/\[0\.05\],
+html.light .app-shell .cx-inspector .bg-white\/\[0\.06\],
+html.light .app-shell .cx-inspector .bg-white\/\[0\.10\] {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+html.light .app-shell .cx-inspector .border-white\/10,
+html.light .app-shell .cx-inspector .border-white\/20 {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+/* Primary jump keeps white-on-coral; the safety net would ink the label. */
+html.light .app-shell .cx-inspector .cx-inspector__jump--primary {
   color: #ffffff !important;
 }

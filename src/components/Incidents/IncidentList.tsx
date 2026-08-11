@@ -6,7 +6,7 @@ import {
   LayoutList, Kanban, CalendarClock, Flame,
   Hash, Mail, Mic, Radio, Globe, Zap, UserPlus, ArrowUpRight,
   CheckCircle2, Eye, Activity, TrendingUp,
-  ChevronsUpDown, SlidersHorizontal,
+  ChevronsUpDown, SlidersHorizontal, PanelRight,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useIncidents } from '../../hooks/useIncidents';
@@ -245,6 +245,204 @@ function SourceBadge({ source }: { source?: string }) {
       <IconComp size={10} />
       {source.charAt(0) + source.slice(1).toLowerCase()}
     </span>
+  );
+}
+
+// =============================================================================
+// Inspector rail — the details panel from sovereign.ops.wecrew.in/agents.
+// Closed until a row is clicked. When nothing is selected it shows the queue's
+// most urgent SLA clocks, mirroring the registry's idle "Lowest trust" list.
+// =============================================================================
+
+/** Compact age, e.g. "14h" / "3d". Kept local; the table uses relative "ago" text. */
+function shortAge(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(ms / 60000);
+  if (mins < 60) return `${Math.max(mins, 0)}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h`;
+  return `${Math.floor(hours / 24)}d`;
+}
+
+function InspectorChip({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="cx-inspector__chip">
+      <span className="cx-inspector__chip-key">{label}</span>
+      <span className="cx-inspector__chip-val" title={value}>{value}</span>
+    </div>
+  );
+}
+
+function IncidentInspector({
+  incident,
+  queue,
+  onClose,
+  onSelect,
+  onOpen,
+}: {
+  incident: Incident | null;
+  queue: Incident[];
+  onClose: () => void;
+  onSelect: (id: string) => void;
+  onOpen: (id: string) => void;
+}) {
+  // Idle list: unresolved incidents with the least SLA headroom first.
+  const atRisk = useMemo(
+    () =>
+      queue
+        .filter((i) => !['RESOLVED', 'CLOSED'].includes(i.state))
+        .map((i) => ({ incident: i, sla: getSlaProgress(i) }))
+        .sort((a, b) => b.sla.percent - a.sla.percent)
+        .slice(0, 5),
+    [queue]
+  );
+
+  const sla = incident ? getSlaProgress(incident) : null;
+  const stateTone = (state: IncidentState) =>
+    state === 'RESOLVED' || state === 'CLOSED' ? 'ok' : state === 'ON_HOLD' ? 'warn' : 'danger';
+
+  return (
+    <aside className="cx-inspector" aria-label="Incident details">
+      <div className="cx-inspector__head">
+        <span className="cx-inspector__head-label">Incident details</span>
+        <button type="button" onClick={onClose} className="cx-inspector__close" aria-label="Close details panel">
+          <X size={14} strokeWidth={2} />
+        </button>
+      </div>
+
+      <div className="cx-inspector__body">
+        {incident && sla ? (
+          <>
+            <div>
+              <div className="flex items-start justify-between gap-2">
+                <span className="cx-inspector__eyebrow">{incident.category || 'uncategorised'}</span>
+                <span className={clsx('cx-inspector__status', `cx-inspector__status--${stateTone(incident.state)}`)}>
+                  {STATE_CONFIG[incident.state]?.label ?? incident.state}
+                </span>
+              </div>
+              <h3 className="cx-inspector__title">{incident.number}</h3>
+              <p className="cx-inspector__deck">{incident.shortDescription}</p>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <InspectorChip label="priority" value={incident.priority} />
+              <InspectorChip
+                label="assignee"
+                value={
+                  incident.assignedTo
+                    ? `${incident.assignedTo.firstName} ${incident.assignedTo.lastName}`
+                    : 'unassigned'
+                }
+              />
+              <InspectorChip label="source" value={(incident.source || 'unknown').toLowerCase()} />
+              {incident.configItem?.name && <InspectorChip label="ci" value={incident.configItem.name} />}
+              {incident.assignmentGroup?.name && (
+                <InspectorChip label="group" value={incident.assignmentGroup.name} />
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className="cx-inspector__stat">
+                <div className="cx-inspector__stat-label">Age</div>
+                <div className="cx-inspector__stat-value">{shortAge(incident.createdAt)}</div>
+              </div>
+              <div className="cx-inspector__stat">
+                <div className="cx-inspector__stat-label">Impact</div>
+                <div className="cx-inspector__stat-value">
+                  {incident.impact ? incident.impact.charAt(0).toUpperCase() : '—'}
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="cx-inspector__eyebrow">SLA budget</span>
+                <span
+                  className={clsx(
+                    'font-mono text-[10.5px]',
+                    sla.status === 'danger' ? 'text-[#ff9f94]' : sla.status === 'warning' ? 'text-[#fcd34d]' : 'text-white/70'
+                  )}
+                >
+                  {incident.slaBreached ? 'breached' : `${sla.percent}%`}
+                </span>
+              </div>
+              <div className="cx-inspector__meter mt-1.5">
+                <div
+                  className={clsx(
+                    'cx-inspector__meter-fill',
+                    sla.status === 'danger' && 'cx-inspector__meter-fill--danger',
+                    sla.status === 'warning' && 'cx-inspector__meter-fill--warn'
+                  )}
+                  style={{ width: `${sla.percent}%` }}
+                />
+              </div>
+            </div>
+
+            <div>
+              <h3 className="cx-inspector__section">Opened</h3>
+              <p className="cx-inspector__muted">{new Date(incident.createdAt).toLocaleString()}</p>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <span className="cx-inspector__eyebrow">Jumps</span>
+              <button
+                type="button"
+                onClick={() => onOpen(incident.id)}
+                className="cx-inspector__jump cx-inspector__jump--primary"
+              >
+                <ArrowUpRight size={13} strokeWidth={2} />
+                Open incident
+              </button>
+              <button type="button" onClick={onClose} className="cx-inspector__jump">
+                Back to queue
+              </button>
+            </div>
+
+            <p className="cx-inspector__foot">
+              This panel is read-only. Use Open incident to edit, assign or add work notes.
+            </p>
+          </>
+        ) : (
+          <>
+            <div>
+              <h3 className="cx-inspector__section">Select an incident</h3>
+              <p className="cx-inspector__muted">
+                Click a queue row to inspect priority, SLA and assignment here.
+              </p>
+            </div>
+
+            <div>
+              <h3 className="cx-inspector__section">Closest to breach</h3>
+              {atRisk.length === 0 ? (
+                <p className="cx-inspector__muted">Nothing open in this page of the queue.</p>
+              ) : (
+                <ul className="mt-2 flex flex-col gap-0.5">
+                  {atRisk.map(({ incident: i, sla: s }) => (
+                    <li key={i.id}>
+                      <button type="button" onClick={() => onSelect(i.id)} className="cx-inspector__row">
+                        <span className="min-w-0">
+                          <span className="cx-inspector__row-name block">{i.shortDescription}</span>
+                          <span className="cx-inspector__row-meta">{i.number} · {i.priority}</span>
+                        </span>
+                        <span
+                          className={clsx(
+                            'cx-inspector__row-score',
+                            s.status === 'danger' && 'text-[#ff9f94]',
+                            s.status === 'warning' && 'text-[#fcd34d]'
+                          )}
+                        >
+                          {i.slaBreached ? '!' : `${s.percent}`}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </aside>
   );
 }
 
@@ -645,6 +843,10 @@ export default function IncidentList() {
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [focusedRowIdx, setFocusedRowIdx] = useState<number>(-1);
+  const [inspectId, setInspectId] = useState<string | null>(null);
+  // Kept separate from inspectId so the rail can be opened on its own (showing
+  // the closest-to-breach list) the way the registry's toggle does.
+  const [inspectorOpen, setInspectorOpen] = useState(false);
 
   const stateDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -736,13 +938,23 @@ export default function IncidentList() {
     }
   }, [incidents, selectedIds.size]);
 
+  // Row click opens the inspector rather than navigating, matching the Agent
+  // Registry ("row click opens details"). The direct route to the full record
+  // is still one keystroke away: Enter on a focused row, or Open incident in
+  // the panel.
   const handleRowClick = useCallback(
     (id: string, e: React.MouseEvent) => {
       if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('input[type="checkbox"]')) return;
-      navigate(`/incidents/${id}`);
+      setInspectId((prev) => (prev === id ? null : id));
+      setInspectorOpen(true);
     },
-    [navigate]
+    []
   );
+
+  const closeInspector = useCallback(() => {
+    setInspectorOpen(false);
+    setInspectId(null);
+  }, []);
 
   const handleSort = useCallback(
     (field: SortField) => {
@@ -804,8 +1016,10 @@ export default function IncidentList() {
   }
 
   // ── Render ──
+  const inspected = inspectId ? incidents.find((i) => i.id === inspectId) ?? null : null;
+
   return (
-    <Page>
+    <Page className={clsx(inspectorOpen && 'cx-page--inspect')}>
       {/* ═══════════════════════════════════════════════
           HERO — ink panel with the queue's stats inline,
           matching the Sovereign Agent Registry layout.
@@ -905,13 +1119,18 @@ export default function IncidentList() {
         <div className="min-w-0">
           <h2 className="cx-sectionhead__title">Queue</h2>
           <p className="cx-sectionhead__deck">
-            Search, filter and sort the queue. Click a row to open the incident record.
+            Search, filter and sort the queue. Click a row to inspect it in the details panel.
           </p>
         </div>
-        <span className="cx-sectionhead__meta">
-          <ShieldAlert size={13} strokeWidth={1.75} />
-          Row click opens the record
-        </span>
+        <button
+          type="button"
+          onClick={() => (inspectorOpen ? closeInspector() : setInspectorOpen(true))}
+          className="cx-sectionhead__meta hover:text-ink transition-colors"
+          aria-pressed={inspectorOpen}
+        >
+          <PanelRight size={13} strokeWidth={1.75} />
+          {inspectorOpen ? 'Hide details panel' : 'Row click opens details'}
+        </button>
       </div>
 
       <div className="cx-posture">
@@ -1322,6 +1541,16 @@ export default function IncidentList() {
 
       {/* Bottom spacer when bulk bar is visible */}
       {selectedIds.size > 0 && <div className="h-16" />}
+
+      {inspectorOpen && (
+        <IncidentInspector
+          incident={inspected}
+          queue={incidents}
+          onClose={closeInspector}
+          onSelect={setInspectId}
+          onOpen={(id) => navigate(`/incidents/${id}`)}
+        />
+      )}
     </Page>
   );
 }
