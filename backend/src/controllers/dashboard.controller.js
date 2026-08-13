@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Dashboard / Stats Controller
+// WeCrew ITSM — Dashboard / Stats Controller
 // Multi-Tenant: All queries scoped by req.tenantWhere
 // ═══════════════════════════════════════════════════════════
 

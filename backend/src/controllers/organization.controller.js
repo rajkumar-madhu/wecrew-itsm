@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Organization (Multi-Tenant) Controller
+// WeCrew ITSM — Organization (Multi-Tenant) Controller
 // ═══════════════════════════════════════════════════════════
 
 const { prisma } = require('../config/database');

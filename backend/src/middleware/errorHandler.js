@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Global Error Handler
+// WeCrew ITSM — Global Error Handler
 // ═══════════════════════════════════════════════════════════
 
 const logger = require('../utils/logger');

@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — AI Service (Ollama + Flowise)
+// WeCrew ITSM — AI Service (Ollama + Flowise)
 // ═══════════════════════════════════════════════════════════
 
 const axios = require('axios');

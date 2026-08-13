@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Helper Utilities
+// WeCrew ITSM — Helper Utilities
 // ═══════════════════════════════════════════════════════════
 
 const { prisma } = require('../config/database');

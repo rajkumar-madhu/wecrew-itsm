@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — AI Agent Routes (Infrastructure Intelligence)
+// WeCrew ITSM — AI Agent Routes (Infrastructure Intelligence)
 // ═══════════════════════════════════════════════════════════
 
 const express = require('express');

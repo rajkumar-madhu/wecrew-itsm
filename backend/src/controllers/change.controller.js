@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Change Management Controller
+// WeCrew ITSM — Change Management Controller
 // ═══════════════════════════════════════════════════════════
 
 const { prisma } = require('../config/database');

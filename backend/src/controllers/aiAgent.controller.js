@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — AI Agent Controller (Claude + OpenAI Fallback)
+// WeCrew ITSM — AI Agent Controller (Claude + OpenAI Fallback)
 // ═══════════════════════════════════════════════════════════
 
 const Anthropic = require('@anthropic-ai/sdk');
@@ -11,7 +11,7 @@ const prometheusService = require('../services/prometheusService');
 const lokiService = require('../services/lokiService');
 const logger = require('../utils/logger');
 
-const AGENT_SYSTEM_PROMPT = `You are LinkedEye AI Agent, an infrastructure intelligence system for the LinkedEye ITSM platform. You analyze real-time metrics from Kubernetes clusters, PostgreSQL databases, application logs, and monitoring systems. Always return structured JSON as specified. Be precise, actionable, and concise. Prioritize issues by severity.`;
+const AGENT_SYSTEM_PROMPT = `You are WeCrew AI Agent, an infrastructure intelligence system for the WeCrew ITSM platform. You analyze real-time metrics from Kubernetes clusters, PostgreSQL databases, application logs, and monitoring systems. Always return structured JSON as specified. Be precise, actionable, and concise. Prioritize issues by severity.`;
 
 async function askAI(prompt, fallback = {}) {
   try {

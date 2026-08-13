@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Loki Log Query Service
+// WeCrew ITSM — Loki Log Query Service
 // ═══════════════════════════════════════════════════════════
 
 const axios = require('axios');

@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — AI Controller (Claude + OpenAI Fallback)
+// WeCrew ITSM — AI Controller (Claude + OpenAI Fallback)
 // ═══════════════════════════════════════════════════════════
 
 const Anthropic = require('@anthropic-ai/sdk');
@@ -9,7 +9,7 @@ const { config } = require('../config/env');
 const { success, error } = require('../utils/helpers');
 const logger = require('../utils/logger');
 
-const SYSTEM_PROMPT = `You are LinkedEye AI Assistant, an expert ITSM (IT Service Management) copilot for the LinkedEye platform built by Santhira. You help engineers triage incidents, suggest root causes, recommend runbooks, and answer ITIL process questions. Be concise and actionable. If asked about specific incidents, note that you can only provide general guidance without access to the specific incident data in this chat context.`;
+const SYSTEM_PROMPT = `You are WeCrew AI Assistant, an expert ITSM (IT Service Management) copilot for the WeCrew platform. You help engineers triage incidents, suggest root causes, recommend runbooks, and answer ITIL process questions. Be concise and actionable. If asked about specific incidents, note that you can only provide general guidance without access to the specific incident data in this chat context.`;
 
 function getAnthropicClient() {
   if (!config.ai.anthropicApiKey) return null;

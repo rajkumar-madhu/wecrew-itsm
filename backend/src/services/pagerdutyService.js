@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — PagerDuty Integration Service
-// Bidirectional sync: LinkedEye ↔ PagerDuty REST API v2
+// WeCrew ITSM — PagerDuty Integration Service
+// Bidirectional sync: WeCrew ↔ PagerDuty REST API v2
 // ═══════════════════════════════════════════════════════════
 
 const axios = require('axios');
@@ -241,7 +241,7 @@ async function sendEvent(routingKey, payload) {
       payload: {
         summary: payload.summary,
         severity: payload.severity || 'critical',
-        source: payload.source || 'LinkedEye',
+        source: payload.source || 'WeCrew',
         component: payload.component,
         group: payload.group,
         class: payload.class || 'PROMETHEUS',

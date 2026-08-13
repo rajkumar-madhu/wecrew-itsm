@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Voice Controller
+// WeCrew ITSM — Voice Controller
 // ═══════════════════════════════════════════════════════════
 
 const { prisma } = require('../config/database');

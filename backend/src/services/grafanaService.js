@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Grafana Integration Service
+// WeCrew ITSM — Grafana Integration Service
 // ═══════════════════════════════════════════════════════════
 
 const axios = require('axios');

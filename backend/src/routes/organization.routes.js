@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Organization Routes (Multi-Tenant)
+// WeCrew ITSM — Organization Routes (Multi-Tenant)
 // ═══════════════════════════════════════════════════════════
 
 const router = require('express').Router();

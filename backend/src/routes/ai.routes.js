@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — AI Routes (Claude + OpenAI Fallback)
+// WeCrew ITSM — AI Routes (Claude + OpenAI Fallback)
 // ═══════════════════════════════════════════════════════════
 
 const express = require('express');

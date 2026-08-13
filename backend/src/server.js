@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM Platform — Backend Server
-// © 2026 Santhira (Terv Pro Technology Pvt Ltd)
+// WeCrew ITSM Platform — Backend Server
+// © 2026 WeCrew
 // ═══════════════════════════════════════════════════════════
 
 const http = require('http');
@@ -237,7 +237,7 @@ async function start() {
 
     server.listen(config.port, () => {
       logger.info(`═══════════════════════════════════════`);
-      logger.info(`  LinkedEye ITSM API Server v2.0.0`);
+      logger.info(`  WeCrew ITSM API Server v2.0.0`);
       logger.info(`  Environment: ${config.nodeEnv}`);
       logger.info(`  Port: ${config.port}`);
       logger.info(`  URL: http://localhost:${config.port}`);

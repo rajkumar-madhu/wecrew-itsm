@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Notification Controller
+// WeCrew ITSM — Notification Controller
 // ═══════════════════════════════════════════════════════════
 
 const { prisma } = require('../config/database');

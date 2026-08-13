@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — K8s Cluster Controller
+// WeCrew ITSM — K8s Cluster Controller
 // GET /api/v1/k8s/overview
 // GET /api/v1/k8s/pods?namespace=fs-linkedeye
 // GET /api/v1/k8s/deployments?namespace=fs-linkedeye
@@ -17,7 +17,7 @@ const k8s = require('../services/k8sService');
 async function resolveK8sTarget(req) {
   const orgId = req.tenantWhere?.organizationId || req.query.orgId || req.headers['x-organization-id'];
 
-  // No org selected → use the local LinkedEye K8s cluster
+  // No org selected → use the local WeCrew K8s cluster
   if (!orgId) {
     return { method: 'local', serverIp: 'local', sshPort: null, sshUser: null, orgName: 'wecrew' };
   }

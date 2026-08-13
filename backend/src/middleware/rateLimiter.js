@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Rate Limiters
+// WeCrew ITSM — Rate Limiters
 // ═══════════════════════════════════════════════════════════
 
 const rateLimit = require('express-rate-limit');

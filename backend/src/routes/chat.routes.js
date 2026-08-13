@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Team Chat Routes
+// WeCrew ITSM — Team Chat Routes
 // ═══════════════════════════════════════════════════════════
 
 const express = require('express');

@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — CMDB / Asset Controller
+// WeCrew ITSM — CMDB / Asset Controller
 // ═══════════════════════════════════════════════════════════
 
 const { prisma } = require('../config/database');

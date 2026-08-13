@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Socket.IO Setup
+// WeCrew ITSM — Socket.IO Setup
 // ═══════════════════════════════════════════════════════════
 
 const { Server } = require('socket.io');

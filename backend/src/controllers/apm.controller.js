@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — APM Controller
+// WeCrew ITSM — APM Controller
 // Resolves org's monitoring config → real Prometheus metrics
 // ═══════════════════════════════════════════════════════════
 

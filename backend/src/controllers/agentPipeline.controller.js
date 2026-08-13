@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Agent Pipeline Controller (API Layer)
+// WeCrew ITSM — Agent Pipeline Controller (API Layer)
 // Manages AI Agent Pipeline status, actions, executions
 // Multi-Tenant: threads req.organizationId into all service calls
 // ═══════════════════════════════════════════════════════════

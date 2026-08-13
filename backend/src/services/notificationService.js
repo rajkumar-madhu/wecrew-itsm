@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Notification Service (Multi-Channel)
+// WeCrew ITSM — Notification Service (Multi-Channel)
 // ═══════════════════════════════════════════════════════════
 
 const { prisma } = require('../config/database');
@@ -72,7 +72,7 @@ function buildTelegramAlert(incident, event) {
   const hostMatch = incident.description?.match(/Host:\s*(\S+)/i);
   const hostname = hostMatch?.[1] || '';
   return [
-    `${emoji} <b>LinkedEye ITSM Alert</b>`,
+    `${emoji} <b>WeCrew ITSM Alert</b>`,
     ``,
     `<b>${incident.number} | ${incident.priority} | ${event}</b>`,
     `<b>Issue:</b> ${incident.shortDescription}`,

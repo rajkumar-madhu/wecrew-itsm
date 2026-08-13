@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Global Search Controller
+// WeCrew ITSM — Global Search Controller
 // ═══════════════════════════════════════════════════════════
 
 const { prisma } = require('../config/database');

@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Constants & Lookup Tables
+// WeCrew ITSM — Constants & Lookup Tables
 // ═══════════════════════════════════════════════════════════
 
 const INCIDENT_STATES = ['NEW', 'IN_PROGRESS', 'ON_HOLD', 'ESCALATED', 'RESOLVED', 'CLOSED', 'CANCELLED'];

@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — JWT Utilities
+// WeCrew ITSM — JWT Utilities
 // ═══════════════════════════════════════════════════════════
 
 const jwt = require('jsonwebtoken');

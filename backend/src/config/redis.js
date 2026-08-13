@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Redis Client
+// WeCrew ITSM — Redis Client
 // ═══════════════════════════════════════════════════════════
 
 const Redis = require('ioredis');

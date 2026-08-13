@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — K8s Cluster Service
+// WeCrew ITSM — K8s Cluster Service
 // Executes kubectl commands over SSH on remote K8s servers
 // SSH key: /home/finadmin/.ssh/id_ed25519 (passwordless)
 // ═══════════════════════════════════════════════════════════

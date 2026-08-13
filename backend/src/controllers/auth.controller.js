@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Auth Controller
+// WeCrew ITSM — Auth Controller
 // ═══════════════════════════════════════════════════════════
 
 const bcrypt = require('bcryptjs');

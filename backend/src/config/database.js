@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Prisma Database Client (Singleton)
+// WeCrew ITSM — Prisma Database Client (Singleton)
 // ═══════════════════════════════════════════════════════════
 
 const { PrismaClient } = require('@prisma/client');

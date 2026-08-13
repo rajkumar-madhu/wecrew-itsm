@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Email Service
+// WeCrew ITSM — Email Service
 // Templates + Queue + Nodemailer (no external template engine)
 // ═══════════════════════════════════════════════════════════
 
@@ -37,7 +37,7 @@ const IST_FMT = { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year
                   hour: '2-digit', minute: '2-digit', hour12: true };
 
 // ── Structured description renderer ──────────────────────
-// Handles two formats produced by LinkedEye:
+// Handles two formats produced by WeCrew:
 //   Format A — Sections with "── Title ───" dividers + "Key: Value" pairs (alertSyncService)
 //   Format B — Sections with "Title:" headers + bullet "•" lists (agentPipeline)
 // Falls back to pre-formatted text if neither matches.
@@ -154,7 +154,7 @@ function parseKVLines(text) {
   }
   if (rows.length > 0) return rows;
 
-  // Single-line fallback — known keys from LinkedEye alert format
+  // Single-line fallback — known keys from WeCrew alert format
   const KEYS = ['ALERT','Severity','Category','Client','Hostname','IP Address','Asset Type','Operating System','Job','Fired At','Duration','Instance','Value','Summary','Description','Host','State','Environment'];
   const escaped = KEYS.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
   const pattern = new RegExp(`(${escaped.join('|')}):\\s*([^]*?)(?=(?:${escaped.join('|')}):|$)`, 'g');
@@ -188,7 +188,7 @@ function getHostInfo(incident) {
  * Used by notificationService for every incident email.
  */
 function buildIncidentSubject(incident, event) {
-  const orgName  = incident.organization?.name || 'LinkedEye';
+  const orgName  = incident.organization?.name || 'WeCrew';
   const { hostname, ip } = getHostInfo(incident);
   const hostPart = [hostname, ip ? `(${ip})` : null].filter(Boolean).join(' ');
   const issue    = (incident.shortDescription || '').substring(0, 55);
@@ -360,7 +360,7 @@ function renderIncidentCreated(incident) {
     { label: 'View Incident →', url, color: pc },
     { label: 'Open Dashboard', url: `${config.frontendUrl}/dashboard`, color: '#fff', outlined: true }
   ])}`;
-  return baseLayout(`New Incident: ${incident.number}`, pc, 'Incident Management · LinkedEye', body);
+  return baseLayout(`New Incident: ${incident.number}`, pc, 'Incident Management · WeCrew', body);
 }
 
 // ── Template 2: Incident Assigned ────────────────────────
@@ -402,7 +402,7 @@ function renderIncidentAssigned(incident, assignee) {
     { label: '✓ Acknowledge & Start →', url, color: '#7C3AED' },
     { label: 'View All Incidents', url: `${config.frontendUrl}/incidents`, color: '#fff', outlined: true }
   ])}`;
-  return baseLayout(`Assigned to You: ${incident.number}`, '#7C3AED', 'Incident Assignment · LinkedEye', body);
+  return baseLayout(`Assigned to You: ${incident.number}`, '#7C3AED', 'Incident Assignment · WeCrew', body);
 }
 
 // ── Template 3: Incident Escalated — Clean Light Theme ───────────────────────
@@ -516,7 +516,7 @@ function renderIncidentEscalated(incident, opts = {}) {
 
   // ── Timeline ───────────────────────────────────────────
   const timelineEvents = opts.timeline || [
-    { time: created,   label: 'Incident created by LinkedEye alert pipeline',      dot: '#3B82F6' },
+    { time: created,   label: 'Incident created by WeCrew alert pipeline',      dot: '#3B82F6' },
     { time: 'Ongoing', label: `Auto-escalated to Level ${level}`,              dot: '#DC2626' },
     { time: 'SLA',     label: slaBreached ? 'SLA resolution target BREACHED'  : 'SLA resolution target AT RISK', dot: slaBreached ? '#DC2626' : '#D97706' },
     { time: 'Now',     label: 'Awaiting your acknowledgment',                  dot: '#D97706' },
@@ -565,7 +565,7 @@ function renderIncidentEscalated(incident, opts = {}) {
           <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
             <tr>
               <td><span style="color:#111827;font-size:15px;font-weight:800;letter-spacing:-0.3px;">FinSpot</span><span style="color:#DC2626;font-size:15px;font-weight:800;"> ITSM</span></td>
-              <td align="right"><span style="color:#9CA3AF;font-size:11px;">Automated Escalation · LinkedEye Platform</span></td>
+              <td align="right"><span style="color:#9CA3AF;font-size:11px;">Automated Escalation · WeCrew Platform</span></td>
             </tr>
           </table>
         </td></tr>
@@ -645,7 +645,7 @@ function renderIncidentEscalated(incident, opts = {}) {
                 <a href="${ackUrl}" style="display:block;background:#DC2626;color:#ffffff;font-size:14px;font-weight:800;padding:14px 0;border-radius:8px;text-decoration:none;text-align:center;letter-spacing:0.3px;">✓ Acknowledge Now</a>
               </td>
               <td style="padding-left:8px;width:50%;">
-                <a href="${portalUrl}" style="display:block;background:#ffffff;border:1.5px solid #D1D5DB;color:#374151;font-size:14px;font-weight:700;padding:14px 0;border-radius:8px;text-decoration:none;text-align:center;">View in LinkedEye →</a>
+                <a href="${portalUrl}" style="display:block;background:#ffffff;border:1.5px solid #D1D5DB;color:#374151;font-size:14px;font-weight:700;padding:14px 0;border-radius:8px;text-decoration:none;text-align:center;">View in WeCrew →</a>
               </td>
             </tr>
           </table>
@@ -709,7 +709,7 @@ function renderIncidentResolved(incident) {
     { label: 'Open Dashboard', url: `${config.frontendUrl}/dashboard`, color: '#fff', outlined: true }
   ])}`;
 
-  return baseLayout(`Resolved: ${incident.number}`, '#059669', 'Incident Resolved · LinkedEye', body);
+  return baseLayout(`Resolved: ${incident.number}`, '#059669', 'Incident Resolved · WeCrew', body);
 }
 
 // ── Template 5: SLA Warning ──────────────────────────────
@@ -745,7 +745,7 @@ function renderSLAWarning(incident, remainingMinutes) {
     { label: 'View Incidents', url: `${config.frontendUrl}/incidents`, color: '#fff', outlined: true }
   ])}`;
 
-  return baseLayout(`SLA Warning: ${incident.number}`, '#D97706', 'SLA Alert · LinkedEye', body);
+  return baseLayout(`SLA Warning: ${incident.number}`, '#D97706', 'SLA Alert · WeCrew', body);
 }
 
 // ── Template 6: SLA Breached ─────────────────────────────
@@ -777,7 +777,7 @@ function renderSLABreached(incident) {
     <p style="margin:0 0 8px;color:#DC2626;font-size:12px;font-weight:700;">Required actions:</p>
     <ul style="margin:0;padding-left:18px;color:#374151;font-size:12px;line-height:2;">
       <li>Immediately take ownership and begin active investigation</li>
-      <li>Provide an update in LinkedEye with current status and ETA</li>
+      <li>Provide an update in WeCrew with current status and ETA</li>
       <li>If blocked, escalate to your manager or team lead</li>
     </ul>
   </div>
@@ -787,7 +787,7 @@ function renderSLABreached(incident) {
     { label: 'View All Breaches', url: `${config.frontendUrl}/incidents?slaBreached=true`, color: '#fff', outlined: true }
   ])}`;
 
-  return baseLayout(`SLA BREACHED: ${incident.number}`, '#DC2626', 'SLA Breach Alert · LinkedEye', body);
+  return baseLayout(`SLA BREACHED: ${incident.number}`, '#DC2626', 'SLA Breach Alert · WeCrew', body);
 }
 
 // ── Template 7: Change Approval Request ──────────────────
@@ -858,9 +858,9 @@ function renderChangeApprovalRequest(change, approver) {
       </td>
     </tr>
   </table>
-  <p style="margin:10px 0 0;color:#9CA3AF;font-size:10px;text-align:center;">Approve or Reject directly from this email — or view full details in LinkedEye before deciding.</p>`;
+  <p style="margin:10px 0 0;color:#9CA3AF;font-size:10px;text-align:center;">Approve or Reject directly from this email — or view full details in WeCrew before deciding.</p>`;
 
-  return baseLayout(`Approval Required: ${change.number}`, '#7C3AED', 'Change Management · LinkedEye', body);
+  return baseLayout(`Approval Required: ${change.number}`, '#7C3AED', 'Change Management · WeCrew', body);
 }
 
 // ── Template 8: Daily Digest ─────────────────────────────
@@ -929,7 +929,7 @@ function renderDailyDigest(stats) {
   ])}`;
 
   const digestTitle = stats.orgName ? `Daily Digest — ${stats.orgName}` : 'Daily Operations Digest';
-  return baseLayout(digestTitle, '#2563EB', 'Daily Report · LinkedEye', body);
+  return baseLayout(digestTitle, '#2563EB', 'Daily Report · WeCrew', body);
 }
 
 // ── Template 9: P1 Alert Notification (with real metrics) ─
@@ -1008,11 +1008,11 @@ function renderAlertNotification(data) {
   <!-- Alert banner -->
   <div style="background:#FEF2F2;border-left:4px solid #DC2626;border-radius:0 8px 8px 0;padding:14px 18px;margin-bottom:24px;">
     <p style="margin:0 0 4px;color:#DC2626;font-size:14px;font-weight:800;">CRITICAL — ${totalAlerts} active issue${totalAlerts > 1 ? 's' : ''} detected</p>
-    <p style="margin:0;color:#6B7280;font-size:12px;">LinkedEye is tracking these unresolved P1 alerts. Immediate action required.</p>
+    <p style="margin:0;color:#6B7280;font-size:12px;">WeCrew is tracking these unresolved P1 alerts. Immediate action required.</p>
   </div>
 
   <h2 style="margin:0 0 4px;font-size:20px;font-weight:800;color:#111827;">P1 Alert Notification</h2>
-  <p style="margin:0 0 20px;color:#6B7280;font-size:13px;">Organization: <strong>${data.orgName || 'LinkedEye ITSM'}</strong> &nbsp;·&nbsp; Reported: ${now} IST</p>
+  <p style="margin:0 0 20px;color:#6B7280;font-size:13px;">Organization: <strong>${data.orgName || 'WeCrew ITSM'}</strong> &nbsp;·&nbsp; Reported: ${now} IST</p>
 
   ${alertCards}
 
@@ -1021,19 +1021,19 @@ function renderAlertNotification(data) {
     <ul style="margin:0;padding-left:18px;color:#374151;font-size:12px;line-height:2;">
       <li>SSH into the affected host and investigate disk, CPU, or memory usage</li>
       <li>Clear temp files, rotate logs, or restart the impacted service</li>
-      <li>Acknowledge the incident in LinkedEye to stop further escalation alerts</li>
+      <li>Acknowledge the incident in WeCrew to stop further escalation alerts</li>
       <li>If the issue persists, escalate to the on-call engineer immediately</li>
     </ul>
   </div>
 
   ${ctaRow([
-    { label: 'View Alerts in LinkedEye →', url, color: '#DC2626' },
+    { label: 'View Alerts in WeCrew →', url, color: '#DC2626' },
     { label: 'Open Dashboard', url: `${config.frontendUrl}/dashboard`, color: '#fff', outlined: true }
   ])}`;
 
   return baseLayout(
-    `[P1 ALERT] ${totalAlerts} Critical Issue${totalAlerts > 1 ? 's' : ''} — ${data.orgName || 'LinkedEye ITSM'}`,
-    '#DC2626', 'Alert Notification · LinkedEye', body
+    `[P1 ALERT] ${totalAlerts} Critical Issue${totalAlerts > 1 ? 's' : ''} — ${data.orgName || 'WeCrew ITSM'}`,
+    '#DC2626', 'Alert Notification · WeCrew', body
   );
 }
 
@@ -1095,7 +1095,7 @@ function renderRCAReport(incident) {
 
   // ── Build timeline from actual timestamps ───────────────
   const timelineItems = [
-    { time: createdAt,   dot: '#3B82F6', label: `Incident detected and logged by LinkedEye — ${incident.source || 'Manual'} source` },
+    { time: createdAt,   dot: '#3B82F6', label: `Incident detected and logged by WeCrew — ${incident.source || 'Manual'} source` },
     esc > 0 ? { time: 'Escalated',  dot: '#DC2626', label: `Escalated to level ${esc} after SLA threshold breached — ${teamName} team notified` } : null,
     { time: 'Acknowledged', dot: '#7C3AED', label: `Incident acknowledged by ${resolver} — investigation started` },
     incident.slaBreached
@@ -1124,7 +1124,7 @@ function renderRCAReport(incident) {
   <!-- RCA header banner -->
   <div style="background:#F0FDF4;border-left:4px solid #059669;border-radius:0 8px 8px 0;padding:14px 18px;margin-bottom:20px;">
     <p style="margin:0 0 2px;color:#059669;font-size:13px;font-weight:700;">Post-Incident RCA Report — Incident Resolved</p>
-    <p style="margin:0;color:#374151;font-size:12px;">This report is auto-generated by LinkedEye ITSM upon incident closure. No login required to read.</p>
+    <p style="margin:0;color:#374151;font-size:12px;">This report is auto-generated by WeCrew ITSM upon incident closure. No login required to read.</p>
   </div>
 
   <!-- Priority badges + number -->
@@ -1232,13 +1232,13 @@ function renderRCAReport(incident) {
 
   return baseLayout(
     `RCA Report: ${incident.number} — ${orgName}`,
-    '#059669', 'Post-Incident Analysis · LinkedEye', body
+    '#059669', 'Post-Incident Analysis · WeCrew', body
   );
 }
 
 // ── RCA subject builder (used by notificationService) ────────
 function buildRCASubject(incident) {
-  const orgName = incident.organization?.name || 'LinkedEye';
+  const orgName = incident.organization?.name || 'WeCrew';
   const { hostname, ip } = (() => {
     const desc = incident.description || '';
     const hostMatch = desc.match(/(?:node|host|server|device)[:\s]+([a-zA-Z0-9._-]{4,40})/i);
@@ -1282,7 +1282,7 @@ function renderWelcomeUser(user, tempPassword) {
   <!-- Welcome hero -->
   <div style="background:linear-gradient(135deg,#EEF2FF 0%,#F5F3FF 100%);border-radius:10px;padding:24px 20px;margin-bottom:20px;text-align:center;">
     <div style="font-size:32px;margin-bottom:10px;">👋</div>
-    <h2 style="margin:0 0 6px;font-size:22px;font-weight:800;color:#111827;">Welcome to LinkedEye, ${firstName}!</h2>
+    <h2 style="margin:0 0 6px;font-size:22px;font-weight:800;color:#111827;">Welcome to WeCrew, ${firstName}!</h2>
     <p style="margin:0;color:#6B7280;font-size:13px;">Your account has been created for <strong style="color:#374151;">${orgName}</strong>. You're now part of the team.</p>
   </div>
 
@@ -1305,18 +1305,18 @@ function renderWelcomeUser(user, tempPassword) {
   <!-- Quick start steps -->
   ${sectionLabel('Getting Started')}
   <table cellpadding="0" cellspacing="0" role="presentation" style="width:100%;">
-    ${step(1, 'Sign in to LinkedEye', `Visit your portal and log in using the credentials above.`)}
+    ${step(1, 'Sign in to WeCrew', `Visit your portal and log in using the credentials above.`)}
     ${step(2, 'Review open incidents', 'Head to the Incidents module to see active issues assigned to your team.')}
     ${step(3, 'Set up your on-call schedule', 'Configure your availability in Teams → On-Call so you receive alerts when needed.')}
     ${step(4, 'Explore integrations', 'Connect Prometheus, Grafana, Slack, and other tools in the Integration Hub.')}
   </table>
 
   ${ctaRow([
-    { label: 'Sign In to LinkedEye →', url: loginUrl, color: '#4F46E5' },
+    { label: 'Sign In to WeCrew →', url: loginUrl, color: '#4F46E5' },
     { label: 'View Help & Docs', url: docsUrl, color: '#fff', outlined: true }
   ])}`;
 
-  return baseLayout(`Welcome to LinkedEye, ${firstName}!`, '#4F46E5', 'Account Created · LinkedEye', body);
+  return baseLayout(`Welcome to WeCrew, ${firstName}!`, '#4F46E5', 'Account Created · WeCrew', body);
 }
 
 /**
@@ -1324,7 +1324,7 @@ function renderWelcomeUser(user, tempPassword) {
  * Used by escalation engine and manual triggers.
  */
 async function sendAlertNotification(to, data) {
-  const subject = `[P1 ALERT] ${data.alerts?.length || ''} Critical Issue${(data.alerts?.length || 0) > 1 ? 's' : ''} — ${data.orgName || 'LinkedEye ITSM'}`;
+  const subject = `[P1 ALERT] ${data.alerts?.length || ''} Critical Issue${(data.alerts?.length || 0) > 1 ? 's' : ''} — ${data.orgName || 'WeCrew ITSM'}`;
   const html = renderAlertNotification(data);
   return sendEmail(to, subject, html, { priority: 10 });
 }

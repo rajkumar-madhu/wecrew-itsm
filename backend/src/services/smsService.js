@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — SMS Service (Twilio + MSG91 + Kaleyra)
+// WeCrew ITSM — SMS Service (Twilio + MSG91 + Kaleyra)
 // ═══════════════════════════════════════════════════════════
 
 const axios = require('axios');

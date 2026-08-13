@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Audit Trail Middleware
+// WeCrew ITSM — Audit Trail Middleware
 // ═══════════════════════════════════════════════════════════
 
 const { prisma } = require('../config/database');

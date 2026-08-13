@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — CMDB Resolver (Prometheus instance → CI)
+// WeCrew ITSM — CMDB Resolver (Prometheus instance → CI)
 // ═══════════════════════════════════════════════════════════
 
 const { prisma } = require('../config/database');

@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — APM Service
+// WeCrew ITSM — APM Service
 // Real production metrics via SSH → Prometheus + Redis
 //
 // 1. Process Status:  SSH → redis-cli → ADP keys

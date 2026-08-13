@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Authentication & Authorization Middleware
+// WeCrew ITSM — Authentication & Authorization Middleware
 // ═══════════════════════════════════════════════════════════
 
 const { verifyAccessToken } = require('../utils/jwt');

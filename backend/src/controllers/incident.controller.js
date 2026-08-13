@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Incident Controller (Full CRUD)
+// WeCrew ITSM — Incident Controller (Full CRUD)
 // ═══════════════════════════════════════════════════════════
 
 const { prisma } = require('../config/database');
@@ -682,21 +682,21 @@ async function acknowledgeFromEmail(req, res) {
   <h1>${message}</h1>
   <p class="inc">${incidentNumber}</p>
   <p>${detail}</p>
-  <a href="${frontendUrl}/incidents" class="btn">Open LinkedEye ITSM →</a>
+  <a href="${frontendUrl}/incidents" class="btn">Open WeCrew ITSM →</a>
   <p class="footer">FinSpot ITSM Tool · FinSpot Technology Solutions Pvt Ltd</p>
 </div>
 </body></html>`;
   }
 
   if (!token) {
-    return res.status(400).send(htmlPage('Invalid Link', '⚠️', '#D97706', 'Invalid acknowledge link', '', 'This link is missing a required token. Please open LinkedEye ITSM directly.'));
+    return res.status(400).send(htmlPage('Invalid Link', '⚠️', '#D97706', 'Invalid acknowledge link', '', 'This link is missing a required token. Please open WeCrew ITSM directly.'));
   }
 
   let payload;
   try {
     payload = jwt.verify(token, process.env.JWT_SECRET);
   } catch (e) {
-    return res.status(400).send(htmlPage('Link Expired', '⏰', '#D97706', 'Acknowledge link expired', '', 'This one-click link has expired (valid for 24 hours). Please log in to LinkedEye ITSM to acknowledge the incident.'));
+    return res.status(400).send(htmlPage('Link Expired', '⏰', '#D97706', 'Acknowledge link expired', '', 'This one-click link has expired (valid for 24 hours). Please log in to WeCrew ITSM to acknowledge the incident.'));
   }
 
   if (payload.action !== 'ack' || !payload.incidentId) {
@@ -750,11 +750,11 @@ async function acknowledgeFromEmail(req, res) {
       '#059669',
       'Incident Acknowledged',
       incident.number,
-      `<strong style="color:#F1F5F9">${incident.shortDescription}</strong><br/><br/>Escalation has been <strong style="color:#059669">stopped</strong>. The incident is now <strong style="color:#059669">IN PROGRESS</strong>. Please log in to LinkedEye ITSM to update the work notes and resolve the issue.`,
+      `<strong style="color:#F1F5F9">${incident.shortDescription}</strong><br/><br/>Escalation has been <strong style="color:#059669">stopped</strong>. The incident is now <strong style="color:#059669">IN PROGRESS</strong>. Please log in to WeCrew ITSM to update the work notes and resolve the issue.`,
     ));
   } catch (err) {
     logger.error(`[Ack] Email acknowledge failed: ${err.message}`);
-    return res.status(500).send(htmlPage('Error', '❌', '#DC2626', 'Something went wrong', '', 'An error occurred while acknowledging this incident. Please log in to LinkedEye ITSM directly.'));
+    return res.status(500).send(htmlPage('Error', '❌', '#DC2626', 'Something went wrong', '', 'An error occurred while acknowledging this incident. Please log in to WeCrew ITSM directly.'));
   }
 }
 

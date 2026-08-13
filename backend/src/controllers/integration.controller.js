@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Integration Controller
+// WeCrew ITSM — Integration Controller
 // ═══════════════════════════════════════════════════════════
 
 const axios = require('axios');

@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Team Chat Controller
+// WeCrew ITSM — Team Chat Controller
 // ═══════════════════════════════════════════════════════════
 
 const { prisma } = require('../config/database');

@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Multi-Tenant Middleware
+// WeCrew ITSM — Multi-Tenant Middleware
 // Injects organizationId into req for tenant-scoped queries
 // ADMIN users can see all orgs or filter by ?orgId=
 // Non-admin users are locked to their own organization

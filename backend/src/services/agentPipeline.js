@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — AI Agent Pipeline (StackStorm Replacement)
+// WeCrew ITSM — AI Agent Pipeline (StackStorm Replacement)
 // Event-Driven Automation: Detect → Triage → Act → Notify → Verify
-// Zero extra pods — runs inside LinkedEye API process
+// Zero extra pods — runs inside WeCrew API process
 // Multi-Tenant: per-org pipeline state, actions, notifications
 // ═══════════════════════════════════════════════════════════
 
@@ -569,9 +569,9 @@ async function sendPagerDutyEvent(alert, enrichment) {
       payload: {
         summary: `[${alert.severity}] ${alert.name} on ${enrichment?.hostname || enrichment?.ip || 'unknown'}`,
         severity: alert.severity === 'CRITICAL' ? 'critical' : alert.severity === 'WARNING' ? 'warning' : 'info',
-        source: enrichment?.hostname || enrichment?.ip || 'LinkedEye',
+        source: enrichment?.hostname || enrichment?.ip || 'WeCrew',
         component: enrichment?.pod || enrichment?.namespace || alert.name,
-        group: enrichment?.orgName || 'LinkedEye',
+        group: enrichment?.orgName || 'WeCrew',
         class: alert.source || 'PROMETHEUS',
         custom_details: {
           alert_id: alert.alertId,
@@ -583,7 +583,7 @@ async function sendPagerDutyEvent(alert, enrichment) {
       },
       links: [{
         href: `https://fs-le-dev-inc.finspot.in/alerts`,
-        text: 'View in LinkedEye',
+        text: 'View in WeCrew',
       }],
     }, { timeout: 10000 });
 

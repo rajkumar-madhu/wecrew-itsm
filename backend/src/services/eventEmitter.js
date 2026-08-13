@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Central Event Bus
+// WeCrew ITSM — Central Event Bus
 // ═══════════════════════════════════════════════════════════
 
 const EventEmitter = require('events');

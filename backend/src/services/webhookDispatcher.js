@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Outbound Webhook Dispatcher
+// WeCrew ITSM — Outbound Webhook Dispatcher
 // ═══════════════════════════════════════════════════════════
 
 const axios = require('axios');

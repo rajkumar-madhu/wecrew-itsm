@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Slack Integration Service
+// WeCrew ITSM — Slack Integration Service
 // ═══════════════════════════════════════════════════════════
 
 const axios = require('axios');
@@ -150,7 +150,7 @@ async function notifySLABreach(incident) {
 async function handleSlashCommand(command, text, responseUrl) {
   switch (command) {
     case '/le-status':
-      return { response_type: 'in_channel', text: 'LinkedEye Status: All systems operational' };
+      return { response_type: 'in_channel', text: 'WeCrew Status: All systems operational' };
     case '/le-incident':
       return { response_type: 'ephemeral', text: `Looking up incident: ${text}...` };
     case '/le-oncall':

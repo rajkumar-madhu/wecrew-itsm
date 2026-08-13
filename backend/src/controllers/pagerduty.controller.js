@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — PagerDuty Controller
+// WeCrew ITSM — PagerDuty Controller
 // Multi-tenant: org's PD integration config drives all calls
 // ═══════════════════════════════════════════════════════════
 
@@ -182,13 +182,13 @@ async function handleWebhook(req, res) {
 
     logger.info('[PagerDuty] Webhook: %s', event.type || JSON.stringify(event).slice(0, 80));
 
-    // Handle incident events — sync back to LinkedEye
+    // Handle incident events — sync back to WeCrew
     const incident = event.incident;
     if (incident?.id && event.type) {
       const eventType = event.type; // incident.triggered, incident.acknowledged, incident.resolved
 
       if (eventType === 'incident.resolved' && incident.id) {
-        // Find matching LinkedEye incident by pagerduty incident id in labels/source
+        // Find matching WeCrew incident by pagerduty incident id in labels/source
         const linkedIncident = await prisma.incident.findFirst({
           where: { source: 'API', title: { contains: incident.title || '' }, state: { in: ['NEW', 'IN_PROGRESS'] } },
         });

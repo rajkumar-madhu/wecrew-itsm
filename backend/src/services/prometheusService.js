@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Prometheus Integration Service
+// WeCrew ITSM — Prometheus Integration Service
 // ═══════════════════════════════════════════════════════════
 
 const axios = require('axios');
