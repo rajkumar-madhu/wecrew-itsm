@@ -40,7 +40,10 @@ export const COMPANY: CompanyDetails = {
   name: 'WeCrew Ops',
   product: 'WeCrew ITSM',
   tagline: 'Self-hosted IT operations for teams that have to prove what happened.',
-  email: 'support@wecrew.in',
+  // The branch plan (docs/superpowers/plans/2026-08-13-razorpay-billing.md)
+  // records this address as user-confirmed and says to use no other. It feeds
+  // every public mailto: — ContactPage, the footer, and both LeadForm links.
+  email: 'info@wecrew.in',
   website: 'https://wecrew.in',
   // Optional — fill these in; blank fields are omitted from the page.
   phone: '',
