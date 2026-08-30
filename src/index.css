@@ -437,6 +437,18 @@ html.dark {
     background: var(--argus-elevated);
     border-color: var(--argus-border-strong);
   }
+  /* A guard is only a guard if it reads as one — without this a button held
+     disabled during an in-flight request still invites the second click. */
+  .cx-btn:disabled,
+  .cx-btn:disabled:hover {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .cx-btn--ghost:disabled:hover {
+    color: var(--argus-muted);
+    background: transparent;
+    border-color: var(--argus-border);
+  }
 
   .cx-segmented {
     @apply inline-flex items-center p-0.5;
@@ -739,6 +751,25 @@ html.dark {
     letter-spacing: 0.06em;
     color: rgba(244, 241, 234, 0.5);
     margin-top: 0.0625rem;
+  }
+  /* A KPI tile that is also a control. The log explorer's severity counts double
+     as its filter, so those tiles need a pointer affordance and a pressed state
+     — a count you can click has to look like one. */
+  button.cx-hero__kpi {
+    width: 100%;
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+    transition: background-color 100ms ease, border-color 100ms ease;
+  }
+  button.cx-hero__kpi:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+  .cx-hero__kpi--pressed,
+  button.cx-hero__kpi--pressed:hover {
+    background: rgba(255, 91, 46, 0.2);
+    border-color: rgba(255, 91, 46, 0.55);
   }
   .cx-hero__btn {
     @apply inline-flex items-center justify-center gap-1.5 font-medium transition-colors duration-100;
@@ -1842,7 +1873,14 @@ html.dark {
   }
   100% {
     opacity: 1;
-    transform: translateY(0);
+    /* `none`, not `translateY(0)`. These animations run with `forwards`, so the
+       final frame is retained forever — and an element with any transform other
+       than `none` becomes the containing block for its `position: fixed`
+       descendants. `.cx-page` carries this animation and `overflow-y: auto`, so
+       a retained identity transform positioned *and* clipped NOC's fullscreen
+       board inside the page's scroll box instead of the viewport. The
+       interpolation is unchanged: `none` is the identity transform. */
+    transform: none;
   }
 }
 .animate-float-up {

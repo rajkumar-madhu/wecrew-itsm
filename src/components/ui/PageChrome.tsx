@@ -5,13 +5,34 @@ import type { ReactNode } from 'react';
 
 /** Codex-style page shell — quiet chrome, dense, hairline borders */
 
-function flatten(children: ReactNode): ReactNode[] {
-  const out: ReactNode[] = [];
-  Children.forEach(children, (child) => {
+interface FlatChild {
+  node: ReactNode;
+  /** Position of this child in the original JSX, e.g. "3" or "2.1" for one
+   *  nested inside a Fragment. */
+  key: string;
+}
+
+/**
+ * Flatten the page's children, dropping the empty slots but remembering where
+ * each surviving child came from.
+ *
+ * The position matters. Falsy children are removed, so a conditional block that
+ * mounts once its query resolves shifts every sibling below it down one index —
+ * and React, reconciling an unkeyed array positionally, then matches each
+ * sibling against its neighbour's subtree and rebuilds the mismatched nodes.
+ * In practice that means focus jumping out of a search input the moment data
+ * lands. `Children.forEach` visits every slot including the empty ones, so the
+ * original index is stable whatever is currently rendering, which makes it a
+ * safe reconciliation key.
+ */
+function flatten(children: ReactNode, prefix = ''): FlatChild[] {
+  const out: FlatChild[] = [];
+  Children.forEach(children, (child, index) => {
+    const key = prefix ? `${prefix}.${index}` : String(index);
     if (isValidElement(child) && child.type === Fragment) {
-      out.push(...flatten((child.props as { children?: ReactNode }).children));
+      out.push(...flatten((child.props as { children?: ReactNode }).children, key));
     } else if (child != null && child !== false) {
-      out.push(child);
+      out.push({ node: child, key });
     }
   });
   return out;
@@ -27,17 +48,19 @@ function isPageChrome(child: ReactNode): boolean {
 
 export function Page({ children, className }: { children: ReactNode; className?: string }) {
   const items = flatten(children);
-  const chrome: ReactNode[] = [];
+  const chrome: FlatChild[] = [];
   let i = 0;
-  while (i < items.length && isPageChrome(items[i])) {
+  while (i < items.length && isPageChrome(items[i].node)) {
     chrome.push(items[i]);
     i += 1;
   }
   const body = items.slice(i);
+  const render = (list: FlatChild[]) =>
+    list.map((item) => <Fragment key={item.key}>{item.node}</Fragment>);
   return (
     <div className={clsx('cx-page', className)}>
-      {chrome}
-      {body.length > 0 ? <div className="cx-page__body">{body}</div> : null}
+      {render(chrome)}
+      {body.length > 0 ? <div className="cx-page__body">{render(body)}</div> : null}
     </div>
   );
 }
@@ -168,16 +191,24 @@ export function GhostButton({
   onClick,
   className,
   active,
+  disabled,
+  title,
 }: {
   children: ReactNode;
   onClick?: () => void;
   className?: string;
   active?: boolean;
+  /** Callers guard in-flight mutations with this; without it a second click
+   *  fires a concurrent request and the later response wins. */
+  disabled?: boolean;
+  title?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
+      title={title}
       className={clsx('cx-btn cx-btn--ghost', active && 'cx-btn--active', className)}
     >
       {children}

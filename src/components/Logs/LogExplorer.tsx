@@ -5,6 +5,7 @@ import {
   Filter, Download, Loader2, X, ChevronRight, FileText,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { clsx } from 'clsx';
 import api from '../../lib/api';
 import { useAuthStore } from '../../stores/authStore';
 import { Page } from '../ui/PageChrome';
@@ -153,23 +154,45 @@ export default function LogExplorer() {
             </button>
           </div>
         </div>
-        <dl className="cx-hero__kpis cx-hero__kpis--5 mt-6">
-          {[
-            { label: 'Errors', value: counts.error, sub: 'in this window', tone: counts.error > 0 ? 'danger' : undefined },
-            { label: 'Warnings', value: counts.warn, sub: 'in this window', tone: counts.warn > 0 ? 'warn' : undefined },
-            { label: 'Info', value: counts.info, sub: 'in this window' },
-            { label: 'Debug', value: counts.debug, sub: 'in this window' },
-            { label: 'Shown', value: filteredLogs.length, sub: 'after filters' },
-          ].map((kpi) => (
-            <div key={kpi.label} className={`cx-hero__kpi${kpi.tone ? ` cx-hero__kpi--${kpi.tone}` : ''}`}>
-              <dt className="cx-hero__kpi-label">{kpi.label}</dt>
-              <dd>
-                <div className="cx-hero__kpi-value">{kpi.value}</div>
-                <div className="cx-hero__kpi-sub">{kpi.sub}</div>
-              </dd>
-            </div>
-          ))}
-        </dl>
+        {/* The four severity counts are the severity filter: selecting one narrows
+            the stream to it, selecting it again clears it. They were the only way
+            to switch the filter on, so rendering them as inert tiles left
+            `severityFilter` with no setter but `null`. */}
+        <div className="cx-hero__kpis cx-hero__kpis--5 mt-6">
+          {([
+            { key: 'error', label: 'Errors', value: counts.error, tone: counts.error > 0 ? 'danger' : undefined },
+            { key: 'warn', label: 'Warnings', value: counts.warn, tone: counts.warn > 0 ? 'warn' : undefined },
+            { key: 'info', label: 'Info', value: counts.info, tone: undefined },
+            { key: 'debug', label: 'Debug', value: counts.debug, tone: undefined },
+          ] as const).map((kpi) => {
+            const pressed = severityFilter === kpi.key;
+            return (
+              <button
+                key={kpi.key}
+                type="button"
+                aria-pressed={pressed}
+                title={pressed ? `Show all severities` : `Show only ${kpi.label.toLowerCase()}`}
+                onClick={() => setSeverityFilter(pressed ? null : kpi.key)}
+                className={clsx(
+                  'cx-hero__kpi',
+                  kpi.tone && `cx-hero__kpi--${kpi.tone}`,
+                  pressed && 'cx-hero__kpi--pressed'
+                )}
+              >
+                <span className="cx-hero__kpi-label block">{kpi.label}</span>
+                <span className="cx-hero__kpi-value block">{kpi.value}</span>
+                <span className="cx-hero__kpi-sub block">
+                  {pressed ? 'filtering · select to clear' : 'in this window'}
+                </span>
+              </button>
+            );
+          })}
+          <div className="cx-hero__kpi">
+            <span className="cx-hero__kpi-label block">Shown</span>
+            <span className="cx-hero__kpi-value block">{filteredLogs.length}</span>
+            <span className="cx-hero__kpi-sub block">after filters</span>
+          </div>
+        </div>
       </div>
 
       <nav className="cx-crumb" aria-label="Breadcrumb">

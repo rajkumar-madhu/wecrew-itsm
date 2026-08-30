@@ -14,6 +14,7 @@ import {
   Search,
   Filter,
   Loader2,
+  RefreshCw,
   AlertTriangle,
   ChevronDown,
   ChevronRight,
@@ -354,7 +355,7 @@ export default function NetworkTopology() {
   }, [typeFilter, statusFilter, searchQuery]);
 
   // Fetch assets via TanStack Query
-  const { data: assetsResponse, isLoading, isError, error } = useAssets(queryFilters);
+  const { data: assetsResponse, isLoading, isError, error, refetch, isFetching } = useAssets(queryFilters);
 
   // Extract assets from API response shape: { success, data, pagination }
   const assets: ConfigItem[] = assetsResponse?.data ?? [];
@@ -516,6 +517,21 @@ export default function NetworkTopology() {
           <p className="text-dim text-sm mt-1">
             {error instanceof Error ? error.message : 'An unexpected error occurred'}
           </p>
+          {/* Without this the only way out of a transient failure is a browser
+              reload: the query will not refetch on its own while this component
+              stays mounted. Refetching beats reloading the whole app. */}
+          <button
+            type="button"
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="cx-btn cx-btn--ghost mt-4"
+          >
+            {isFetching ? (
+              <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Retrying…</>
+            ) : (
+              <><RefreshCw className="w-3.5 h-3.5" /> Retry</>
+            )}
+          </button>
         </div>
       )}
 

@@ -649,8 +649,11 @@ export default function VoiceDashboard() {
                 onChange={handleFileTranscribe}
                 className="hidden"
               />
-              <GhostButton onClick={() => fileInputRef.current?.click()}>
-                Upload audio
+              <GhostButton
+                onClick={() => fileInputRef.current?.click()}
+                disabled={transcribe.isPending}
+              >
+                {transcribe.isPending ? 'Transcribing…' : 'Upload audio'}
               </GhostButton>
             </div>
             {transcriptionResult && (

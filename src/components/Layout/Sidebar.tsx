@@ -6,7 +6,7 @@ import {
   Settings, ChevronLeft, ChevronRight, Shield, Layers,
   MessageSquare, Mic, Activity, LogOut, Phone, MessagesSquare,
   Monitor, CalendarDays, CalendarClock, GitMerge, Terminal,
-  BookOpen, Clock, FileSearch, UserCircle,
+  BookOpen, Clock, FileSearch, UserCircle, Siren,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import OrgSwitcher from './OrgSwitcher';
@@ -51,6 +51,10 @@ const navGroups: { label: string; items: NavItem[] }[] = [
       { to: '/k8s', icon: Layers, label: 'Kubernetes' },
       { to: '/logs', icon: Terminal, label: 'Log explorer' },
       { to: '/noc', icon: Monitor, label: 'NOC' },
+      // Integrations supersedes this for ADMINs, but it is the only other link
+      // to /pagerduty and it is ADMIN-only — so dropping this item left every
+      // other role with no route to a page they are still authorised to see.
+      { to: '/pagerduty', icon: Siren, label: 'PagerDuty' },
       { to: '/integrations', icon: Plug, label: 'Integrations', roles: ['ADMIN'] },
     ],
   },

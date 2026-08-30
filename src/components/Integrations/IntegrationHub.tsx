@@ -674,7 +674,7 @@ export default function IntegrationHub() {
               )}
 
               <div className="flex items-center gap-2 px-5 py-4" style={{ borderTop: '1px solid var(--argus-border)' }}>
-                <GhostButton onClick={() => handleTest(intg)}>
+                <GhostButton onClick={() => handleTest(intg)} disabled={isTesting}>
                   {isTesting ? <><Loader2 className="w-4 h-4 animate-spin" /> Testing…</> : <><RefreshCw className="w-3.5 h-3.5" /> Test</>}
                 </GhostButton>
                 <PrimaryButton onClick={() => handleSave(intg)} disabled={isSaving} className="flex-1">

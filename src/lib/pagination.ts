@@ -20,7 +20,11 @@ export interface PaginationMeta {
   page?: number;
   limit?: number;
   total?: number;
+  /** Most controllers report `pages`; `/auth/users` reports `totalPages`. Read
+   *  both — treating a missing key as "one page" would silently stop the walk
+   *  after the first request. */
   pages?: number;
+  totalPages?: number;
 }
 
 /** The server envelope: `{ data, pagination }`, where `data` is usually the
@@ -76,7 +80,7 @@ export async function fetchAllPages<T>(
 
     const meta: PaginationMeta = body?.pagination ?? {};
     total = meta.total ?? items.length;
-    pages = meta.pages ?? 1;
+    pages = meta.pages ?? meta.totalPages ?? 1;
 
     // An endpoint that returns no rows has nothing further to give; stop rather
     // than spin on the next page until maxPages runs out.
