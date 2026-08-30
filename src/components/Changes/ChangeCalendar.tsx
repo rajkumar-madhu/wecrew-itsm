@@ -1,11 +1,13 @@
 import { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import {
-  ChevronLeft, ChevronRight, CalendarDays, X, GitBranch,
-  Clock, User, AlertTriangle, LayoutGrid, List,
+  ChevronLeft, ChevronRight, X, GitBranch,
+  Clock, User, AlertTriangle, LayoutGrid, List, Loader2,
 } from 'lucide-react';
+import { clsx } from 'clsx';
 import { useChanges } from '../../hooks/useChanges';
+import { Page, Toolbar, Segmented } from '../ui/PageChrome';
 
-// ── Types ──────────────────────────────────────────────────────────────────────
 interface Change {
   id: string;
   title: string;
@@ -19,33 +21,36 @@ interface Change {
   description?: string;
 }
 
-// ── Constants ──────────────────────────────────────────────────────────────────
-const DAY_LABELS  = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTH_NAMES = ['January','February','March','April','May','June',
-                     'July','August','September','October','November','December'];
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'];
 
 const TYPE_COLORS: Record<string, { bg: string; border: string; text: string; label: string }> = {
-  NORMAL:    { bg: 'rgba(99,102,241,0.1)',  border: 'rgba(99,102,241,0.3)',  text: '#4F46E5', label: 'Normal' },
-  STANDARD:  { bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.3)',  text: '#059669', label: 'Standard' },
-  EMERGENCY: { bg: 'rgba(220,38,38,0.1)',  border: 'rgba(220,38,38,0.3)',   text: '#DC2626', label: 'Emergency' },
-  MAJOR:     { bg: 'rgba(217,119,6,0.1)',  border: 'rgba(217,119,6,0.3)',   text: '#D97706', label: 'Major' },
+  NORMAL:    { bg: 'rgba(43,76,255,0.10)',  border: 'rgba(43,76,255,0.22)',  text: '#2b4cff', label: 'Normal' },
+  STANDARD:  { bg: 'rgba(15,122,85,0.10)',  border: 'rgba(15,122,85,0.22)',  text: '#0f7a55', label: 'Standard' },
+  EMERGENCY: { bg: 'rgba(220,38,38,0.10)',  border: 'rgba(220,38,38,0.22)',  text: '#dc2626', label: 'Emergency' },
+  MAJOR:     { bg: 'rgba(217,119,6,0.10)',  border: 'rgba(217,119,6,0.22)',  text: '#d97706', label: 'Major' },
 };
 
-const STATE_COLORS: Record<string, { bg: string; text: string }> = {
-  NEW:          { bg: '#F1F5F9', text: '#475569' },
-  ASSESSMENT:   { bg: 'rgba(99,102,241,0.1)', text: '#4F46E5' },
-  APPROVAL:     { bg: 'rgba(217,119,6,0.1)', text: '#D97706' },
-  SCHEDULED:    { bg: 'rgba(16,185,129,0.1)', text: '#059669' },
-  IMPLEMENTING: { bg: 'rgba(245,158,11,0.1)', text: '#B45309' },
-  REVIEW:       { bg: 'rgba(124,58,237,0.1)', text: '#7C3AED' },
-  CLOSED:       { bg: '#F1F5F9', text: '#6B7280' },
-  CANCELLED:    { bg: 'rgba(220,38,38,0.08)', text: '#DC2626' },
+const STATE_TONE: Record<string, 'neutral' | 'warn' | 'ok' | 'alert' | 'danger'> = {
+  NEW: 'neutral',
+  DRAFT: 'neutral',
+  ASSESSMENT: 'warn',
+  SUBMITTED: 'warn',
+  APPROVAL: 'warn',
+  APPROVED: 'ok',
+  SCHEDULED: 'ok',
+  IMPLEMENTING: 'alert',
+  REVIEW: 'warn',
+  CLOSED: 'neutral',
+  COMPLETED: 'neutral',
+  CANCELLED: 'neutral',
 };
 
-function riskBadge(risk: string) {
-  if (risk === 'HIGH') return { bg: 'rgba(220,38,38,0.1)', text: '#DC2626', border: 'rgba(220,38,38,0.2)' };
-  if (risk === 'MEDIUM') return { bg: 'rgba(217,119,6,0.1)', text: '#D97706', border: 'rgba(217,119,6,0.2)' };
-  return { bg: 'rgba(16,185,129,0.1)', text: '#059669', border: 'rgba(16,185,129,0.2)' };
+function riskTone(risk: string): 'danger' | 'warn' | 'ok' {
+  if (risk === 'HIGH') return 'danger';
+  if (risk === 'MEDIUM') return 'warn';
+  return 'ok';
 }
 
 function fmtDate(iso: string) {
@@ -55,18 +60,32 @@ function fmtDate(iso: string) {
   });
 }
 
-// ── Main Component ─────────────────────────────────────────────────────────────
+function asCalChange(raw: any): Change {
+  const assignee = raw.assignedTo || raw.assignee || null;
+  return {
+    id: raw.id,
+    title: raw.shortDescription || raw.title || '',
+    changeNumber: raw.number || raw.changeNumber || '',
+    type: raw.type || 'NORMAL',
+    state: raw.state || 'DRAFT',
+    risk: raw.risk || raw.riskLevel || 'MEDIUM',
+    scheduledStart: raw.plannedStartDate || raw.scheduledStart || null,
+    scheduledEnd: raw.plannedEndDate || raw.scheduledEnd || null,
+    assignee: assignee ? { firstName: assignee.firstName || '', lastName: assignee.lastName || '' } : null,
+    description: raw.description || undefined,
+  };
+}
+
 export default function ChangeCalendar() {
   const today = new Date();
-  const [year, setYear]   = useState(today.getFullYear());
+  const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
-  const [view, setView]   = useState<'month' | 'week'>('month');
+  const [view, setView] = useState<'month' | 'week'>('month');
   const [selected, setSelected] = useState<Change | null>(null);
 
   const { data, isLoading } = useChanges({ limit: 500, page: 1 });
-  const changes: Change[] = data?.data || [];
+  const changes: Change[] = (data?.data || []).map(asCalChange);
 
-  // Build calendar grid for month view
   const monthCells = useMemo(() => {
     const firstDow = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -76,7 +95,6 @@ export default function ChangeCalendar() {
     return arr;
   }, [year, month]);
 
-  // Week view: Mon–Sun of the current week (first week of selected month by default)
   const weekStart = useMemo(() => {
     const d = new Date(year, month, 1);
     const dow = d.getDay();
@@ -94,7 +112,6 @@ export default function ChangeCalendar() {
     return cells;
   }, [weekStart]);
 
-  // Index changes by YYYY-MM-DD
   const byDay = useMemo(() => {
     const map = new Map<string, Change[]>();
     changes.forEach(c => {
@@ -120,7 +137,6 @@ export default function ChangeCalendar() {
 
   const activeCells = view === 'month' ? monthCells : weekCells;
 
-  // Legend: types present in this month
   const typesInMonth = useMemo(() => {
     const seen = new Set<string>();
     activeCells.forEach(day => {
@@ -131,152 +147,151 @@ export default function ChangeCalendar() {
     return Array.from(seen);
   }, [activeCells, byDay]);
 
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const scheduledThisMonth = useMemo(() => {
+    let n = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const k = new Date(year, month, d).toISOString().slice(0, 10);
+      n += (byDay.get(k) || []).length;
+    }
+    return n;
+  }, [byDay, year, month, daysInMonth]);
+  const emergency = changes.filter(c => c.type === 'EMERGENCY').length;
+
+  const kpis = [
+    { label: 'On this month', value: isLoading ? '—' : scheduledThisMonth, sub: 'placed on the grid' },
+    { label: 'On record', value: isLoading ? '—' : changes.length, sub: 'with a start date or not' },
+    { label: 'Emergency', value: isLoading ? '—' : emergency, sub: 'bypassed the calendar', tone: emergency > 0 ? 'danger' : undefined },
+    { label: 'Types in view', value: isLoading ? '—' : typesInMonth.length, sub: 'on the current grid' },
+  ];
+
   return (
-    <div className="animate-fade-in">
-
-      {/* ── Hero ── */}
-      <div className="relative overflow-hidden bg-white shadow-sm border border-stone-200 rounded-2xl mx-4 mt-4">
-        <div className="absolute inset-0 opacity-[0.03]"
-          style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, #94A3B8 1px, transparent 0)', backgroundSize: '32px 32px' }} />
-        <div className="absolute top-0 right-0 w-64 h-16 opacity-[0.06] pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse at 100% 0%, #4F46E5 0%, transparent 70%)' }} />
-
-        <div className="relative px-6 py-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                style={{ background: 'rgba(79,70,229,0.1)', border: '1px solid rgba(79,70,229,0.25)' }}>
-                <CalendarDays className="w-5 h-5" style={{ color: '#4F46E5' }} />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className="text-[10px] font-mono tracking-widest uppercase" style={{ color: '#4F46E5' }}>Changes</span>
-                  <span className="text-stone-300">/</span>
-                  <span className="text-[10px] font-mono text-stone-500 tracking-widest uppercase">Calendar</span>
-                </div>
-                <h1 className="text-[22px] font-display font-bold text-stone-900 tracking-tight">Change Calendar</h1>
-                <p className="text-[12px] text-stone-500 mt-0.5">Visualize scheduled changes by date</p>
-              </div>
-            </div>
-
-            {/* View toggle */}
-            <div className="flex items-center gap-2">
-              <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid #E7E5E4' }}>
-                <button
-                  onClick={() => setView('month')}
-                  className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-medium transition-colors"
-                  style={view === 'month' ? { background: 'var(--argus-signal)', color: '#ffffff' } : { background: '#FAFAF9', color: '#78716C' }}
-                >
-                  <LayoutGrid className="w-3.5 h-3.5" />
-                  Month
-                </button>
-                <button
-                  onClick={() => setView('week')}
-                  className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-medium transition-colors"
-                  style={view === 'week' ? { background: 'var(--argus-signal)', color: '#ffffff' } : { background: '#FAFAF9', color: '#78716C' }}
-                >
-                  <List className="w-3.5 h-3.5" />
-                  Week
-                </button>
-              </div>
-            </div>
+    <Page>
+      <div className="cx-hero">
+        <div className="flex items-start justify-between gap-6 flex-wrap">
+          <div className="min-w-0">
+            <span className="cx-eyebrow">Operate · change management</span>
+            <h1 className="cx-hero__title">Calendar</h1>
+            <p className="cx-hero__deck">
+              Every scheduled change, placed on the day it starts. Collision is the question —
+              two emergency ticks on the same weekday is what the CAB should see first.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Link to="/changes" className="cx-hero__btn cx-hero__btn--ghost">Change register</Link>
+            <Link to="/changes/create" className="cx-hero__btn">Raise a change</Link>
           </div>
         </div>
-      </div>
-
-      {/* ── Month nav ── */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-stone-200 bg-white">
-        <button onClick={prevMonth} className="p-2 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors">
-          <ChevronLeft className="w-5 h-5" />
-        </button>
-        <div className="text-center select-none flex items-center gap-3">
-          <span className="text-xl font-display font-bold text-stone-900">{MONTH_NAMES[month]}</span>
-          <span className="text-xl font-display font-bold text-stone-400">{year}</span>
-          {isLoading && (
-            <div className="w-4 h-4 border border-[#4F46E5]/30 border-t-[#4F46E5] rounded-full animate-spin" />
-          )}
-        </div>
-        <button onClick={nextMonth} className="p-2 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors">
-          <ChevronRight className="w-5 h-5" />
-        </button>
-      </div>
-
-      {/* ── Calendar Grid ── */}
-      <div className="px-4 pb-6 pt-3 bg-white min-h-[600px]">
-        {/* Day headers */}
-        <div className="grid grid-cols-7 gap-1 mb-1">
-          {DAY_LABELS.map(d => (
-            <div key={d} className="text-center py-1.5 text-[10px] font-bold tracking-[0.18em] text-stone-400 uppercase font-mono">{d}</div>
+        <dl className="cx-hero__kpis mt-6">
+          {kpis.map((kpi) => (
+            <div key={kpi.label} className={clsx('cx-hero__kpi', kpi.tone && `cx-hero__kpi--${kpi.tone}`)}>
+              <dt className="cx-hero__kpi-label">{kpi.label}</dt>
+              <dd>
+                <div className="cx-hero__kpi-value">{kpi.value}</div>
+                <div className="cx-hero__kpi-sub">{kpi.sub}</div>
+              </dd>
+            </div>
           ))}
+        </dl>
+      </div>
+
+      <nav className="cx-crumb" aria-label="Breadcrumb">
+        <Link to="/dashboard">Operations</Link>
+        <span aria-hidden>/</span>
+        <Link to="/changes">Changes</Link>
+        <span aria-hidden>/</span>
+        <span className="cx-crumb__current">Calendar</span>
+      </nav>
+
+      <Toolbar>
+        <Segmented
+          value={view}
+          onChange={(v) => setView(v as 'month' | 'week')}
+          options={[
+            { value: 'month', label: 'Month', icon: LayoutGrid },
+            { value: 'week', label: 'Week', icon: List },
+          ]}
+        />
+        {isLoading && <Loader2 size={14} className="animate-spin text-dim" />}
+      </Toolbar>
+
+      <div className="cx-cal">
+        <div className="cx-cal__head">
+          <button type="button" onClick={prevMonth} className="cx-cal__nav" aria-label="Previous month">
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <div className="select-none">
+            <span className="cx-cal__month">{MONTH_NAMES[month]}</span>
+            <span className="cx-cal__year">{year}</span>
+          </div>
+          <button type="button" onClick={nextMonth} className="cx-cal__nav" aria-label="Next month">
+            <ChevronRight className="w-5 h-5" />
+          </button>
         </div>
 
-        {/* Cells */}
-        <div className="grid grid-cols-7 gap-1">
-          {activeCells.map((day, idx) => {
-            if (!day) return <div key={`e-${idx}`} className="h-[120px] rounded-xl" style={{ background: '#FAFAF9' }} />;
+        <div className="cx-cal__body">
+          <div className="cx-cal__dows">
+            {DAY_LABELS.map(d => <div key={d} className="cx-cal__dow">{d}</div>)}
+          </div>
 
-            const key = day.toISOString().slice(0, 10);
-            const isToday = day.toDateString() === today.toDateString();
-            const isWeekend = day.getDay() === 0 || day.getDay() === 6;
-            const dayChanges = byDay.get(key) || [];
-            const visible = dayChanges.slice(0, 3);
-            const overflow = dayChanges.length - visible.length;
-            const isOtherMonth = view === 'week' && (day.getMonth() !== month);
+          <div className="cx-cal__grid">
+            {activeCells.map((day, idx) => {
+              if (!day) return <div key={`e-${idx}`} className="cx-cal__pad" />;
 
-            return (
-              <div
-                key={key}
-                className="h-[120px] rounded-xl p-2 flex flex-col"
-                style={{
-                  background: isToday ? 'rgba(79,70,229,0.05)' : isWeekend ? '#FAFAF9' : '#FFFFFF',
-                  border: isToday ? '1px solid rgba(79,70,229,0.25)' : '1px solid #E7E5E4',
-                  opacity: isOtherMonth ? 0.4 : 1,
-                }}
-              >
-                {/* Date number */}
-                <div className="flex items-center justify-between mb-1 shrink-0">
-                  <span className={`text-[13px] font-bold font-mono leading-none ${isToday ? 'text-[#4F46E5]' : isWeekend ? 'text-stone-400' : 'text-stone-500'}`}>
-                    {day.getDate()}
-                  </span>
-                  {isToday && (
-                    <span className="text-[8px] font-bold font-mono uppercase tracking-widest px-1.5 py-0.5 rounded-full"
-                      style={{ color: '#4F46E5', background: 'rgba(79,70,229,0.12)', border: '1px solid rgba(79,70,229,0.3)' }}>
-                      TODAY
-                    </span>
+              const key = day.toISOString().slice(0, 10);
+              const isToday = day.toDateString() === today.toDateString();
+              const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+              const dayChanges = byDay.get(key) || [];
+              const visible = dayChanges.slice(0, 3);
+              const overflow = dayChanges.length - visible.length;
+              const isOtherMonth = view === 'week' && day.getMonth() !== month;
+              const collide = dayChanges.filter(c => c.type === 'EMERGENCY' || c.risk === 'HIGH').length > 1;
+
+              return (
+                <div
+                  key={key}
+                  className={clsx(
+                    'cx-cal__day',
+                    isWeekend && 'cx-cal__day--weekend',
+                    isToday && 'cx-cal__day--today',
+                    collide && 'cx-cal__day--collide',
+                    view === 'week' && 'min-h-[160px]',
                   )}
+                  style={{ opacity: isOtherMonth ? 0.45 : 1 }}
+                >
+                  <div className="flex items-center justify-between mb-1 shrink-0">
+                    <span className="cx-cal__num">{day.getDate()}</span>
+                    {isToday && <span className="cx-cal__today">Today</span>}
+                  </div>
+                  <div className="cx-cal__chips">
+                    {visible.map(c => {
+                      const tc = TYPE_COLORS[c.type] || TYPE_COLORS.NORMAL;
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => setSelected(c)}
+                          className="flex items-center gap-1 rounded-md px-1.5 py-[3px] min-w-0 text-left hover:opacity-80 transition-opacity"
+                          style={{ background: tc.bg, border: `1px solid ${tc.border}` }}
+                        >
+                          <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: tc.text }} />
+                          <span className="text-[9px] font-semibold truncate leading-tight" style={{ color: tc.text }}>
+                            {c.changeNumber}
+                          </span>
+                        </button>
+                      );
+                    })}
+                    {overflow > 0 && <span className="cx-cal__more">+{overflow} more</span>}
+                  </div>
                 </div>
-
-                {/* Change chips */}
-                <div className="flex flex-col gap-0.5 flex-1 overflow-hidden">
-                  {visible.map(c => {
-                    const tc = TYPE_COLORS[c.type] || TYPE_COLORS.NORMAL;
-                    return (
-                      <button
-                        key={c.id}
-                        onClick={() => setSelected(c)}
-                        className="flex items-center gap-1 rounded-md px-1.5 py-[3px] min-w-0 text-left hover:opacity-80 transition-opacity"
-                        style={{ background: tc.bg, border: `1px solid ${tc.border}` }}
-                      >
-                        <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: tc.text }} />
-                        <span className="text-[9px] font-semibold truncate leading-tight" style={{ color: tc.text }}>
-                          {c.changeNumber}
-                        </span>
-                      </button>
-                    );
-                  })}
-                  {overflow > 0 && (
-                    <span className="text-[8px] text-stone-400 font-mono px-1">+{overflow} more</span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
 
-        {/* Legend */}
         {typesInMonth.length > 0 && (
-          <div className="mt-4 flex items-center gap-3 flex-wrap">
-            <span className="text-[9px] text-stone-400 font-mono uppercase tracking-widest">Type:</span>
+          <div className="cx-cal__legend">
+            <span className="cx-cal__legend-label">Type</span>
             {typesInMonth.map(t => {
               const tc = TYPE_COLORS[t] || TYPE_COLORS.NORMAL;
               return (
@@ -289,142 +304,116 @@ export default function ChangeCalendar() {
             })}
           </div>
         )}
-
-        {/* Empty state */}
-        {changes.length === 0 && !isLoading && (
-          <div className="flex flex-col items-center justify-center py-16">
-            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-3"
-              style={{ background: 'rgba(79,70,229,0.05)', border: '1px solid rgba(79,70,229,0.15)' }}>
-              <GitBranch className="w-6 h-6" style={{ color: '#4F46E5' }} />
-            </div>
-            <p className="text-[13px] text-stone-500 font-mono">No scheduled changes found</p>
-          </div>
-        )}
       </div>
 
-      {/* ── Side Panel ── */}
-      {selected && (
-        <div className="fixed inset-0 z-50 flex items-center justify-end p-4"
-          style={{ background: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(4px)' }}
-          onClick={e => { if (e.target === e.currentTarget) setSelected(null); }}>
-          <div className="w-full max-w-md h-[90vh] overflow-y-auto rounded-2xl flex flex-col"
-            style={{ background: '#FFFFFF', border: '1px solid #E7E5E4', boxShadow: '0 25px 60px -12px rgba(0,0,0,0.2)' }}>
+      {changes.length === 0 && !isLoading && (
+        <div className="flex flex-col items-center justify-center py-12">
+          <GitBranch className="w-8 h-8 text-graphite mb-3" strokeWidth={1.75} />
+          <p className="text-sm text-dim">No scheduled changes found</p>
+        </div>
+      )}
 
-            {/* Panel header */}
-            <div className="flex items-center justify-between px-5 py-4 shrink-0"
-              style={{ borderBottom: '1px solid #E7E5E4' }}>
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-                  style={{ background: (TYPE_COLORS[selected.type] || TYPE_COLORS.NORMAL).bg, border: `1px solid ${(TYPE_COLORS[selected.type] || TYPE_COLORS.NORMAL).border}` }}>
+      {selected && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-end p-4"
+          style={{ background: 'var(--argus-overlay)' }}
+          onClick={e => { if (e.target === e.currentTarget) setSelected(null); }}
+        >
+          <div
+            className="w-full max-w-md h-[90vh] overflow-y-auto flex flex-col animate-fade-in"
+            style={{ background: 'var(--argus-surface)', border: '1px solid var(--argus-border)', borderRadius: 'var(--cx-radius)', boxShadow: 'var(--argus-shadow-card)' }}
+          >
+            <div className="flex items-center justify-between px-5 py-4 shrink-0" style={{ borderBottom: '1px solid var(--argus-border)' }}>
+              <div className="flex items-center gap-3 min-w-0">
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                  style={{
+                    background: (TYPE_COLORS[selected.type] || TYPE_COLORS.NORMAL).bg,
+                    border: `1px solid ${(TYPE_COLORS[selected.type] || TYPE_COLORS.NORMAL).border}`,
+                  }}
+                >
                   <GitBranch className="w-4 h-4" style={{ color: (TYPE_COLORS[selected.type] || TYPE_COLORS.NORMAL).text }} />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-[10px] font-mono font-bold tracking-widest uppercase" style={{ color: (TYPE_COLORS[selected.type] || TYPE_COLORS.NORMAL).text }}>
                     {selected.changeNumber}
                   </p>
-                  <p className="text-[14px] font-display font-bold text-stone-900 leading-tight">{selected.title}</p>
+                  <p className="text-[14px] font-display font-bold text-ink leading-tight truncate">{selected.title}</p>
                 </div>
               </div>
-              <button onClick={() => setSelected(null)}
-                className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors">
+              <button type="button" onClick={() => setSelected(null)} className="p-1.5 rounded text-muted hover:text-ink hover:bg-[color:var(--argus-elevated)]" aria-label="Close">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Panel body */}
             <div className="px-5 py-5 space-y-4 flex-1">
-              {/* Badges */}
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] font-bold font-mono px-2 py-1 rounded-lg"
-                  style={{
-                    background: (TYPE_COLORS[selected.type] || TYPE_COLORS.NORMAL).bg,
-                    color: (TYPE_COLORS[selected.type] || TYPE_COLORS.NORMAL).text,
-                    border: `1px solid ${(TYPE_COLORS[selected.type] || TYPE_COLORS.NORMAL).border}`,
-                  }}>
-                  {selected.type}
-                </span>
-                <span className="text-[10px] font-bold font-mono px-2 py-1 rounded-lg"
-                  style={{
-                    background: (STATE_COLORS[selected.state] || STATE_COLORS.NEW).bg,
-                    color: (STATE_COLORS[selected.state] || STATE_COLORS.NEW).text,
-                    border: '1px solid transparent',
-                  }}>
-                  {selected.state}
-                </span>
+                <span className="cx-pill cx-pill--neutral">{selected.type}</span>
+                <span className={clsx('cx-pill', `cx-pill--${STATE_TONE[selected.state] || 'neutral'}`)}>{selected.state}</span>
                 {selected.risk && (
-                  <span className="text-[10px] font-bold font-mono px-2 py-1 rounded-lg"
-                    style={{
-                      background: riskBadge(selected.risk).bg,
-                      color: riskBadge(selected.risk).text,
-                      border: `1px solid ${riskBadge(selected.risk).border}`,
-                    }}>
-                    Risk: {selected.risk}
-                  </span>
+                  <span className={clsx('cx-pill', `cx-pill--${riskTone(selected.risk)}`)}>Risk: {selected.risk}</span>
                 )}
               </div>
 
-              {/* Description */}
               {selected.description && (
                 <div>
-                  <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1">Description</p>
-                  <p className="text-[13px] text-stone-700 leading-relaxed">{selected.description}</p>
+                  <p className="text-[10px] font-bold text-dim uppercase tracking-widest mb-1">Description</p>
+                  <p className="text-[13px] text-ink leading-relaxed">{selected.description}</p>
                 </div>
               )}
 
-              {/* Schedule */}
-              <div className="rounded-xl p-4 space-y-3" style={{ background: '#FAFAF9', border: '1px solid #E7E5E4' }}>
-                <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Schedule</p>
+              <div className="rounded-xl p-4 space-y-3 border border-steel bg-[color:var(--argus-elevated)]">
+                <p className="text-[10px] font-bold text-dim uppercase tracking-widest">Schedule</p>
                 <div className="flex items-start gap-2.5">
-                  <Clock className="w-4 h-4 shrink-0 mt-0.5" style={{ color: '#4F46E5' }} />
+                  <Clock className="w-4 h-4 shrink-0 mt-0.5 text-signal" />
                   <div>
-                    <p className="text-[11px] text-stone-500">Start</p>
-                    <p className="text-[13px] font-semibold text-stone-900">
+                    <p className="text-[11px] text-muted">Start</p>
+                    <p className="text-[13px] font-semibold text-ink">
                       {selected.scheduledStart ? fmtDate(selected.scheduledStart) : '—'}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-start gap-2.5">
-                  <Clock className="w-4 h-4 shrink-0 mt-0.5" style={{ color: '#DC2626' }} />
+                  <Clock className="w-4 h-4 shrink-0 mt-0.5 text-crimson" />
                   <div>
-                    <p className="text-[11px] text-stone-500">End</p>
-                    <p className="text-[13px] font-semibold text-stone-900">
+                    <p className="text-[11px] text-muted">End</p>
+                    <p className="text-[13px] font-semibold text-ink">
                       {selected.scheduledEnd ? fmtDate(selected.scheduledEnd) : '—'}
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* Assignee */}
               {selected.assignee && (
-                <div className="flex items-center gap-3 rounded-xl p-4" style={{ background: '#FAFAF9', border: '1px solid #E7E5E4' }}>
-                  <div className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-bold text-ink shrink-0"
-                    style={{ background: 'linear-gradient(135deg, #4F46E5, #7C3AED)' }}>
+                <div className="flex items-center gap-3 rounded-xl p-4 border border-steel bg-[color:var(--argus-elevated)]">
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
+                    style={{ background: 'var(--argus-ink)', color: 'var(--brand-paper)' }}>
                     {selected.assignee.firstName[0]}{selected.assignee.lastName[0]}
                   </div>
                   <div>
-                    <p className="text-[10px] text-stone-400 uppercase tracking-widest font-bold">Assignee</p>
-                    <p className="text-[13px] font-semibold text-stone-900">
+                    <p className="text-[10px] text-dim uppercase tracking-widest font-bold">Assignee</p>
+                    <p className="text-[13px] font-semibold text-ink">
                       {selected.assignee.firstName} {selected.assignee.lastName}
                     </p>
                   </div>
-                  <User className="w-4 h-4 ml-auto" style={{ color: '#D6D3D1' }} />
+                  <User className="w-4 h-4 ml-auto text-graphite" />
                 </div>
               )}
 
-              {/* Risk alert for EMERGENCY */}
               {selected.type === 'EMERGENCY' && (
-                <div className="flex items-center gap-2.5 rounded-xl px-4 py-3"
-                  style={{ background: 'rgba(220,38,38,0.05)', border: '1px solid rgba(220,38,38,0.2)' }}>
-                  <AlertTriangle className="w-4 h-4 shrink-0" style={{ color: '#DC2626' }} />
-                  <p className="text-[12px] font-semibold" style={{ color: '#DC2626' }}>
-                    Emergency change — requires expedited approval
-                  </p>
+                <div className="flex items-center gap-2.5 rounded-xl px-4 py-3 bg-crimson-dim text-crimson">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <p className="text-[12px] font-semibold">Emergency change — requires expedited approval</p>
                 </div>
               )}
+
+              <Link to={`/changes/${selected.id}`} className="cx-btn cx-btn--primary w-full justify-center">
+                Open change
+              </Link>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </Page>
   );
 }

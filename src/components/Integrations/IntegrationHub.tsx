@@ -1,14 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { clsx } from 'clsx';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Activity, MessageSquare, Database, BarChart3, FileText,
   Phone, Mail, Globe, Webhook, Workflow, CheckCircle,
   XCircle, AlertCircle, Settings, ExternalLink, RefreshCw,
-  Loader2, Zap, Layers, Box, Bell, Shield, Eye, Bug,
-  Radio, Server, Cloud, GitBranch, Terminal, Search,
+  Loader2, Zap, Layers, Bell, Shield, Eye, Bug,
+  Radio, Cloud, GitBranch, Terminal, Search, X,
 } from 'lucide-react';
 import { useIntegrations, useCreateIntegration, useUpdateIntegration, useTestConnection } from '../../hooks/useIntegrations';
+import { Page, Panel, Toolbar, Segmented, GhostButton, PrimaryButton } from '../ui/PageChrome';
 
 interface IntegrationDef {
   type: string;
@@ -21,7 +22,6 @@ interface IntegrationDef {
 }
 
 const INTEGRATION_DEFS: IntegrationDef[] = [
-  // ── Monitoring & Observability ──
   { type: 'PROMETHEUS', name: 'Prometheus', icon: Activity, description: 'Metrics collection & alerting', color: 'signal', category: 'monitoring' },
   { type: 'GRAFANA', name: 'Grafana', icon: BarChart3, description: 'Dashboard visualization & panels', color: 'emerald', category: 'monitoring' },
   { type: 'LOKI', name: 'Loki', icon: FileText, description: 'Log aggregation & querying', color: 'violet', category: 'monitoring' },
@@ -30,19 +30,16 @@ const INTEGRATION_DEFS: IntegrationDef[] = [
   { type: 'DATADOG', name: 'Datadog', icon: Eye, description: 'Infrastructure & APM monitoring', color: 'violet', category: 'monitoring' },
   { type: 'NEW_RELIC', name: 'New Relic', icon: Search, description: 'Full-stack observability platform', color: 'emerald', category: 'monitoring' },
   { type: 'ELASTICSEARCH', name: 'Elasticsearch', icon: Database, description: 'Search & log analytics engine', color: 'amber', category: 'monitoring' },
-  // ── ITSM & Incident Management ──
   { type: 'PAGERDUTY', name: 'PagerDuty', icon: Bell, description: 'Incident response & on-call management', color: 'emerald', category: 'itsm', dashboardRoute: '/pagerduty' },
   { type: 'SERVICENOW', name: 'ServiceNow', icon: Globe, description: 'ITSM sync & ticket mirroring', color: 'signal', category: 'itsm' },
   { type: 'JIRA', name: 'Jira', icon: Bug, description: 'Issue tracking & project management', color: 'signal', category: 'itsm' },
   { type: 'OPSGENIE', name: 'OpsGenie', icon: Shield, description: 'Alert routing & escalation policies', color: 'crimson', category: 'itsm' },
   { type: 'REDMINE', name: 'Redmine', icon: GitBranch, description: 'Project management & bug tracking', color: 'crimson', category: 'itsm' },
-  // ── Communication & Notifications ──
   { type: 'SLACK', name: 'Slack', icon: MessageSquare, description: 'Team notifications & incident channels', color: 'amber', category: 'communication' },
   { type: 'APPRISE', name: 'Apprise', icon: Radio, description: 'Multi-channel push notifications', color: 'violet', category: 'communication' },
   { type: 'TWILIO', name: 'Twilio', icon: Phone, description: 'SMS & voice call escalations', color: 'crimson', category: 'communication' },
   { type: 'MSG91', name: 'MSG91', icon: Phone, description: 'India bulk SMS notifications', color: 'emerald', category: 'communication' },
   { type: 'EMAIL', name: 'Email (SMTP)', icon: Mail, description: 'Email notifications & digests', color: 'signal', category: 'communication' },
-  // ── Automation & DevOps ──
   { type: 'N8N', name: 'n8n', icon: Workflow, description: 'Workflow automation engine', color: 'violet', category: 'automation' },
   { type: 'ANSIBLE', name: 'Ansible', icon: Terminal, description: 'Configuration management & playbooks', color: 'crimson', category: 'automation' },
   { type: 'TERRAFORM', name: 'Terraform', icon: Cloud, description: 'Infrastructure as Code provisioning', color: 'violet', category: 'cloud' },
@@ -52,10 +49,7 @@ const INTEGRATION_DEFS: IntegrationDef[] = [
   { type: 'AZURE', name: 'Azure Monitor', icon: Cloud, description: 'Azure infrastructure monitoring', color: 'signal', category: 'cloud' },
 ];
 
-// Config field definitions per integration type
-// Note: PROMETHEUS and GRAFANA use smart custom forms (see modal render below)
 const CONFIG_FIELDS: Record<string, { key: string; label: string; placeholder: string; type?: string }[]> = {
-  // KUBERNETES_CLUSTER uses a smart custom form (see modal render below)
   SLACK: [
     { key: 'botToken', label: 'Bot Token', placeholder: 'xoxb-...', type: 'password' },
     { key: 'channel', label: 'Channel', placeholder: '#alerts' },
@@ -100,20 +94,32 @@ function safeParseConfig(config: any): Record<string, any> {
   try { return JSON.parse(config); } catch { return {}; }
 }
 
-const statusConfig: Record<string, { icon: any; label: string; cls: string }> = {
-  ACTIVE: { icon: CheckCircle, label: 'Active', cls: 'text-emerald bg-emerald-50 border-emerald-200' },
-  INACTIVE: { icon: XCircle, label: 'Inactive', cls: 'text-stone-500 bg-stone-100 border-stone-200' },
-  ERROR: { icon: AlertCircle, label: 'Error', cls: 'text-crimson bg-red-50 border-red-200' },
+const COLOR: Record<string, { bg: string; fg: string }> = {
+  signal: { bg: 'var(--argus-signal-dim)', fg: 'var(--argus-signal)' },
+  emerald: { bg: 'var(--argus-emerald-dim)', fg: 'var(--argus-emerald)' },
+  amber: { bg: 'var(--argus-amber-dim)', fg: 'var(--argus-amber)' },
+  crimson: { bg: 'var(--argus-crimson-dim)', fg: 'var(--argus-crimson)' },
+  violet: { bg: 'var(--argus-violet-dim)', fg: 'var(--argus-violet)' },
+};
+
+const statusConfig: Record<string, { icon: any; label: string; tone: 'ok' | 'neutral' | 'danger' }> = {
+  ACTIVE: { icon: CheckCircle, label: 'Active', tone: 'ok' },
+  INACTIVE: { icon: XCircle, label: 'Inactive', tone: 'neutral' },
+  ERROR: { icon: AlertCircle, label: 'Error', tone: 'danger' },
 };
 
 const CATEGORIES = [
-  { key: 'all', label: 'All Integrations' },
-  { key: 'monitoring', label: 'Monitoring' },
-  { key: 'itsm', label: 'ITSM' },
-  { key: 'communication', label: 'Communication' },
-  { key: 'automation', label: 'Automation' },
-  { key: 'cloud', label: 'Cloud & Infra' },
+  { value: 'all', label: 'All' },
+  { value: 'monitoring', label: 'Monitoring' },
+  { value: 'itsm', label: 'ITSM' },
+  { value: 'communication', label: 'Comms' },
+  { value: 'automation', label: 'Automation' },
+  { value: 'cloud', label: 'Cloud' },
 ];
+
+function FieldLabel({ children }: { children: ReactNode }) {
+  return <label className="block text-[10px] font-bold text-muted uppercase tracking-widest mb-1.5">{children}</label>;
+}
 
 export default function IntegrationHub() {
   const navigate = useNavigate();
@@ -121,7 +127,6 @@ export default function IntegrationHub() {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [configModal, setConfigModal] = useState<string | null>(null);
 
-  // ── Form state for modal ──
   const [formName, setFormName] = useState('');
   const [formEnabled, setFormEnabled] = useState(true);
   const [formConfig, setFormConfig] = useState<Record<string, string>>({});
@@ -149,32 +154,20 @@ export default function IntegrationHub() {
   });
 
   const activeCount = integrations.filter(i => i.status === 'ACTIVE').length;
+  const errorCount = integrations.filter(i => i.status === 'ERROR').length;
+  const inactiveCount = integrations.filter(i => i.status === 'INACTIVE').length;
 
   const filtered = integrations
     .filter(i => statusFilter === 'all' || i.status === statusFilter)
     .filter(i => categoryFilter === 'all' || i.category === categoryFilter);
 
-  const colorMap: Record<string, string> = {
-    signal: 'from-indigo-100 to-indigo-50',
-    emerald: 'from-emerald-100 to-emerald-50',
-    amber: 'from-amber-100 to-amber-50',
-    crimson: 'from-red-100 to-red-50',
-    violet: 'from-violet-100 to-violet-50',
-  };
-
-  const iconColorMap: Record<string, string> = {
-    signal: 'text-signal', emerald: 'text-emerald', amber: 'text-amber', crimson: 'text-crimson', violet: 'text-violet',
-  };
-
-  // Populate form when modal opens
   useEffect(() => {
     if (!configModal) return;
     const intg = integrations.find(i => i.id === configModal);
     if (!intg) return;
     setFormName(intg.connected ? intg.name : '');
     setFormEnabled(intg.status === 'ACTIVE');
-    const parsed = safeParseConfig(intg.config);
-    setFormConfig(parsed);
+    setFormConfig(safeParseConfig(intg.config));
     setTestResult(null);
     setSaveMsg(null);
   }, [configModal]);
@@ -194,7 +187,6 @@ export default function IntegrationHub() {
     const name = formName || intg.name;
 
     if (intg.apiId) {
-      // EDIT mode — update existing integration
       updateIntegration.mutate(
         { id: intg.apiId, data: { name, config: configStr, status: formEnabled ? 'ACTIVE' : 'INACTIVE' } },
         {
@@ -203,7 +195,6 @@ export default function IntegrationHub() {
         },
       );
     } else {
-      // CREATE mode — new integration
       createIntegration.mutate(
         { name, type: intg.type, config: configStr },
         {
@@ -236,155 +227,141 @@ export default function IntegrationHub() {
     setFormConfig(prev => ({ ...prev, [key]: value }));
   }
 
+  const kpis = [
+    { label: 'Tools', value: integrations.length, sub: 'in the catalogue' },
+    { label: 'Active', value: activeCount, sub: 'connected and live' },
+    { label: 'Inactive', value: inactiveCount, sub: 'not configured' },
+    { label: 'Errors', value: errorCount, sub: 'need attention', tone: errorCount > 0 ? 'danger' : undefined },
+    { label: 'Showing', value: filtered.length, sub: 'after filters' },
+  ];
+
   return (
-    <div className="animate-fade-in space-y-0">
-      {/* ── HERO BANNER ── */}
-      <div className="relative rounded-2xl overflow-hidden bg-obsidian text-ink border border-[color:var(--argus-border)] mb-5">
-        <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'radial-gradient(circle, rgba(255,255,255,1) 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
-        <div className="absolute top-0 right-0 w-80 h-80 bg-[color:var(--argus-signal-dim)]/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4" />
-        <div className="absolute bottom-0 left-0 w-60 h-60 bg-violet-500/8 rounded-full blur-3xl translate-y-1/3 -translate-x-1/4" />
-        <div className="relative px-6 py-5">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="flex items-center gap-2.5 mb-1.5">
-                <div className="w-8 h-8 rounded-lg bg-[color:var(--argus-elevated)] flex items-center justify-center">
-                  <Webhook size={16} className="text-signal" />
-                </div>
-                <h1 className="font-display text-2xl font-bold text-ink tracking-tight">Integration Hub</h1>
-                <span className="text-[9px] font-mono font-bold text-signal bg-[color:var(--argus-signal-dim)]/15 px-1.5 py-0.5 rounded border border-indigo-400/20">{integrations.length} TOOLS</span>
-              </div>
-              <p className="text-muted text-sm ml-[42px]">Connect, configure, and manage all external services and platforms</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[color:var(--argus-elevated)] border border-[color:var(--argus-border)]">
-                <div className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse" />
-                <span className="text-xs font-medium text-muted"><span className="text-ink font-bold">{activeCount}</span> Active</span>
-              </div>
-            </div>
-          </div>
-          {/* ── Summary pills ── */}
-          <div className="flex items-center gap-2 mt-3 ml-[42px]">
-            {[
-              { label: 'Monitoring', count: integrations.filter(i => i.category === 'monitoring').length, active: integrations.filter(i => i.category === 'monitoring' && i.status === 'ACTIVE').length },
-              { label: 'ITSM', count: integrations.filter(i => i.category === 'itsm').length, active: integrations.filter(i => i.category === 'itsm' && i.status === 'ACTIVE').length },
-              { label: 'Comms', count: integrations.filter(i => i.category === 'communication').length, active: integrations.filter(i => i.category === 'communication' && i.status === 'ACTIVE').length },
-              { label: 'Automation', count: integrations.filter(i => i.category === 'automation').length, active: integrations.filter(i => i.category === 'automation' && i.status === 'ACTIVE').length },
-              { label: 'Cloud', count: integrations.filter(i => i.category === 'cloud').length, active: integrations.filter(i => i.category === 'cloud' && i.status === 'ACTIVE').length },
-            ].map(p => (
-              <div key={p.label} className="flex items-center gap-1.5 px-2 py-1 rounded bg-[color:var(--argus-elevated)] border border-[color:var(--argus-border)]">
-                <span className="text-[10px] text-muted">{p.label}</span>
-                <span className="text-[10px] font-bold text-ink">{p.active}/{p.count}</span>
-              </div>
-            ))}
+    <Page>
+      <div className="cx-hero">
+        <div className="flex items-start justify-between gap-6 flex-wrap">
+          <div className="min-w-0">
+            <span className="cx-eyebrow">Operate · connections</span>
+            <h1 className="cx-hero__title">Integrations</h1>
+            <p className="cx-hero__deck">
+              Connect monitoring, ITSM, comms and automation so alerts and tickets land in WeCrew
+              instead of living in another tool.
+            </p>
           </div>
         </div>
-      </div>
-      <div className="h-0.5 bg-gradient-to-r from-transparent via-indigo-500/60 to-transparent -mt-5 mb-4" />
-
-      {/* ── Filter bar ── */}
-      <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <div className="flex items-center gap-1.5 bg-white border border-stone-200 rounded-lg p-1">
-          {CATEGORIES.map(cat => (
-            <button
-              key={cat.key}
-              onClick={() => setCategoryFilter(cat.key)}
-              className={clsx(
-                'px-3 py-1.5 rounded-md text-xs font-medium transition-all',
-                categoryFilter === cat.key
-                  ? 'bg-obsidian text-ink border border-[color:var(--argus-border)] shadow-sm'
-                  : 'text-stone-500 hover:text-stone-900 hover:bg-stone-50'
-              )}
-            >
-              {cat.label}
-            </button>
+        <dl className="cx-hero__kpis cx-hero__kpis--5 mt-6">
+          {kpis.map((kpi) => (
+            <div key={kpi.label} className={clsx('cx-hero__kpi', kpi.tone && `cx-hero__kpi--${kpi.tone}`)}>
+              <dt className="cx-hero__kpi-label">{kpi.label}</dt>
+              <dd>
+                <div className="cx-hero__kpi-value">{kpi.value}</div>
+                <div className="cx-hero__kpi-sub">{kpi.sub}</div>
+              </dd>
+            </div>
           ))}
-        </div>
-        <div className="h-5 w-px bg-stone-200" />
-        {['all', 'ACTIVE', 'INACTIVE'].map(f => (
-          <button
-            key={f}
-            onClick={() => setStatusFilter(f)}
-            className={clsx(
-              'px-3 py-1.5 rounded-lg text-xs font-medium transition-all border',
-              statusFilter === f
-                ? 'bg-stone-900 text-white border-stone-900'
-                : 'text-stone-400 border-stone-200 hover:text-stone-700 hover:border-stone-300'
-            )}
-          >
-            {f === 'all' ? 'All Status' : f.charAt(0) + f.slice(1).toLowerCase()}
-          </button>
-        ))}
-        <span className="text-xs text-stone-400 ml-auto font-mono">{filtered.length} integration{filtered.length !== 1 ? 's' : ''}</span>
+        </dl>
       </div>
 
-      {isLoading && (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-6 h-6 text-signal animate-spin" />
+      <nav className="cx-crumb" aria-label="Breadcrumb">
+        <Link to="/dashboard">Operations</Link>
+        <span aria-hidden>/</span>
+        <span className="cx-crumb__current">Integrations</span>
+      </nav>
+
+      <Toolbar>
+        <Segmented options={CATEGORIES} value={categoryFilter} onChange={setCategoryFilter} />
+        <div className="w-px h-5 bg-[color:var(--argus-border)] hidden sm:block" />
+        {(['all', 'ACTIVE', 'INACTIVE'] as const).map((f) => (
+          <GhostButton key={f} active={statusFilter === f} onClick={() => setStatusFilter(f)}>
+            {f === 'all' ? 'All status' : f.charAt(0) + f.slice(1).toLowerCase()}
+          </GhostButton>
+        ))}
+        <span className="ml-auto text-[11px] font-mono text-dim">
+          {filtered.length} integration{filtered.length !== 1 ? 's' : ''}
+        </span>
+      </Toolbar>
+
+      {isLoading ? (
+        <Panel>
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-6 h-6 text-signal animate-spin" />
+          </div>
+        </Panel>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          {filtered.map((integration) => {
+            const st = statusConfig[integration.status] || statusConfig.INACTIVE;
+            const StatusIcon = st.icon;
+            const tone = COLOR[integration.color] || COLOR.signal;
+            const hasDashboard = !!integration.dashboardRoute;
+            return (
+              <button
+                type="button"
+                key={integration.id}
+                className="text-left p-4 group relative transition-colors"
+                style={{
+                  background: 'var(--argus-surface)',
+                  border: '1px solid var(--argus-border)',
+                  borderRadius: 'var(--cx-radius)',
+                  boxShadow: 'var(--argus-shadow-card)',
+                }}
+                onClick={() => handleCardClick(integration)}
+              >
+                {hasDashboard && integration.connected && (
+                  <span className="absolute top-3 right-3 cx-pill cx-pill--alert">
+                    <ExternalLink className="w-2.5 h-2.5" /> Dashboard
+                  </span>
+                )}
+                <div className="flex items-start justify-between mb-3">
+                  <div
+                    className="p-2.5 rounded-lg"
+                    style={{ background: tone.bg }}
+                  >
+                    <integration.icon className="w-5 h-5" style={{ color: tone.fg }} />
+                  </div>
+                  <span className={clsx('cx-pill', `cx-pill--${st.tone}`)}>
+                    <StatusIcon className="w-3 h-3" />
+                    {st.label}
+                  </span>
+                </div>
+
+                <h3 className="text-sm font-semibold text-ink mb-1">{integration.name}</h3>
+                <p className="text-xs text-muted mb-3 line-clamp-2">{integration.description}</p>
+
+                <div className="flex items-center justify-between pt-3" style={{ borderTop: '1px solid var(--argus-border)' }}>
+                  <span className="text-[10px] text-dim font-mono">
+                    {integration.connected ? `Last sync: ${integration.lastSync}` : 'Not configured'}
+                  </span>
+                  <span className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {hasDashboard && integration.connected && (
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        className="p-1 rounded text-dim hover:text-signal"
+                        title="Open Dashboard"
+                        onClick={(e) => { e.stopPropagation(); navigate(integration.dashboardRoute!); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); navigate(integration.dashboardRoute!); } }}
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </span>
+                    )}
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      className="p-1 rounded text-dim hover:text-signal"
+                      title="Configure"
+                      onClick={(e) => { e.stopPropagation(); setConfigModal(integration.id); }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); setConfigModal(integration.id); } }}
+                    >
+                      <Settings className="w-3.5 h-3.5" />
+                    </span>
+                  </span>
+                </div>
+              </button>
+            );
+          })}
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {filtered.map(integration => {
-          const st = statusConfig[integration.status] || statusConfig.INACTIVE;
-          const StatusIcon = st.icon;
-          const hasDashboard = !!integration.dashboardRoute;
-          return (
-            <div
-              key={integration.id}
-              className="glass-card-hover p-5 group cursor-pointer relative"
-              onClick={() => handleCardClick(integration)}
-            >
-              {hasDashboard && integration.connected && (
-                <div className="absolute top-3 right-3">
-                  <span className="text-[9px] font-bold font-mono px-1.5 py-0.5 rounded bg-[color:var(--argus-signal-dim)] text-signal border border-[color:var(--argus-signal)]/25 flex items-center gap-1">
-                    <ExternalLink className="w-2.5 h-2.5" /> Dashboard
-                  </span>
-                </div>
-              )}
-              <div className="flex items-start justify-between mb-4">
-                <div className={clsx('p-3 rounded-xl bg-gradient-to-br', colorMap[integration.color])}>
-                  <integration.icon className={clsx('w-6 h-6', iconColorMap[integration.color])} />
-                </div>
-                <span className={clsx('badge border', st.cls)}>
-                  <StatusIcon className="w-3 h-3 mr-1" />
-                  {st.label}
-                </span>
-              </div>
-
-              <h3 className="text-base font-semibold text-stone-900 mb-1">{integration.name}</h3>
-              <p className="text-xs text-stone-400 mb-4 line-clamp-2">{integration.description}</p>
-
-              <div className="flex items-center justify-between pt-3 border-t border-stone-100">
-                <span className="text-[10px] text-stone-300 font-mono">
-                  {integration.connected ? `Last sync: ${integration.lastSync}` : 'Not configured'}
-                </span>
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {hasDashboard && integration.connected && (
-                    <button
-                      className="p-1 rounded hover:bg-[color:var(--argus-signal-dim)] text-stone-400 hover:text-signal transition-colors"
-                      title="Open Dashboard"
-                      onClick={(e) => { e.stopPropagation(); navigate(integration.dashboardRoute!); }}
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                  <button
-                    className="p-1 rounded hover:bg-stone-100 text-stone-400 hover:text-signal transition-colors"
-                    title="Configure"
-                    onClick={(e) => { e.stopPropagation(); setConfigModal(integration.id); }}
-                  >
-                    <Settings className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* ══════════════════════════════════════════════════════════════════════ */}
-      {/* CONFIG MODAL — with real CRUD                                        */}
-      {/* ══════════════════════════════════════════════════════════════════════ */}
       {configModal && (() => {
         const intg = integrations.find(i => i.id === configModal);
         if (!intg) return null;
@@ -392,35 +369,39 @@ export default function IntegrationHub() {
         const fields = CONFIG_FIELDS[intg.type];
         const isSaving = createIntegration.isPending || updateIntegration.isPending;
         const isTesting = testConnection.isPending;
+        const tone = COLOR[intg.color] || COLOR.signal;
 
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => setConfigModal(null)}>
-            <div className="absolute inset-0 bg-stone-900/50 backdrop-blur-sm" />
-            <div className="relative glass-card p-6 w-full max-w-lg animate-slide-in max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-              {/* Header */}
-              <div className="flex items-center justify-between mb-6">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setConfigModal(null)}>
+            <div className="absolute inset-0" style={{ background: 'var(--argus-overlay)' }} />
+            <div
+              className="relative w-full max-w-lg animate-fade-in max-h-[90vh] overflow-y-auto"
+              style={{ background: 'var(--argus-surface)', border: '1px solid var(--argus-border)', borderRadius: 'var(--cx-radius)', boxShadow: 'var(--argus-shadow-card)' }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid var(--argus-border)' }}>
                 <div className="flex items-center gap-3">
-                  <div className={clsx('p-2 rounded-xl bg-gradient-to-br', colorMap[intg.color])}>
-                    <intg.icon className={clsx('w-5 h-5', iconColorMap[intg.color])} />
+                  <div className="p-2 rounded-lg" style={{ background: tone.bg }}>
+                    <intg.icon className="w-5 h-5" style={{ color: tone.fg }} />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h2 className="text-lg font-semibold text-stone-900">{intg.name}</h2>
-                      <span className={clsx('text-[9px] font-bold px-1.5 py-0.5 rounded', isEdit ? 'bg-[#EEF2FF] text-[#6366F1]' : 'bg-[#FEF3C7] text-[#D97706]')}>
-                        {isEdit ? 'EDIT' : 'NEW'}
+                      <h2 className="cx-sectionhead__title" style={{ fontSize: '1.15rem' }}>{intg.name}</h2>
+                      <span className={clsx('cx-pill', isEdit ? 'cx-pill--alert' : 'cx-pill--warn')}>
+                        {isEdit ? 'Edit' : 'New'}
                       </span>
                     </div>
-                    <p className="text-xs text-stone-400">{intg.description}</p>
+                    <p className="text-xs text-muted">{intg.description}</p>
                   </div>
                 </div>
-                <button onClick={() => setConfigModal(null)} className="text-stone-400 hover:text-stone-900 text-xl">&times;</button>
+                <button type="button" onClick={() => setConfigModal(null)} className="p-1.5 rounded text-muted hover:text-ink hover:bg-[color:var(--argus-elevated)]" aria-label="Close">
+                  <X className="w-4 h-4" />
+                </button>
               </div>
 
-              {/* Form fields */}
-              <div className="space-y-3">
-                {/* Integration name */}
+              <div className="px-5 py-4 space-y-3">
                 <div>
-                  <label className="block text-xs font-medium text-stone-500 mb-1.5">Integration Name</label>
+                  <FieldLabel>Integration Name</FieldLabel>
                   <input
                     className="input-field"
                     placeholder={intg.name}
@@ -429,18 +410,15 @@ export default function IntegrationHub() {
                   />
                 </div>
 
-                {/* Type-specific fields */}
                 {intg.type === 'PROMETHEUS' ? (
                   <>
-                    <div className="text-[10px] font-bold text-stone-400 uppercase tracking-wider pt-2">Prometheus Configuration</div>
-
-                    {/* Access Method Toggle */}
+                    <p className="text-[10px] font-bold text-dim uppercase tracking-wider pt-2">Prometheus Configuration</p>
                     <div>
-                      <label className="block text-xs font-medium text-stone-500 mb-2">Access Method</label>
+                      <FieldLabel>Access Method</FieldLabel>
                       <div className="flex gap-2">
                         {[
-                          { value: 'ssh', label: '🔑 SSH (key-based)', desc: 'SSH tunnel to server — requires key exchange' },
-                          { value: 'direct', label: '🌐 Direct URL', desc: 'HTTP access with credentials — no SSH needed' },
+                          { value: 'ssh', label: 'SSH (key-based)', desc: 'SSH tunnel to server — requires key exchange' },
+                          { value: 'direct', label: 'Direct URL', desc: 'HTTP access with credentials — no SSH needed' },
                         ].map(opt => (
                           <button
                             key={opt.value}
@@ -449,18 +427,17 @@ export default function IntegrationHub() {
                             className={clsx(
                               'flex-1 p-2.5 rounded-lg border text-left transition-all',
                               (formConfig.accessMethod || 'ssh') === opt.value
-                                ? 'border-signal bg-[color:var(--argus-signal-dim)] text-signal'
-                                : 'border-stone-200 text-stone-500 hover:border-stone-300'
+                                ? 'border-signal bg-signal-dim text-signal'
+                                : 'border-steel text-muted hover:border-graphite'
                             )}
                           >
                             <div className="text-xs font-semibold">{opt.label}</div>
-                            <div className="text-[10px] text-stone-400 mt-0.5">{opt.desc}</div>
+                            <div className="text-[10px] text-dim mt-0.5">{opt.desc}</div>
                           </button>
                         ))}
                       </div>
                     </div>
 
-                    {/* SSH fields */}
                     {(formConfig.accessMethod || 'ssh') === 'ssh' && (
                       <div className="grid grid-cols-2 gap-3 pt-1">
                         {[
@@ -470,35 +447,34 @@ export default function IntegrationHub() {
                           { key: 'promPort', label: 'Prometheus Port', placeholder: '30000' },
                         ].map(f => (
                           <div key={f.key}>
-                            <label className="block text-xs font-medium text-stone-500 mb-1.5">{f.label}</label>
+                            <FieldLabel>{f.label}</FieldLabel>
                             <input className="input-field" placeholder={f.placeholder} value={formConfig[f.key] || ''} onChange={e => updateConfigField(f.key, e.target.value)} />
                           </div>
                         ))}
                       </div>
                     )}
 
-                    {/* Direct URL fields */}
                     {formConfig.accessMethod === 'direct' && (
                       <div className="space-y-3 pt-1">
                         <div>
-                          <label className="block text-xs font-medium text-stone-500 mb-1.5">Prometheus URL <span className="text-crimson">*</span></label>
+                          <FieldLabel>Prometheus URL *</FieldLabel>
                           <input className="input-field" placeholder="http://prometheus.acme.com:9090" value={formConfig.prometheusUrl || ''} onChange={e => updateConfigField('prometheusUrl', e.target.value)} />
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <label className="block text-xs font-medium text-stone-500 mb-1.5">Username <span className="text-stone-300">(optional)</span></label>
+                            <FieldLabel>Username (optional)</FieldLabel>
                             <input className="input-field" placeholder="admin" value={formConfig.prometheusUsername || ''} onChange={e => updateConfigField('prometheusUsername', e.target.value)} />
                           </div>
                           <div>
-                            <label className="block text-xs font-medium text-stone-500 mb-1.5">Password <span className="text-stone-300">(optional)</span></label>
+                            <FieldLabel>Password (optional)</FieldLabel>
                             <input className="input-field" type="password" placeholder="••••••••" value={formConfig.prometheusPassword || ''} onChange={e => updateConfigField('prometheusPassword', e.target.value)} />
                           </div>
                         </div>
-                        <p className="text-[10px] text-stone-400 font-mono bg-stone-50 p-2 rounded">
+                        <p className="text-[10px] text-dim font-mono bg-slate p-2 rounded">
                           Leave username/password blank for unauthenticated Prometheus. Use API Key below for Bearer token auth.
                         </p>
                         <div>
-                          <label className="block text-xs font-medium text-stone-500 mb-1.5">Bearer API Key <span className="text-stone-300">(optional, overrides user/pass)</span></label>
+                          <FieldLabel>Bearer API Key (optional)</FieldLabel>
                           <input className="input-field" type="password" placeholder="Bearer token if Prometheus uses token auth" value={formConfig.apiKey || ''} onChange={e => updateConfigField('apiKey', e.target.value)} />
                         </div>
                       </div>
@@ -506,19 +482,19 @@ export default function IntegrationHub() {
                   </>
                 ) : intg.type === 'GRAFANA' ? (
                   <>
-                    <div className="text-[10px] font-bold text-stone-400 uppercase tracking-wider pt-2">Grafana Configuration</div>
+                    <p className="text-[10px] font-bold text-dim uppercase tracking-wider pt-2">Grafana Configuration</p>
                     <div className="space-y-3">
                       <div>
-                        <label className="block text-xs font-medium text-stone-500 mb-1.5">Grafana URL <span className="text-crimson">*</span></label>
+                        <FieldLabel>Grafana URL *</FieldLabel>
                         <input className="input-field" placeholder="http://grafana.acme.com:3000" value={formConfig.grafanaExternalUrl || ''} onChange={e => updateConfigField('grafanaExternalUrl', e.target.value)} />
-                        <p className="text-[10px] text-stone-400 mt-1">Public-accessible URL used for panel iframes and API calls.</p>
+                        <p className="text-[10px] text-dim mt-1">Public-accessible URL used for panel iframes and API calls.</p>
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-stone-500 mb-1.5">API Key <span className="text-crimson">*</span></label>
+                        <FieldLabel>API Key *</FieldLabel>
                         <input className="input-field" type="password" placeholder="glsa_..." value={formConfig.apiKey || ''} onChange={e => updateConfigField('apiKey', e.target.value)} />
-                        <p className="text-[10px] text-stone-400 mt-1">Create in Grafana → Administration → Service Accounts → New token (Editor role).</p>
+                        <p className="text-[10px] text-dim mt-1">Create in Grafana → Administration → Service Accounts → New token (Editor role).</p>
                       </div>
-                      <div className="p-2.5 bg-stone-50 rounded-lg border border-stone-100 text-[10px] text-stone-500">
+                      <div className="p-2.5 bg-slate rounded-lg border border-steel text-[10px] text-muted">
                         <span className="font-semibold">SSH fields optional:</span> only needed if Grafana is not directly reachable. Leave blank for direct URL access.
                       </div>
                       <div className="grid grid-cols-2 gap-3">
@@ -529,7 +505,7 @@ export default function IntegrationHub() {
                           { key: 'grafanaPort', label: 'Internal Grafana Port', placeholder: '30010' },
                         ].map(f => (
                           <div key={f.key}>
-                            <label className="block text-xs font-medium text-stone-400 mb-1.5">{f.label}</label>
+                            <FieldLabel>{f.label}</FieldLabel>
                             <input className="input-field" placeholder={f.placeholder} value={formConfig[f.key] || ''} onChange={e => updateConfigField(f.key, e.target.value)} />
                           </div>
                         ))}
@@ -538,15 +514,13 @@ export default function IntegrationHub() {
                   </>
                 ) : intg.type === 'KUBERNETES_CLUSTER' ? (
                   <>
-                    <div className="text-[10px] font-bold text-stone-400 uppercase tracking-wider pt-2">Kubernetes Configuration</div>
-
-                    {/* Access Method Toggle */}
+                    <p className="text-[10px] font-bold text-dim uppercase tracking-wider pt-2">Kubernetes Configuration</p>
                     <div>
-                      <label className="block text-xs font-medium text-stone-500 mb-2">Access Method</label>
+                      <FieldLabel>Access Method</FieldLabel>
                       <div className="flex gap-2">
                         {[
-                          { value: 'ssh', label: '🔑 SSH (key-based)', desc: 'SSH tunnel via pre-shared key — for internal/managed servers' },
-                          { value: 'direct', label: '🌐 Direct API URL', desc: 'HTTPS to K8s API server — for external clusters, no SSH needed' },
+                          { value: 'ssh', label: 'SSH (key-based)', desc: 'SSH tunnel via pre-shared key — for internal/managed servers' },
+                          { value: 'direct', label: 'Direct API URL', desc: 'HTTPS to K8s API server — for external clusters, no SSH needed' },
                         ].map(opt => (
                           <button
                             key={opt.value}
@@ -555,18 +529,17 @@ export default function IntegrationHub() {
                             className={clsx(
                               'flex-1 p-2.5 rounded-lg border text-left transition-all',
                               (formConfig.accessMethod || 'ssh') === opt.value
-                                ? 'border-signal bg-[color:var(--argus-signal-dim)] text-signal'
-                                : 'border-stone-200 text-stone-500 hover:border-stone-300'
+                                ? 'border-signal bg-signal-dim text-signal'
+                                : 'border-steel text-muted hover:border-graphite'
                             )}
                           >
                             <div className="text-xs font-semibold">{opt.label}</div>
-                            <div className="text-[10px] text-stone-400 mt-0.5">{opt.desc}</div>
+                            <div className="text-[10px] text-dim mt-0.5">{opt.desc}</div>
                           </button>
                         ))}
                       </div>
                     </div>
 
-                    {/* SSH mode fields */}
                     {(formConfig.accessMethod || 'ssh') === 'ssh' && (
                       <div className="grid grid-cols-2 gap-3 pt-1">
                         {[
@@ -576,45 +549,44 @@ export default function IntegrationHub() {
                           { key: 'clusterName', label: 'Cluster Name', placeholder: 'prod-k8s' },
                         ].map(f => (
                           <div key={f.key}>
-                            <label className="block text-xs font-medium text-stone-500 mb-1.5">{f.label}</label>
+                            <FieldLabel>{f.label}</FieldLabel>
                             <input className="input-field" placeholder={f.placeholder} value={formConfig[f.key] || ''} onChange={e => updateConfigField(f.key, e.target.value)} />
                           </div>
                         ))}
                       </div>
                     )}
 
-                    {/* Direct API URL mode fields */}
                     {formConfig.accessMethod === 'direct' && (
                       <div className="space-y-3 pt-1">
                         <div>
-                          <label className="block text-xs font-medium text-stone-500 mb-1.5">K8s API Server URL <span className="text-crimson">*</span></label>
+                          <FieldLabel>K8s API Server URL *</FieldLabel>
                           <input className="input-field" placeholder="https://203.0.113.10:6443" value={formConfig.k8sApiUrl || ''} onChange={e => updateConfigField('k8sApiUrl', e.target.value)} />
-                          <p className="text-[10px] text-stone-400 mt-1">The public API server address (port 6443 is standard). Self-signed TLS is accepted automatically.</p>
+                          <p className="text-[10px] text-dim mt-1">The public API server address (port 6443 is standard). Self-signed TLS is accepted automatically.</p>
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-stone-500 mb-1.5">Service Account Token <span className="text-stone-300">(recommended)</span></label>
+                          <FieldLabel>Service Account Token (recommended)</FieldLabel>
                           <input className="input-field" type="password" placeholder="eyJhbGciOiJSUzI1NiIs..." value={formConfig.k8sToken || ''} onChange={e => updateConfigField('k8sToken', e.target.value)} />
                         </div>
-                        <div className="p-3 bg-stone-50 border border-stone-200 rounded-lg font-mono text-[9px] text-stone-500 space-y-1 leading-relaxed">
-                          <div className="text-[10px] font-semibold text-stone-600 font-sans mb-1.5">How to create a read-only service account token:</div>
-                          <div className="text-stone-400">kubectl create serviceaccount argus-reader -n kube-system</div>
-                          <div className="text-stone-400">kubectl create clusterrolebinding argus-reader \</div>
-                          <div className="text-stone-400 pl-4">--clusterrole=view \</div>
-                          <div className="text-stone-400 pl-4">--serviceaccount=kube-system:argus-reader</div>
-                          <div className="text-stone-400">kubectl -n kube-system create token argus-reader</div>
+                        <div className="p-3 bg-slate border border-steel rounded-lg font-mono text-[9px] text-muted space-y-1 leading-relaxed">
+                          <div className="text-[10px] font-semibold text-ink font-sans mb-1.5">How to create a read-only service account token:</div>
+                          <div>kubectl create serviceaccount argus-reader -n kube-system</div>
+                          <div>kubectl create clusterrolebinding argus-reader \</div>
+                          <div className="pl-4">--clusterrole=view \</div>
+                          <div className="pl-4">--serviceaccount=kube-system:argus-reader</div>
+                          <div>kubectl -n kube-system create token argus-reader</div>
                         </div>
-                        <div className="text-[10px] font-semibold text-stone-400 uppercase tracking-wider">Or use Basic Auth (fallback)</div>
+                        <p className="text-[10px] font-semibold text-dim uppercase tracking-wider">Or use Basic Auth (fallback)</p>
                         <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <label className="block text-xs font-medium text-stone-500 mb-1.5">Username</label>
+                            <FieldLabel>Username</FieldLabel>
                             <input className="input-field" placeholder="admin" value={formConfig.k8sUsername || ''} onChange={e => updateConfigField('k8sUsername', e.target.value)} />
                           </div>
                           <div>
-                            <label className="block text-xs font-medium text-stone-500 mb-1.5">Password</label>
+                            <FieldLabel>Password</FieldLabel>
                             <input className="input-field" type="password" placeholder="••••••••" value={formConfig.k8sPassword || ''} onChange={e => updateConfigField('k8sPassword', e.target.value)} />
                           </div>
                         </div>
-                        <p className="text-[10px] text-stone-400 bg-amber-50 border border-amber-100 p-2 rounded">
+                        <p className="text-[10px] text-muted bg-amber-dim border border-steel p-2 rounded">
                           Service account token takes priority over username/password when both are provided.
                         </p>
                       </div>
@@ -622,13 +594,13 @@ export default function IntegrationHub() {
                   </>
                 ) : fields ? (
                   <>
-                    <div className="text-[10px] font-bold text-stone-400 uppercase tracking-wider pt-2">
+                    <p className="text-[10px] font-bold text-dim uppercase tracking-wider pt-2">
                       {intg.name} Configuration
-                    </div>
+                    </p>
                     <div className="grid grid-cols-2 gap-3">
                       {fields.map(f => (
                         <div key={f.key} className={f.key === 'grafanaExternalUrl' || f.key === 'webhookUrl' ? 'col-span-2' : ''}>
-                          <label className="block text-xs font-medium text-stone-500 mb-1.5">{f.label}</label>
+                          <FieldLabel>{f.label}</FieldLabel>
                           <input
                             className="input-field"
                             type={f.type || 'text'}
@@ -641,10 +613,9 @@ export default function IntegrationHub() {
                     </div>
                   </>
                 ) : (
-                  /* Generic fields for unknown types */
                   <>
                     <div>
-                      <label className="block text-xs font-medium text-stone-500 mb-1.5">Endpoint URL</label>
+                      <FieldLabel>Endpoint URL</FieldLabel>
                       <input
                         className="input-field"
                         placeholder={`https://${intg.name.toLowerCase().replace(/\s+/g, '-')}.example.com`}
@@ -653,7 +624,7 @@ export default function IntegrationHub() {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-stone-500 mb-1.5">API Key / Token</label>
+                      <FieldLabel>API Key / Token</FieldLabel>
                       <input
                         className="input-field"
                         type="password"
@@ -665,15 +636,14 @@ export default function IntegrationHub() {
                   </>
                 )}
 
-                {/* Enabled toggle */}
                 <div className="flex items-center justify-between pt-2">
-                  <label className="text-sm text-stone-700">Enabled</label>
+                  <label className="text-sm text-ink">Enabled</label>
                   <button
                     type="button"
                     onClick={() => setFormEnabled(v => !v)}
                     className={clsx(
                       'w-10 h-5 rounded-full transition-colors flex items-center px-0.5',
-                      formEnabled ? 'bg-signal' : 'bg-stone-300'
+                      formEnabled ? 'bg-signal' : 'bg-graphite'
                     )}
                   >
                     <div className={clsx(
@@ -684,54 +654,43 @@ export default function IntegrationHub() {
                 </div>
               </div>
 
-              {/* Feedback messages */}
               {testResult && (
-                <div className={clsx('mt-4 p-3 rounded-lg text-sm flex items-center gap-2',
-                  testResult.ok ? 'bg-[#ECFDF5] text-[#10B981] border border-[#A7F3D0]' : 'bg-[#FEF2F2] text-[#EF4444] border border-[#FECACA]'
+                <div className={clsx(
+                  'mx-5 mb-3 p-3 rounded-lg text-sm flex items-center gap-2 border',
+                  testResult.ok ? 'bg-emerald-dim text-emerald border-steel' : 'bg-crimson-dim text-crimson border-steel'
                 )}>
                   {testResult.ok ? <CheckCircle className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
                   {testResult.msg}
                 </div>
               )}
               {saveMsg && (
-                <div className={clsx('mt-3 p-3 rounded-lg text-sm flex items-center gap-2',
-                  saveMsg.startsWith('Error') ? 'bg-[#FEF2F2] text-[#EF4444] border border-[#FECACA]' : 'bg-[#ECFDF5] text-[#10B981] border border-[#A7F3D0]'
+                <div className={clsx(
+                  'mx-5 mb-3 p-3 rounded-lg text-sm flex items-center gap-2 border',
+                  saveMsg.startsWith('Error') ? 'bg-crimson-dim text-crimson border-steel' : 'bg-emerald-dim text-emerald border-steel'
                 )}>
                   {saveMsg.startsWith('Error') ? <AlertCircle className="w-4 h-4 shrink-0" /> : <CheckCircle className="w-4 h-4 shrink-0" />}
                   {saveMsg}
                 </div>
               )}
 
-              {/* Action buttons */}
-              <div className="flex items-center gap-3 mt-6 pt-4 border-t border-stone-200">
-                <button
-                  className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-60"
-                  disabled={isTesting}
-                  onClick={() => handleTest(intg)}
-                >
-                  {isTesting ? <><Loader2 className="w-4 h-4 animate-spin" /> Testing...</> : <><RefreshCw className="w-3.5 h-3.5" /> Test Connection</>}
-                </button>
-                <button
-                  className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-60"
-                  disabled={isSaving}
-                  onClick={() => handleSave(intg)}
-                >
-                  {isSaving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</> : 'Save'}
-                </button>
+              <div className="flex items-center gap-2 px-5 py-4" style={{ borderTop: '1px solid var(--argus-border)' }}>
+                <GhostButton onClick={() => handleTest(intg)}>
+                  {isTesting ? <><Loader2 className="w-4 h-4 animate-spin" /> Testing…</> : <><RefreshCw className="w-3.5 h-3.5" /> Test</>}
+                </GhostButton>
+                <PrimaryButton onClick={() => handleSave(intg)} disabled={isSaving} className="flex-1">
+                  {isSaving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</> : 'Save'}
+                </PrimaryButton>
                 {intg.dashboardRoute && intg.connected && (
-                  <button
-                    className="btn-ghost flex items-center gap-1.5"
-                    onClick={() => { setConfigModal(null); navigate(intg.dashboardRoute!); }}
-                  >
+                  <GhostButton onClick={() => { setConfigModal(null); navigate(intg.dashboardRoute!); }}>
                     <ExternalLink className="w-3.5 h-3.5" /> Dashboard
-                  </button>
+                  </GhostButton>
                 )}
-                <button onClick={() => setConfigModal(null)} className="btn-ghost">Cancel</button>
+                <GhostButton onClick={() => setConfigModal(null)}>Cancel</GhostButton>
               </div>
             </div>
           </div>
         );
       })()}
-    </div>
+    </Page>
   );
 }

@@ -4,8 +4,10 @@ import {
   Search, RefreshCw, Terminal, Clock, AlertTriangle,
   Filter, Download, Loader2, X, ChevronRight, FileText,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import api from '../../lib/api';
 import { useAuthStore } from '../../stores/authStore';
+import { Page } from '../ui/PageChrome';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -62,31 +64,6 @@ function sevTextClass(sev: string) {
 }
 
 // ── Stat Card (glassmorphic inside dark hero) ─────────────────────────────────
-function SevCard({
-  label, count, colorClass, active, onClick,
-}: {
-  label: string; count: number; colorClass: string; active: boolean; onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`text-left rounded-xl border p-4 transition-all duration-200 hover:shadow-xl backdrop-blur-sm
-        ${active
-          ? 'bg-white/[0.14] border-white/30 shadow-lg'
-          : 'bg-[color:var(--argus-elevated)] border-[color:var(--argus-border)] hover:bg-white/[0.10]'
-        }`}
-    >
-      <p className="text-[10px] font-semibold text-muted uppercase tracking-widest mb-1">{label}</p>
-      <p className={`font-display text-3xl font-extrabold ${colorClass}`}>{count}</p>
-      {active && (
-        <p className="text-[10px] text-muted mt-1 flex items-center gap-1">
-          <X size={9} /> Clear filter
-        </p>
-      )}
-    </button>
-  );
-}
-
 // ═════════════════════════════════════════════════════════════════════════════
 // Main Component
 // ═════════════════════════════════════════════════════════════════════════════
@@ -157,71 +134,49 @@ export default function LogExplorer() {
   };
 
   return (
-    <div className="animate-fade-in space-y-0">
-
-      {/* ══════════════════════════════════════════════════════════════════════ */}
-      {/* HERO                                                                  */}
-      {/* ══════════════════════════════════════════════════════════════════════ */}
-      <div className="relative rounded-2xl overflow-hidden bg-obsidian text-ink border border-[color:var(--argus-border)]">
-        {/* Dot-grid texture */}
-        <div
-          className="absolute inset-0 opacity-[0.07]"
-          style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '22px 22px' }}
-        />
-        {/* Emerald glow */}
-        <div className="absolute top-0 right-0 w-96 h-96 rounded-full blur-3xl -translate-y-1/3 translate-x-1/4 bg-[#059669]/10" />
-        <div className="absolute bottom-0 left-0 w-72 h-72 rounded-full blur-3xl translate-y-1/2 -translate-x-1/4 bg-[#0EA5E9]/8" />
-
-        <div className="relative px-6 pt-6 pb-16">
-          {/* Title row */}
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-3 mb-1.5">
-                <div className="w-9 h-9 rounded-xl bg-[#059669]/20 flex items-center justify-center border border-[#059669]/30">
-                  <Terminal size={17} className="text-[#34D399]" />
-                </div>
-                <div>
-                  <h1 className="font-display text-2xl font-bold text-ink tracking-tight leading-none">Log Explorer</h1>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[10px] font-mono font-bold text-[#34D399] bg-[#059669]/15 px-1.5 py-0.5 rounded border border-[#059669]/25">LOKI</span>
-                    <span className="text-[10px] text-muted">LogQL · SSH-proxied · {since} window</span>
-                  </div>
-                </div>
-              </div>
-              <p className="text-muted text-xs ml-[48px]">
-                Real-time log search across infrastructure · auto-refresh 15s
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                onClick={handleExport}
-                disabled={filteredLogs.length === 0}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted bg-[color:var(--argus-elevated)] hover:bg-white/[0.10] transition-colors border border-[color:var(--argus-border)] disabled:opacity-40"
-              >
-                <Download size={13} /> Export
-              </button>
-              <button
-                onClick={() => refetch()}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted bg-[color:var(--argus-elevated)] hover:bg-white/[0.10] transition-colors border border-[color:var(--argus-border)]"
-              >
-                <RefreshCw size={13} className={isFetching ? 'animate-spin' : ''} /> Refresh
-              </button>
-            </div>
+    <Page>
+      <div className="cx-hero">
+        <div className="flex items-start justify-between gap-6 flex-wrap">
+          <div className="min-w-0">
+            <span className="cx-eyebrow">Operate · logs</span>
+            <h1 className="cx-hero__title">Log explorer</h1>
+            <p className="cx-hero__deck">
+              LogQL search across infrastructure, SSH-proxied through Loki. Auto-refresh every 15s · {since} window.
+            </p>
           </div>
-
-          {/* Severity stat cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
-            <SevCard label="Errors"   count={counts.error} colorClass="text-[#FCA5A5]" active={severityFilter === 'error'} onClick={() => setSeverityFilter(severityFilter === 'error' ? null : 'error')} />
-            <SevCard label="Warnings" count={counts.warn}  colorClass="text-[#FCD34D]" active={severityFilter === 'warn'}  onClick={() => setSeverityFilter(severityFilter === 'warn'  ? null : 'warn')}  />
-            <SevCard label="Info"     count={counts.info}  colorClass="text-[#7DD3FC]" active={severityFilter === 'info'}  onClick={() => setSeverityFilter(severityFilter === 'info'  ? null : 'info')}  />
-            <SevCard label="Debug"    count={counts.debug} colorClass="text-muted" active={severityFilter === 'debug'} onClick={() => setSeverityFilter(severityFilter === 'debug' ? null : 'debug')} />
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={handleExport} disabled={filteredLogs.length === 0} className="cx-hero__btn cx-hero__btn--ghost disabled:opacity-40">
+              <Download size={14} /> Export
+            </button>
+            <button type="button" onClick={() => refetch()} className="cx-hero__btn">
+              <RefreshCw size={14} className={isFetching ? 'animate-spin' : ''} /> Refresh
+            </button>
           </div>
         </div>
+        <dl className="cx-hero__kpis cx-hero__kpis--5 mt-6">
+          {[
+            { label: 'Errors', value: counts.error, sub: 'in this window', tone: counts.error > 0 ? 'danger' : undefined },
+            { label: 'Warnings', value: counts.warn, sub: 'in this window', tone: counts.warn > 0 ? 'warn' : undefined },
+            { label: 'Info', value: counts.info, sub: 'in this window' },
+            { label: 'Debug', value: counts.debug, sub: 'in this window' },
+            { label: 'Shown', value: filteredLogs.length, sub: 'after filters' },
+          ].map((kpi) => (
+            <div key={kpi.label} className={`cx-hero__kpi${kpi.tone ? ` cx-hero__kpi--${kpi.tone}` : ''}`}>
+              <dt className="cx-hero__kpi-label">{kpi.label}</dt>
+              <dd>
+                <div className="cx-hero__kpi-value">{kpi.value}</div>
+                <div className="cx-hero__kpi-sub">{kpi.sub}</div>
+              </dd>
+            </div>
+          ))}
+        </dl>
       </div>
 
-      {/* Emerald accent line */}
-      <div className="h-0.5 bg-gradient-to-r from-transparent via-[#059669]/60 to-transparent" />
+      <nav className="cx-crumb" aria-label="Breadcrumb">
+        <Link to="/dashboard">Operations</Link>
+        <span aria-hidden>/</span>
+        <span className="cx-crumb__current">Log explorer</span>
+      </nav>
 
       {/* ══════════════════════════════════════════════════════════════════════ */}
       {/* QUERY BAR (floating)                                                 */}
@@ -532,6 +487,6 @@ export default function LogExplorer() {
           )}
         </div>
       </div>
-    </div>
+    </Page>
   );
 }

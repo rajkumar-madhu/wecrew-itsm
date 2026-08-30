@@ -1,17 +1,12 @@
 import axios from 'axios';
 
-function getAuthStorageKey() {
-  try {
-    if (!localStorage.getItem(getAuthStorageKey())) {
-      const legacy = localStorage.getItem('linkedeye-auth');
-      if (legacy) {
-        localStorage.setItem(getAuthStorageKey(), legacy);
-        localStorage.removeItem('linkedeye-auth');
-      }
-    }
-  } catch {}
-  return 'wecrew-auth';
-}
+/* Storage key for the persisted auth blob.
+   This was previously a function that called ITSELF before returning, recursing
+   ~9,000 frames until the RangeError was swallowed by its own try/catch — about
+   0.33ms burned on every call, and it is called once per request in the
+   interceptor below. The legacy `linkedeye-auth` -> `wecrew-auth` migration it
+   was attempting already happens correctly in authStore's onRehydrateStorage. */
+const AUTH_STORAGE_KEY = 'wecrew-auth';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
@@ -22,7 +17,7 @@ const api = axios.create({
 // Request interceptor: attach Bearer token + org header
 api.interceptors.request.use((config) => {
   try {
-    const stored = localStorage.getItem(getAuthStorageKey());
+    const stored = localStorage.getItem(AUTH_STORAGE_KEY);
     if (stored) {
       const { state } = JSON.parse(stored);
       if (state?.token) config.headers.Authorization = `Bearer ${state.token}`;
@@ -60,7 +55,7 @@ api.interceptors.response.use(
     isRefreshing = true;
 
     try {
-      const stored = localStorage.getItem(getAuthStorageKey());
+      const stored = localStorage.getItem(AUTH_STORAGE_KEY);
       const refreshToken = stored ? JSON.parse(stored).state?.refreshToken : null;
       if (!refreshToken) throw new Error('No refresh token');
 
@@ -68,16 +63,16 @@ api.interceptors.response.use(
       const newToken = data.data.accessToken;
       const newRefresh = data.data.refreshToken;
 
-      const current = JSON.parse(localStorage.getItem(getAuthStorageKey()) || '{}');
+      const current = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || '{}');
       current.state = { ...current.state, token: newToken, refreshToken: newRefresh };
-      localStorage.setItem(getAuthStorageKey(), JSON.stringify(current));
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(current));
 
       processQueue(null, newToken);
       originalRequest.headers.Authorization = `Bearer ${newToken}`;
       return api(originalRequest);
     } catch (refreshError) {
       processQueue(refreshError);
-      localStorage.removeItem(getAuthStorageKey());
+      localStorage.removeItem(AUTH_STORAGE_KEY);
       window.location.href = '/login';
       return Promise.reject(refreshError);
     } finally {

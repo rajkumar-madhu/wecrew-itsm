@@ -50,8 +50,8 @@ const navGroups: { label: string; items: NavItem[] }[] = [
       { to: '/apm', icon: Activity, label: 'Service health', badge: 'Live' },
       { to: '/k8s', icon: Layers, label: 'Kubernetes' },
       { to: '/logs', icon: Terminal, label: 'Log explorer' },
-      { to: '/noc', icon: Monitor, label: 'NOC view' },
-      { to: '/pagerduty', icon: Bell, label: 'PagerDuty' },
+      { to: '/noc', icon: Monitor, label: 'NOC' },
+      { to: '/integrations', icon: Plug, label: 'Integrations', roles: ['ADMIN'] },
     ],
   },
   {
@@ -78,7 +78,6 @@ const navGroups: { label: string; items: NavItem[] }[] = [
   {
     label: 'Administration',
     items: [
-      { to: '/integrations', icon: Plug, label: 'Integrations', roles: ['ADMIN'] },
       { to: '/teams', icon: Users, label: 'Teams' },
       { to: '/users', icon: Shield, label: 'Users', roles: ['ADMIN', 'MANAGER'] },
       { to: '/audit', icon: FileSearch, label: 'Audit log', roles: ['ADMIN', 'MANAGER'] },

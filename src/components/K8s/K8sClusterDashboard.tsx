@@ -6,9 +6,10 @@ import {
   RefreshCw, Layers, ChevronRight, Shield, Database, Loader2,
   ExternalLink, Terminal, Search, ArrowDown, Clock,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '../../lib/api';
 import { useAuthStore } from '../../stores/authStore';
+import { Page } from '../ui/PageChrome';
 
 const NAMESPACES = ['fs-linkedeye', 'kube-system', 'default'];
 const TABS = ['Overview', 'Pods', 'Deployments', 'Events', 'Services', 'Logs', 'Assets'] as const;
@@ -28,34 +29,6 @@ function StatusBadge({ status }: { status: string }) {
       {isOk ? <CheckCircle className="w-3 h-3" /> : isWarn ? <AlertTriangle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
       {status}
     </span>
-  );
-}
-
-// ── Stat Card (glassmorphic, inside dark hero) ──────────────────────────────
-function StatCard({
-  label, value, icon: Icon, iconColor, pulse, delay,
-}: {
-  label: string; value: string | number; icon: React.ComponentType<{ className?: string; size?: number }>;
-  iconColor: string; pulse?: boolean; delay: number;
-}) {
-  return (
-    <div
-      className="bg-[color:var(--argus-elevated)] backdrop-blur-sm rounded-xl border border-[color:var(--argus-border)] p-4 hover:shadow-xl transition-all duration-300 group animate-fade-in"
-      style={{ animationDelay: `${delay}ms` }}
-    >
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-[10px] font-medium uppercase tracking-wide mb-1" style={{ color: 'var(--argus-muted)' }}>{label}</p>
-          <p className="font-display text-2xl font-extrabold text-ink">{value}</p>
-        </div>
-        <div className="w-10 h-10 rounded-xl bg-[color:var(--argus-elevated)] flex items-center justify-center relative">
-          <Icon className={iconColor} size={18} />
-          {pulse && (
-            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
-          )}
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -205,82 +178,61 @@ export default function K8sClusterDashboard() {
   const ov = overviewData;
 
   return (
-    <div className="animate-fade-in space-y-0" style={{ background: 'var(--argus-surface)', minHeight: '100vh', margin: '-1.5rem', padding: '1.5rem' }}>
-      {/* ══════════════════════════════════════════════════════════════════════ */}
-      {/* HERO BANNER                                                          */}
-      {/* ══════════════════════════════════════════════════════════════════════ */}
-      <div className="relative rounded-2xl overflow-hidden" style={{ background: 'var(--argus-surface)' }}>
-        <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ background: 'var(--argus-surface)' }} />
-        {/* Dot grid texture */}
-        <div className="absolute inset-0 opacity-[0.04]"
-          style={{
-            backgroundImage: 'linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)',
-            backgroundSize: '32px 32px',
-          }}
-        />
-        {/* Sky glow */}
-        <div className="absolute top-0 right-0 w-80 h-80 bg-sky-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-cyan-500/8 rounded-full blur-3xl translate-y-1/2 -translate-x-1/4" />
-
-        <div className="relative px-6 pt-6 pb-14">
-          <div className="flex items-start justify-between">
-            {/* Left: title */}
-            <div>
-              <div className="flex items-center gap-2.5 mb-1.5">
-                <div className="w-8 h-8 rounded-lg bg-[color:var(--argus-elevated)] flex items-center justify-center">
-                  <Layers size={16} className="text-sky-400" />
-                </div>
-                <h1 className="font-display text-2xl font-bold text-ink tracking-tight">Kubernetes Cluster</h1>
-              </div>
-              <p className="text-sm ml-[42px]" style={{ color: 'var(--argus-muted)' }}>
-                {ov?.serverIp || selectedOrg?.serverIp || '--'} · {ov?.org || selectedOrg?.name || 'Select an organization'} · {ov?.nodes?.[0]?.kubeletVersion || '--'}
-              </p>
-            </div>
-
-            {/* Right: refresh */}
-            <button
-              onClick={() => refetchOv()}
-              className="flex items-center gap-2 px-4 py-2 bg-[color:var(--argus-elevated)] rounded-xl text-sm font-medium transition-all hover:bg-[color:var(--argus-elevated)]" style={{ color: 'var(--argus-muted)' }}
-            >
-              <RefreshCw size={14} />
-              Refresh
-            </button>
+    <Page>
+      <div className="cx-hero">
+        <div className="flex items-start justify-between gap-6 flex-wrap">
+          <div className="min-w-0">
+            <span className="cx-eyebrow">Operate · kubernetes</span>
+            <h1 className="cx-hero__title">Kubernetes</h1>
+            <p className="cx-hero__deck">
+              {(ov?.org || selectedOrg?.name) ? `${ov?.org || selectedOrg?.name} — ` : ''}
+              {ov?.serverIp || selectedOrg?.serverIp || 'Select an organisation'}
+              {ov?.nodes?.[0]?.kubeletVersion ? ` · ${ov.nodes[0].kubeletVersion}` : ''}.
+            </p>
           </div>
-
-          {/* Stat Cards */}
-          <div className="relative mt-6">
-            {ovLoading ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                {Array(5).fill(0).map((_, i) => (
-                  <div key={i} className="bg-[color:var(--argus-elevated)] backdrop-blur-sm rounded-xl p-4 animate-pulse h-20" />
-                ))}
-              </div>
-            ) : ovErr ? (
-              <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-sm">
-                {!selectedOrgId && isSuperAdmin ? (
-                  <p className="text-amber-400">Please select an organization from the sidebar to view its K8s cluster.</p>
-                ) : (
-                  <p className="text-red-400">
-                    Unable to connect to K8s cluster{selectedOrg ? ` (${selectedOrg.name})` : ''}.
-                    {' '}Ensure SSH key is configured and server is reachable.
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                <StatCard label="Nodes Ready" value={`${ov?.nodesReady ?? 0}/${ov?.nodeCount ?? 0}`} icon={Server} iconColor="text-sky-400" delay={0} />
-                <StatCard label="Pods Running" value={ov?.pods?.running ?? 0} icon={Box} iconColor="text-[#6EE7B7]" delay={100} />
-                <StatCard label="Pods Pending" value={ov?.pods?.pending ?? 0} icon={Activity} iconColor="text-[#FCD34D]" delay={200} />
-                <StatCard label="Pods Failed" value={ov?.pods?.failed ?? 0} icon={XCircle} iconColor="text-red-400" pulse={Number(ov?.pods?.failed ?? 0) > 0} delay={300} />
-                <StatCard label="Total Pods" value={ov?.pods?.total ?? 0} icon={Layers} iconColor="text-signal" delay={400} />
-              </div>
-            )}
-          </div>
+          <button type="button" onClick={() => refetchOv()} className="cx-hero__btn">
+            <RefreshCw size={14} /> Refresh
+          </button>
         </div>
+        <dl className="cx-hero__kpis cx-hero__kpis--5 mt-6">
+          {ovLoading ? (
+            Array(5).fill(0).map((_, i) => (
+              <div key={i} className="cx-hero__kpi">
+                <dt className="cx-hero__kpi-label">—</dt>
+                <dd><div className="cx-hero__kpi-value">—</div></dd>
+              </div>
+            ))
+          ) : [
+            { label: 'Nodes', value: `${ov?.nodesReady ?? 0}/${ov?.nodeCount ?? 0}`, sub: 'ready' },
+            { label: 'Running', value: ov?.pods?.running ?? 0, sub: 'pods' },
+            { label: 'Pending', value: ov?.pods?.pending ?? 0, sub: 'pods', tone: (ov?.pods?.pending ?? 0) > 0 ? 'warn' : undefined },
+            { label: 'Failed', value: ov?.pods?.failed ?? 0, sub: 'pods', tone: (ov?.pods?.failed ?? 0) > 0 ? 'danger' : undefined },
+            { label: 'Total pods', value: ov?.pods?.total ?? 0, sub: 'in cluster' },
+          ].map((kpi) => (
+            <div key={kpi.label} className={`cx-hero__kpi${kpi.tone ? ` cx-hero__kpi--${kpi.tone}` : ''}`}>
+              <dt className="cx-hero__kpi-label">{kpi.label}</dt>
+              <dd>
+                <div className="cx-hero__kpi-value">{kpi.value}</div>
+                <div className="cx-hero__kpi-sub">{kpi.sub}</div>
+              </dd>
+            </div>
+          ))}
+        </dl>
       </div>
 
-      {/* Sky accent line */}
-      <div className="h-0.5 bg-gradient-to-r from-transparent via-sky-500/60 to-transparent" />
+      <nav className="cx-crumb" aria-label="Breadcrumb">
+        <Link to="/dashboard">Operations</Link>
+        <span aria-hidden>/</span>
+        <span className="cx-crumb__current">Kubernetes</span>
+      </nav>
+
+      {ovErr && (
+        <p className="text-sm text-crimson">
+          {!selectedOrgId && isSuperAdmin
+            ? 'Select an organisation from the sidebar to view its cluster.'
+            : `Unable to connect to the cluster${selectedOrg ? ` (${selectedOrg.name})` : ''}. Check SSH and that the API is reachable.`}
+        </p>
+      )}
 
       {/* ══════════════════════════════════════════════════════════════════════ */}
       {/* FLOATING TAB BAR                                                     */}
@@ -827,6 +779,6 @@ export default function K8sClusterDashboard() {
           </div>
         </div>
       )}
-    </div>
+    </Page>
   );
 }

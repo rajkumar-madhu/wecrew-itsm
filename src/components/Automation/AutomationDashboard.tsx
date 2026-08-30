@@ -10,13 +10,15 @@ import {
   RefreshCw, Link2,
   ArrowRight, Gauge, Target, History,
   Power, ToggleLeft, ToggleRight, Hash, Cpu,
-  Lock, MessageSquare, Building2, Globe,
+  Lock, MessageSquare, Building2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../../stores/authStore';
 import { onEvent } from '../../lib/socket';
 import api from '../../lib/api';
+import { Link } from 'react-router-dom';
+import { Page, Segmented } from '../ui/PageChrome';
 import {
   usePipelineStatus,
   usePipelineActions,
@@ -453,10 +455,13 @@ export default function AutomationDashboard() {
   // ── Error state ──
   if (statusError) {
     return (
-      <div className="animate-fade-in relative -m-6 p-6 min-h-screen"
-        style={{ background: 'var(--argus-surface)' }}>
+      <Page>
         <HeroBanner pipelineEnabled={false} canManage={false} onToggle={() => {}} toggling={false} uptime={0} orgName={heroOrgName} orgEnv={heroEnv} isGlobalView={isGlobalView} />
-        <div className="h-0.5 bg-gradient-to-r from-transparent via-indigo-500/60 to-transparent -mt-5 mb-4" />
+        <nav className="cx-crumb" aria-label="Breadcrumb">
+          <Link to="/dashboard">Operations</Link>
+          <span aria-hidden>/</span>
+          <span className="cx-crumb__current">Automation</span>
+        </nav>
         <div className="text-center py-16 rounded-2xl" style={{ background: D.surface, border: `1px solid ${D.border}` }}>
           <AlertTriangle size={40} className="mx-auto mb-3" style={{ color: 'var(--argus-amber)' }} />
           <p className="font-medium mb-2" style={{ color: D.text }}>Failed to load pipeline status</p>
@@ -466,24 +471,12 @@ export default function AutomationDashboard() {
             <RefreshCw size={14} className="inline mr-1.5" /> Retry
           </button>
         </div>
-      </div>
+      </Page>
     );
   }
 
   return (
-    <div className="animate-fade-in relative -m-6 p-6 min-h-screen"
-      style={{ background: 'var(--argus-surface)' }}>
-      {/* ambient glow orbs */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute top-0 left-1/4 w-[600px] h-[400px] rounded-full blur-[120px] opacity-30"
-          style={{ background: 'radial-gradient(circle, rgba(79,70,229,0.35) 0%, transparent 70%)' }} />
-        <div className="absolute top-1/3 right-0 w-[400px] h-[400px] rounded-full blur-[100px] opacity-20"
-          style={{ background: 'radial-gradient(circle, rgba(124,58,237,0.40) 0%, transparent 70%)' }} />
-        <div className="absolute bottom-0 left-0 w-[500px] h-[300px] rounded-full blur-[100px] opacity-15"
-          style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.25) 0%, transparent 70%)' }} />
-      </div>
-      <div className="relative space-y-0">
-      {/* ══ HERO BANNER ══ */}
+    <Page>
       <HeroBanner
         pipelineEnabled={pipelineStatus?.enabled ?? false}
         canManage={canManage}
@@ -500,36 +493,26 @@ export default function AutomationDashboard() {
         orgName={heroOrgName}
         orgEnv={heroEnv}
         isGlobalView={isGlobalView}
+        executions={pipelineStatus?.totalExecutions}
+        successRate={pipelineStatus?.successRate}
+        failed={pipelineStatus?.failedExecutions}
       />
-      <div className="h-0.5 bg-gradient-to-r from-transparent via-indigo-500/60 to-transparent -mt-5 mb-4" />
 
-      {/* ══ MAIN TABS ══ */}
-      <div className="flex items-center gap-2 mb-5">
-        {[
-          { id: 'overview' as MainTab, label: 'Overview', icon: Gauge },
-          { id: 'executions' as MainTab, label: 'Execution History', icon: History, count: totalExecs },
-          ...(canManage ? [{ id: 'config' as MainTab, label: 'Configuration', icon: Settings }] : []),
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all"
-            style={
-              activeTab === tab.id
-                ? { background: 'rgba(129,140,248,0.12)', color: 'var(--argus-signal)', border: '1px solid rgba(129,140,248,0.25)' }
-                : { background: 'transparent', color: D.text2, border: `1px solid ${D.border}` }
-            }
-            onMouseEnter={(e) => { if (activeTab !== tab.id) { e.currentTarget.style.color = D.text; e.currentTarget.style.background = D.surface; } }}
-            onMouseLeave={(e) => { if (activeTab !== tab.id) { e.currentTarget.style.color = D.text2; e.currentTarget.style.background = 'transparent'; } }}
-          >
-            <tab.icon size={15} />
-            {tab.label}
-            {tab.count != null && tab.count > 0 && (
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ background: D.surface2, color: D.text2 }}>{tab.count}</span>
-            )}
-          </button>
-        ))}
-      </div>
+      <nav className="cx-crumb" aria-label="Breadcrumb">
+        <Link to="/dashboard">Operations</Link>
+        <span aria-hidden>/</span>
+        <span className="cx-crumb__current">Automation</span>
+      </nav>
+
+      <Segmented
+        value={activeTab}
+        onChange={(v) => setActiveTab(v as MainTab)}
+        options={[
+          { value: 'overview', label: 'Overview', icon: Gauge },
+          { value: 'executions', label: totalExecs ? `History (${totalExecs})` : 'History', icon: History },
+          ...(canManage ? [{ value: 'config', label: 'Configuration', icon: Settings }] : []),
+        ]}
+      />
 
       {/* ══════════ OVERVIEW TAB ══════════ */}
       {activeTab === 'overview' && (
@@ -1021,8 +1004,7 @@ export default function AutomationDashboard() {
           Powered by AI Agent Pipeline — {actionsList.length} remediation actions, {notifsList.length} notification rules, 13 client organizations
         </p>
       </div>
-      </div>{/* /relative space-y-0 */}
-    </div>
+    </Page>
   );
 }
 
@@ -1030,7 +1012,7 @@ export default function AutomationDashboard() {
 // Hero Banner (extracted for reuse in error state)
 // ══════════════════════════════════════════════════════════════════════════════
 
-function HeroBanner({ pipelineEnabled, canManage, onToggle, toggling, uptime, loading, orgName, orgEnv, isGlobalView }: {
+function HeroBanner({ pipelineEnabled, canManage, onToggle, toggling, uptime, loading, orgName, orgEnv, isGlobalView, executions, successRate, failed }: {
   pipelineEnabled: boolean;
   canManage: boolean;
   onToggle: () => void;
@@ -1040,114 +1022,52 @@ function HeroBanner({ pipelineEnabled, canManage, onToggle, toggling, uptime, lo
   orgName?: string | null;
   orgEnv?: string | null;
   isGlobalView?: boolean;
+  executions?: number;
+  successRate?: string;
+  failed?: number;
 }) {
-  const ENV_COLORS: Record<string, { bg: string; color: string; border: string }> = {
-    PROD: { bg: 'rgba(52,211,153,0.12)',  color: 'var(--argus-emerald)', border: 'rgba(52,211,153,0.25)'  },
-    DR:   { bg: 'rgba(251,191,36,0.12)',  color: 'var(--argus-amber)', border: 'rgba(251,191,36,0.25)'  },
-    UAT:  { bg: 'rgba(99,179,255,0.10)',  color: 'var(--argus-signal)', border: 'rgba(99,179,255,0.20)'  },
-    DEV:  { bg: 'rgba(167,139,250,0.12)', color: '#A78BFA', border: 'rgba(167,139,250,0.25)' },
-  };
-
   return (
-    <div className="relative rounded-2xl overflow-hidden mb-5" style={{ background: 'var(--argus-surface)' }}>
-      <div className="absolute inset-0 opacity-[0.04]"
-        style={{ backgroundImage: 'radial-gradient(circle, rgba(255,255,255,1) 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
-      <div className="absolute top-0 right-0 w-80 h-80 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4"
-        style={{ background: 'rgba(79,70,229,0.10)' }} />
-      <div className="absolute bottom-0 left-0 w-60 h-60 rounded-full blur-3xl translate-y-1/2 -translate-x-1/4"
-        style={{ background: 'rgba(124,58,237,0.10)' }} />
-      <div className="relative px-6 py-5">
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="flex items-center gap-2.5 mb-1.5">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[color:var(--argus-signal)] to-[color:var(--argus-signal-bright)] flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                <Bot size={18} className="text-ink" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2.5">
-                  <h1 className="font-display text-2xl font-bold text-ink tracking-tight">AI Agent Pipeline</h1>
-                  {isGlobalView && (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-mono"
-                      style={{ background: 'var(--argus-elevated)', border: '1px solid var(--argus-border)', color: 'var(--argus-muted)' }}>
-                      <Globe size={10} /> All Organizations
-                    </span>
-                  )}
-                  {orgName && !isGlobalView && (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold"
-                      style={{ background: 'var(--argus-elevated)', border: '1px solid var(--argus-border)', color: 'var(--argus-ink)' }}>
-                      <Building2 size={10} /> {orgName}
-                    </span>
-                  )}
-                  {orgEnv && !isGlobalView && (() => {
-                    const ec = ENV_COLORS[orgEnv] || ENV_COLORS.DEV;
-                    return (
-                      <span className="px-2 py-0.5 rounded-md text-[9px] font-mono font-bold uppercase"
-                        style={{ background: ec.bg, color: ec.color, border: `1px solid ${ec.border}` }}>
-                        {orgEnv}
-                      </span>
-                    );
-                  })()}
-                </div>
-                <p className="text-xs" style={{ color: 'var(--argus-muted)' }}>Detect → Triage → Enrich → Act → Notify → Verify</p>
-              </div>
-            </div>
-          </div>
-          {/* Master toggle */}
-          <div className="flex items-center gap-3">
-            {loading ? (
-              <div className="w-20 h-8 rounded-xl animate-pulse" style={{ background: 'var(--argus-elevated)' }} />
-            ) : (
-              <button
-                onClick={onToggle}
-                disabled={!canManage || toggling}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all"
-                style={pipelineEnabled
-                  ? { background: 'rgba(52,211,153,0.15)', color: 'var(--argus-emerald)', border: '1px solid rgba(52,211,153,0.30)' }
-                  : { background: 'rgba(239,68,68,0.15)', color: 'var(--argus-crimson)', border: '1px solid rgba(239,68,68,0.30)' }}
-              >
-                {toggling ? <Loader2 size={14} className="animate-spin" /> : <Power size={14} />}
-                {pipelineEnabled ? 'ENABLED' : 'DISABLED'}
-              </button>
-            )}
-          </div>
+    <div className="cx-hero">
+      <div className="flex items-start justify-between gap-6 flex-wrap">
+        <div className="min-w-0">
+          <span className="cx-eyebrow">Intelligence · automation</span>
+          <h1 className="cx-hero__title">Automation</h1>
+          <p className="cx-hero__deck">
+            Detect → Triage → Enrich → Act → Notify → Verify
+            {isGlobalView ? ' · all organisations' : orgName ? ` · ${orgName}${orgEnv ? ` (${orgEnv})` : ''}` : ''}.
+          </p>
         </div>
-
-        {/* Feature pills */}
-        <div className="mt-4 ml-[50px] flex items-center gap-3 flex-wrap">
-          {[
-            { icon: Zap,    label: 'Auto-Remediation', sub: 'SSH-based actions',       color: 'var(--argus-amber)' },
-            { icon: Brain,  label: 'Smart Triage',     sub: 'Alert pattern matching',   color: 'var(--argus-signal)' },
-            { icon: Target, label: 'Verify',           sub: 'Post-action health check', color: 'var(--argus-emerald)' },
-          ].map((feat) => (
-            <div key={feat.label} className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl"
-              style={{ background: 'var(--argus-elevated)', border: '1px solid var(--argus-border)' }}>
-              <feat.icon size={16} style={{ color: feat.color }} />
-              <div>
-                <p className="text-xs font-semibold text-ink">{feat.label}</p>
-                <p className="text-[10px]" style={{ color: 'var(--argus-dim)' }}>{feat.sub}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Status bar */}
-        <div className="mt-4 ml-[50px] flex items-center gap-2 text-[10px] font-mono">
-          <span className="inline-flex items-center gap-1.5" style={{ color: pipelineEnabled ? '#34D399' : '#F87171' }}>
-            <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: pipelineEnabled ? '#34D399' : '#F87171' }} />
-            Pipeline {pipelineEnabled ? 'Active' : 'Disabled'}
-          </span>
-          <span className="mx-1" style={{ color: 'var(--argus-dim)' }}>|</span>
-          <span style={{ color: 'var(--argus-muted)' }}>Uptime: {formatUptime(uptime)}</span>
-          {!canManage && (
-            <>
-              <span className="mx-1" style={{ color: 'var(--argus-dim)' }}>|</span>
-              <span className="inline-flex items-center gap-1" style={{ color: 'var(--argus-dim)' }}>
-                <Lock size={9} />Admin/Manager required to toggle
-              </span>
-            </>
-          )}
-        </div>
+        {loading ? (
+          <div className="w-24 h-8 rounded animate-pulse bg-obsidian" />
+        ) : (
+          <button
+            type="button"
+            onClick={onToggle}
+            disabled={!canManage || toggling}
+            className={clsx('cx-hero__btn', !pipelineEnabled && 'cx-hero__btn--ghost')}
+          >
+            {toggling ? <Loader2 size={14} className="animate-spin" /> : <Power size={14} />}
+            {pipelineEnabled ? 'Enabled' : 'Disabled'}
+          </button>
+        )}
       </div>
+      <dl className="cx-hero__kpis cx-hero__kpis--5 mt-6">
+        {[
+          { label: 'Pipeline', value: pipelineEnabled ? 'On' : 'Off', sub: formatUptime(uptime), tone: pipelineEnabled ? undefined : 'warn' },
+          { label: 'Executions', value: loading ? '—' : (executions ?? '—'), sub: 'all time' },
+          { label: 'Success', value: loading ? '—' : (successRate != null ? `${successRate}%` : '—'), sub: 'remediation rate' },
+          { label: 'Failed', value: loading ? '—' : (failed ?? '—'), sub: 'need review', tone: (failed ?? 0) > 0 ? 'danger' : undefined },
+          { label: 'Access', value: canManage ? 'Manage' : 'View', sub: canManage ? 'admin / manager' : 'toggle locked' },
+        ].map((kpi) => (
+          <div key={kpi.label} className={clsx('cx-hero__kpi', kpi.tone && `cx-hero__kpi--${kpi.tone}`)}>
+            <dt className="cx-hero__kpi-label">{kpi.label}</dt>
+            <dd>
+              <div className="cx-hero__kpi-value">{kpi.value}</div>
+              <div className="cx-hero__kpi-sub">{kpi.sub}</div>
+            </dd>
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }

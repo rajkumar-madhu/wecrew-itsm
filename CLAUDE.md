@@ -6,12 +6,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Standalone React SPA for **Argus ITSM** (formerly branded LinkedEye, UI title "WeCrew ITSM") — incidents,
 changes, problems, CMDB/assets, alerts, on-call, NOC, k8s/APM/log views, plus SMS/voice/PagerDuty
-integrations. Frontend only; there is **no backend, no tests, and no git repo here**.
+integrations. The same bundle also serves the **public marketing site** for wecrew.in (see "Public
+marketing site" below). Frontend only; there is **no backend and no test runner here**. This is a git
+repo (default branch `main`); feature specs and implementation plans live under `docs/superpowers/`
+(`specs/`, `plans/`) — read the matching plan before working on a feature branch named after one
+(e.g. `razorpay-billing`).
 
-The API it talks to lives at `/root/argus-itsm/backend` (Express + Prisma + Socket.IO, dev port **5001**);
-that repo also carries a **diverged** copy of this app at `frontend-react/` and its own `CLAUDE.md` with
-backend/K8s context. The two frontends have drifted — don't assume a change here exists there.
-`README.md` in this repo is the untouched Vite template; ignore it.
+The API it talks to lives at `/root/projects/argus-itsm/backend` (Express + Prisma + Socket.IO, dev port
+**5001**); that repo also carries a **diverged** copy of this app at `frontend-react/` and its own
+`CLAUDE.md` with backend/K8s context. The two frontends have drifted — don't assume a change here exists
+there. `README.md` in this repo is the untouched Vite template; ignore it.
 
 ## Commands
 
@@ -81,13 +85,35 @@ hardcoded string arrays (`['incidents', 'list']`), so renaming a hook's `keys` s
 ### Routing and adding a page
 
 Every route in `src/App.tsx` is `lazy()` + wrapped in its own `<Suspense>`. Protected routes nest under a
-single `<ErrorBoundary><ProtectedRoute><Layout /></ProtectedRoute></ErrorBoundary>` element route; public
-routes are `/login`, `/signup`, `/docs`, `/status/:orgSlug`.
+single `<ErrorBoundary><ProtectedRoute><Layout /></ProtectedRoute></ErrorBoundary>` element route. Public
+routes: the marketing pages (`/`, `/itsm`, `/modules`, `/security`, `/pilot`, `/contact`) under
+`PublicLayout`, plus `/login`, `/signup`, `/docs`, `/status/:orgSlug`.
+
+`/` is auth-aware via `PublicHome`: anonymous visitors get the marketing `HomePage`, a valid session is
+redirected to `/dashboard`. It deliberately branches on the persisted `token`, **not** `isLoading`
+(which starts `true`), so anonymous visits render immediately — read its comment before changing it.
 
 Adding a page = (1) `lazy` import + `<Route>` in `App.tsx`, (2) an entry in the `navGroups` array in
 `src/components/Layout/Sidebar.tsx` (groups: Self-Service / IT Operations / Service delivery /
 Intelligence / Administration; per-item `roles` filters visibility), (3) build the page from
 `src/components/ui/PageChrome.tsx`.
+
+### Public marketing site (`src/components/Public/`)
+
+Renders without a backend. Page components (`HomePage`, `ItsmPage`, `ModulesPage`, `SecurityPage`,
+`PilotPage`, `ContactPage`) are layout-only; **all copy, company details, Cal.com handles and pilot
+constants live in `site.ts`** — edit content there, not in the pages. Shared layout primitives are in
+`chrome.tsx` and wrap the same `cx-*` brand classes as the app — don't invent a second styling vocabulary.
+`PilotPage` embeds Cal.com via `CalEmbed`.
+
+The lead form (`LeadForm` → `src/hooks/usePublicLead.ts`) is the only part that talks to a server. It
+uses `src/lib/publicApi.ts` — a separate bare axios instance — **on purpose**: a 401/403 from the shared
+`api` instance would trigger the auth-refresh path and bounce a visitor to `/login`. Its target endpoint
+(`POST /api/v1/public/leads`) is **not yet implemented in the backend**; the hook's no-op `onError` is
+load-bearing (it opts out of the global mutation toast — see `queryClient.ts` note above).
+
+`src/components/Landing/LandingPage.tsx` is **orphaned** — nothing routes to it; the Public/ pages
+superseded it. Don't extend it.
 
 ## Styling — read before writing any className
 
@@ -122,14 +148,16 @@ Two style generations coexist:
 
 - **Current (`cx-*`)** — `@layer components` in `index.css`, consumed through the typed wrappers in
   `src/components/ui/PageChrome.tsx` (`Page`, `PageHeader`, `KpiRow`/`KpiCard`, `Panel`, `Toolbar`,
-  `PrimaryButton`, `GhostButton`, `Segmented`). Only three pages are migrated so far
-  (`IncidentList`, `AlertList`, `ProblemList`) — use these for anything new. The brand additions
-  (`cx-hero`, `cx-eyebrow`, `cx-section-title`, `cx-signals`, `cx-pill`, `cx-posture`) mirror the
-  Sovereign Command Centre; `DashboardOverview` is the reference implementation.
-- **Legacy** — pages still written against the old dark-only design using `stone-*` and `text-white/60`,
-  `bg-white/[0.04]` style utilities. The bottom ~170 lines of `index.css` are a compatibility shim
-  (`html.light .app-shell .…`) that remaps those to readable light-mode values. Don't add new `stone-*`
-  or white-opacity utilities; every one added grows that shim.
+  `PrimaryButton`, `GhostButton`, `Segmented`). Nearly all list/dashboard pages (~34 components) are
+  migrated — use these for anything new. The brand additions (`cx-hero`, `cx-eyebrow`,
+  `cx-section-title`, `cx-signals`, `cx-pill`, `cx-posture`) mirror the Sovereign Command Centre;
+  `DashboardOverview` is the reference implementation.
+- **Legacy** — old dark-only utilities (`stone-*`, `text-white/60`, `bg-white/[0.04]`) survive in
+  ~17 files, mostly the detail/create pages (`IncidentDetail`, `AssetCreate/Detail`,
+  `ChangeCreate/Detail`, `ProblemCreate/Detail`), `SignupPage`, `ErrorBoundary`, `NotFound`, and
+  residual patches inside otherwise-migrated dashboards. The bottom ~170 lines of `index.css` are a
+  compatibility shim (`html.light .app-shell .…`) that remaps those to readable light-mode values.
+  Don't add new `stone-*` or white-opacity utilities; every one added grows that shim.
 
 **Cascade trap:** that shim forces `h1`-`h4` and `.text-white` to ink so legacy pages stay readable on the
 light workspace. Genuinely dark surfaces (the nav `aside`, `.cx-hero`) must opt back out from the block at
@@ -160,7 +188,7 @@ dev proxies to `:5001` instead).
 - **Voice widget (removed 2026-08-08, do not naively re-add).** `index.html` used to hard-code
   `<script src="https://voice.santhira.com/integrations/finspot/embed.js">` with the tenant id and a
   `vsk_…` API key as inline `data-*` attributes. That origin returns **503** (backend removed from
-  `173.249.2.23`), and the host before it (`voice.finspot.in`) no longer resolves — so it was failing on
+  `173.249.2.23`), and the host before it (`voice.wecrew.in`) no longer resolves — so it was failing on
   every page load. The same embed + **the same key** also sat in `argus-itsm/frontend-react/index.html`
   and two `argus-servicedesk-dev` trees; all have been stripped/redacted.
   A replacement host is wired and ready: **`voice.wecrew.in`** — DNS → this cluster, LE cert issued,

@@ -1,11 +1,45 @@
+import { Children, Fragment, isValidElement } from 'react';
 import { clsx } from 'clsx';
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 /** Codex-style page shell — quiet chrome, dense, hairline borders */
 
+function flatten(children: ReactNode): ReactNode[] {
+  const out: ReactNode[] = [];
+  Children.forEach(children, (child) => {
+    if (isValidElement(child) && child.type === Fragment) {
+      out.push(...flatten((child.props as { children?: ReactNode }).children));
+    } else if (child != null && child !== false) {
+      out.push(child);
+    }
+  });
+  return out;
+}
+
+function isPageChrome(child: ReactNode): boolean {
+  if (!isValidElement(child)) return false;
+  if (child.type === 'style') return true;
+  if (child.type === Toolbar || child.type === Segmented) return true;
+  const cls = (child.props as { className?: unknown }).className;
+  return typeof cls === 'string' && /\b(cx-hero|cx-crumb|cx-toolbar|cx-segmented)\b/.test(cls);
+}
+
 export function Page({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={clsx('cx-page', className)}>{children}</div>;
+  const items = flatten(children);
+  const chrome: ReactNode[] = [];
+  let i = 0;
+  while (i < items.length && isPageChrome(items[i])) {
+    chrome.push(items[i]);
+    i += 1;
+  }
+  const body = items.slice(i);
+  return (
+    <div className={clsx('cx-page', className)}>
+      {chrome}
+      {body.length > 0 ? <div className="cx-page__body">{body}</div> : null}
+    </div>
+  );
 }
 
 export function PageHeader({

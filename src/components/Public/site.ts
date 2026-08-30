@@ -40,7 +40,7 @@ export const COMPANY: CompanyDetails = {
   name: 'WeCrew Ops',
   product: 'WeCrew ITSM',
   tagline: 'Self-hosted IT operations for teams that have to prove what happened.',
-  email: 'le@finspot.in',
+  email: 'support@wecrew.in',
   website: 'https://wecrew.in',
   // Optional — fill these in; blank fields are omitted from the page.
   phone: '',

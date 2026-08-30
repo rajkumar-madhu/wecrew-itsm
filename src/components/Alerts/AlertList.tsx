@@ -1,13 +1,11 @@
 import { useState, useMemo } from 'react';
 import type React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
 import {
   Bell,
-  AlertTriangle,
   Shield,
-  CheckCircle,
   VolumeX,
   Plus,
   Search,
@@ -15,7 +13,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { useAlerts, useAcknowledgeAlert, useSilenceAlert, useCreateIncidentFromAlert, useAlertStats } from '../../hooks/useAlerts';
-import { Page, PageHeader, KpiRow, KpiCard } from '../ui/PageChrome';
+import { Page, Toolbar } from '../ui/PageChrome';
 
 // ── Types ──
 
@@ -106,49 +104,11 @@ function StatusBadge({ status }: { status: AlertStatus }) {
   );
 }
 
-function StatsCard({
-  icon: Icon,
-  label,
-  value,
-  color,
-  pulse,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: number;
-  color: string;
-  pulse?: boolean;
-}) {
-  const iconColors: Record<string, string> = {
-    signal: 'var(--argus-signal)',
-    crimson: 'var(--argus-crimson)',
-    amber: 'var(--argus-amber)',
-    emerald: 'var(--argus-emerald)',
-  };
-  const borderColors: Record<string, string> = {
-    signal: 'rgba(79,70,229,0.3)',
-    crimson: 'rgba(220,38,38,0.3)',
-    amber: 'rgba(217,119,6,0.3)',
-    emerald: 'rgba(5,150,105,0.3)',
-  };
-  const iconColor = iconColors[color] || iconColors.signal;
-  const borderColor = borderColors[color] || borderColors.signal;
-
-  return (
-    <div className="p-4 rounded-xl transition-all duration-300" style={{ background: 'var(--argus-elevated)', border: `1px solid ${borderColor}` }}>
-      <div className="flex items-start justify-between mb-2">
-        <div className="p-2 rounded-xl" style={{ background: 'var(--argus-elevated)' }}>
-          <span style={{ color: iconColor }}><Icon className="w-4 h-4" /></span>
-        </div>
-        {pulse && <LivePulse color={color} />}
-      </div>
-      <p className="text-2xl font-display font-bold tracking-tight" style={{ color: 'var(--argus-ink)' }}>{value}</p>
-      <p className="text-xs mt-0.5" style={{ color: 'var(--argus-muted)' }}>{label}</p>
-    </div>
-  );
-}
-
 // ── Main Component ──
+
+interface AlertStatGroup { severity?: string; status?: string; _count?: number | Record<string, number> }
+interface AlertStatsResponse { total?: number; firing?: number; bySeverity?: AlertStatGroup[]; byStatus?: AlertStatGroup[] }
+interface AlertKpi { label: string; value: number; sub: string; tone?: string }
 
 export default function AlertList() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -177,13 +137,40 @@ export default function AlertList() {
   // Extract alerts array from backend response shape: { success, data, pagination }
   const alerts: Alert[] = alertsResponse?.data ?? [];
 
-  // Stats from dedicated endpoint, with safe fallbacks
-  const stats = {
-    criticalFiring: statsResponse?.data?.criticalFiring ?? 0,
-    warningFiring: statsResponse?.data?.warningFiring ?? 0,
-    resolved24h: statsResponse?.data?.resolved24h ?? 0,
-    totalActive: statsResponse?.data?.totalActive ?? 0,
-  };
+  /* Stats from /alerts/stats. The endpoint returns
+       { total, firing, bySeverity: [{severity,_count}], byStatus: [{status,_count}] }
+     — it does NOT return criticalFiring / warningFiring / resolved24h / totalActive.
+     Reading those names with `?? 0` fallbacks rendered every tile as a permanent zero,
+     which on an alerts console reads as "nothing is wrong". Derive from the real shape. */
+  const stats = useMemo(() => {
+    const d = statsResponse?.data as AlertStatsResponse | undefined;
+    const countOf = (rows: AlertStatGroup[] | undefined, key: string, field: 'severity' | 'status') => {
+      const row = (rows ?? []).find((r) => r[field] === key);
+      if (!row) return 0;
+      return typeof row._count === 'number' ? row._count : Number(Object.values(row._count ?? {})[0]) || 0;
+    };
+    return {
+      total: d?.total ?? 0,
+      firing: d?.firing ?? 0,
+      critical: countOf(d?.bySeverity, 'CRITICAL', 'severity'),
+      warning: countOf(d?.bySeverity, 'WARNING', 'severity'),
+      resolved: countOf(d?.byStatus, 'RESOLVED', 'status'),
+      acknowledged: countOf(d?.byStatus, 'ACKNOWLEDGED', 'status'),
+    };
+  }, [statsResponse]);
+
+  /* Hoisted out of JSX: an inline array literal created during render aliases the
+     memoized stats, which makes React Compiler skip optimizing this component. */
+  const heroKpis = useMemo<AlertKpi[]>(
+    () => [
+      { label: 'Firing', value: stats.firing, sub: 'not yet resolved', tone: stats.firing > 0 ? 'danger' : undefined },
+      { label: 'Critical', value: stats.critical, sub: 'critical severity', tone: stats.critical > 0 ? 'danger' : undefined },
+      { label: 'Warning', value: stats.warning, sub: 'warning severity', tone: stats.warning > 0 ? 'warn' : undefined },
+      { label: 'Acknowledged', value: stats.acknowledged, sub: 'being worked' },
+      { label: 'Resolved', value: stats.resolved, sub: `of ${stats.total} total` },
+    ],
+    [stats]
+  );
 
   // Client-side sort: severity rank (CRITICAL first), then firedAt descending
   const sortedAlerts = useMemo(() => {
@@ -227,70 +214,70 @@ export default function AlertList() {
 
   return (
     <Page>
-      <PageHeader
-        icon={Bell}
-        title="Alerts"
-        subtitle={
-          <>
-            Real-time monitoring and triage ·{' '}
-            <span className="font-mono font-medium text-ink">{alerts.length}</span> total
-          </>
-        }
-      />
-
-      <KpiRow className="!grid-cols-2 sm:!grid-cols-4 lg:!grid-cols-4">
-        <KpiCard label="Critical firing" value={stats.criticalFiring} icon={AlertTriangle} tone="danger" pulse />
-        <KpiCard label="Warning firing" value={stats.warningFiring} icon={Bell} tone="warn" pulse />
-        <KpiCard label="Resolved (24h)" value={stats.resolved24h} icon={CheckCircle} tone="ok" />
-        <KpiCard label="Total active" value={stats.totalActive} icon={Shield} tone="info" />
-      </KpiRow>
-      <div className="h-0.5 bg-gradient-to-r from-transparent via-red-500/60 to-transparent" />
-
-      {/* ── FILTER BAR ── */}
-      <div className="-mt-3 relative z-10 rounded-xl p-3 mb-4" style={{ background: 'var(--argus-elevated)', border: '1px solid var(--argus-border)', backdropFilter: 'blur(8px)' }}>
-        <div className="flex flex-wrap items-center gap-2.5">
-          <div className="flex items-center gap-1.5" style={{ color: 'var(--argus-muted)' }}>
-            <Filter size={13} />
-            <span className="text-[10px] font-semibold uppercase tracking-widest">Filters</span>
-          </div>
-
-          <select value={severityFilter} onChange={(e) => setSeverityFilter(e.target.value as Severity | 'ALL')} className="rounded-lg text-sm px-3 py-1.5 focus:outline-none" style={{ background: 'var(--argus-elevated)', border: '1px solid var(--argus-border)', color: 'var(--argus-ink)' }}>
-            <option value="ALL" style={{ background: 'var(--argus-surface)' }}>All Severities</option>
-            <option value="CRITICAL" style={{ background: 'var(--argus-surface)' }}>Critical</option>
-            <option value="WARNING" style={{ background: 'var(--argus-surface)' }}>Warning</option>
-            <option value="INFO" style={{ background: 'var(--argus-surface)' }}>Info</option>
-          </select>
-
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as AlertStatus | 'ALL')} className="rounded-lg text-sm px-3 py-1.5 focus:outline-none" style={{ background: 'var(--argus-elevated)', border: '1px solid var(--argus-border)', color: 'var(--argus-ink)' }}>
-            <option value="ALL" style={{ background: 'var(--argus-surface)' }}>All Statuses</option>
-            <option value="FIRING" style={{ background: 'var(--argus-surface)' }}>Firing</option>
-            <option value="RESOLVED" style={{ background: 'var(--argus-surface)' }}>Resolved</option>
-            <option value="ACKNOWLEDGED" style={{ background: 'var(--argus-surface)' }}>Acknowledged</option>
-            <option value="SILENCED" style={{ background: 'var(--argus-surface)' }}>Silenced</option>
-          </select>
-
-          <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value as AlertSource | 'ALL')} className="rounded-lg text-sm px-3 py-1.5 focus:outline-none" style={{ background: 'var(--argus-elevated)', border: '1px solid var(--argus-border)', color: 'var(--argus-ink)' }}>
-            <option value="ALL" style={{ background: 'var(--argus-surface)' }}>All Sources</option>
-            <option value="PROMETHEUS" style={{ background: 'var(--argus-surface)' }}>Prometheus</option>
-            <option value="GRAFANA" style={{ background: 'var(--argus-surface)' }}>Grafana</option>
-            <option value="CUSTOM" style={{ background: 'var(--argus-surface)' }}>Custom</option>
-          </select>
-
-          <div className="w-px h-7 hidden sm:block" style={{ background: 'var(--argus-elevated)' }} />
-
-          <div className="relative flex-1 min-w-[200px]">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--argus-muted)' }} />
-            <input
-              type="text"
-              placeholder="Search alerts by name, description, or CI..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 rounded-lg text-sm focus:outline-none transition-all"
-              style={{ background: 'var(--argus-elevated)', border: '1px solid var(--argus-border)', color: 'var(--argus-ink)' }}
-            />
+      <div className="cx-hero">
+        <div className="flex items-start justify-between gap-6 flex-wrap">
+          <div className="min-w-0">
+            <span className="cx-eyebrow">Operate · monitoring</span>
+            <h1 className="cx-hero__title">Alerts</h1>
+            <p className="cx-hero__deck">
+              Real-time monitoring and triage. Firing alerts here are the signals that become incidents.
+            </p>
           </div>
         </div>
+        <dl className="cx-hero__kpis cx-hero__kpis--5 mt-6">
+          {heroKpis.map((kpi) => (
+            <div key={kpi.label} className={clsx('cx-hero__kpi', kpi.tone && `cx-hero__kpi--${kpi.tone}`)}>
+              <dt className="cx-hero__kpi-label">{kpi.label}</dt>
+              <dd>
+                <div className="cx-hero__kpi-value">{kpi.value}</div>
+                <div className="cx-hero__kpi-sub">{kpi.sub}</div>
+              </dd>
+            </div>
+          ))}
+        </dl>
       </div>
+
+      <nav className="cx-crumb" aria-label="Breadcrumb">
+        <Link to="/dashboard">Operations</Link>
+        <span aria-hidden>/</span>
+        <span className="cx-crumb__current">Alerts</span>
+      </nav>
+
+      <Toolbar>
+        <div className="flex items-center gap-1.5 text-muted">
+          <Filter size={13} />
+          <span className="text-[10px] font-semibold uppercase tracking-widest">Filters</span>
+        </div>
+        <select value={severityFilter} onChange={(e) => setSeverityFilter(e.target.value as Severity | 'ALL')} className="filter-select">
+          <option value="ALL">All severities</option>
+          <option value="CRITICAL">Critical</option>
+          <option value="WARNING">Warning</option>
+          <option value="INFO">Info</option>
+        </select>
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as AlertStatus | 'ALL')} className="filter-select">
+          <option value="ALL">All statuses</option>
+          <option value="FIRING">Firing</option>
+          <option value="RESOLVED">Resolved</option>
+          <option value="ACKNOWLEDGED">Acknowledged</option>
+          <option value="SILENCED">Silenced</option>
+        </select>
+        <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value as AlertSource | 'ALL')} className="filter-select">
+          <option value="ALL">All sources</option>
+          <option value="PROMETHEUS">Prometheus</option>
+          <option value="GRAFANA">Grafana</option>
+          <option value="CUSTOM">Custom</option>
+        </select>
+        <div className="relative flex-1 min-w-[200px] max-w-md">
+          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-dim" />
+          <input
+            type="text"
+            placeholder="Search alerts by name, description, or CI..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="input-field pl-8 py-1.5 text-[13px]"
+          />
+        </div>
+      </Toolbar>
 
       {/* Loading State */}
       {alertsLoading && (

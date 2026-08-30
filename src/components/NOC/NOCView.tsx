@@ -1,11 +1,14 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { clsx } from 'clsx';
 import {
-  Maximize2, Minimize2, RefreshCw, Wifi, WifiOff,
+  Maximize2, Minimize2, RefreshCw, Wifi,
   Radio, Zap, Users, Shield, AlertTriangle, Activity,
-  Server, ChevronRight, Eye,
+  Server, Eye,
 } from 'lucide-react';
 import api from '../../lib/api';
+import { Page } from '../ui/PageChrome';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface Alert {
@@ -18,7 +21,6 @@ interface OnCallSchedule {
   user: { firstName: string; lastName: string };
   team: { name: string };
 }
-interface IncidentStat { total: number; open: number; critical: number; }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function parseInstance(alert: Alert): string {
@@ -43,139 +45,131 @@ function clockDate() {
   return new Date().toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-// ── Design tokens ─────────────────────────────────────────────────────────────
-// Background layering: base #061220 → panels #0D1F35 → cards #112338
-const BG_BASE   = '#061220';   // deepest navy — page background
-const BG_PANEL  = '#0B1A2E';   // panel background
-const BG_CARD   = '#0F2035';   // card surface
-const BG_HOVER  = '#142843';   // hover state
-const BORDER    = 'rgba(99,179,255,0.08)';  // subtle blue border
-const BORDER_LT = 'rgba(99,179,255,0.15)';  // brighter border for accents
-const TEXT_PRI  = '#E2EEF9';   // primary text
-const TEXT_SEC  = '#6B8FAD';   // secondary text
-const TEXT_DIM  = '#2E4A63';   // dimmed text
+// ── Palette ───────────────────────────────────────────────────────────────────
+// The wallboard is the one surface in Argus that stays dark whatever the theme —
+// it is read across a lit room, not at a desk. So it takes the app's own dark
+// tokens as literals rather than a private navy scheme: same ink, same coral
+// alarm, same Fraunces numerals as every other page, just sized for distance.
+const INK          = '#0e1116';   // brand ink — board background
+const PANEL        = '#141820';   // panel background
+const CARD         = '#1a1f28';   // card surface
+const HOVER        = '#222835';
+const LINE         = '#252b36';   // hairline
+const LINE_STRONG   = '#2f3644';
+const TEXT         = '#f4f1ea';   // brand paper
+const TEXT_MUTED   = '#a8a49c';
+const TEXT_DIM     = '#6b7689';
+
+const CORAL  = '#ff5b2e';  // brand accent, used here only for alarm
+const AMBER  = '#fbbf24';
+const BLUE   = '#6b85ff';
+const GREEN  = '#34d399';
+
+const DISPLAY = 'Fraunces, Georgia, serif';
+const MONO = '"JetBrains Mono", ui-monospace, monospace';
+const BODY = '"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif';
 
 const SEV = {
-  CRITICAL: { color: '#FF4D6A', glow: 'rgba(255,77,106,0.35)', bg: 'rgba(255,77,106,0.08)', border: 'rgba(255,77,106,0.22)', label: 'CRIT' },
-  WARNING:  { color: '#FFA726', glow: 'rgba(255,167,38,0.30)', bg: 'rgba(255,167,38,0.07)', border: 'rgba(255,167,38,0.20)', label: 'WARN' },
-  INFO:     { color: '#4FC3F7', glow: 'rgba(79,195,247,0.25)', bg: 'rgba(79,195,247,0.07)', border: 'rgba(79,195,247,0.18)', label: 'INFO' },
+  CRITICAL: { color: CORAL, bg: 'rgba(255,91,46,0.10)',  border: 'rgba(255,91,46,0.30)',  label: 'Critical' },
+  WARNING:  { color: AMBER, bg: 'rgba(251,191,36,0.09)', border: 'rgba(251,191,36,0.26)', label: 'Warning' },
+  INFO:     { color: BLUE,  bg: 'rgba(107,133,255,0.09)', border: 'rgba(107,133,255,0.24)', label: 'Info' },
 } as const;
 type SevKey = keyof typeof SEV;
 
-// ── SAS Ring ──────────────────────────────────────────────────────────────────
-const R = 72, CIRC = 2 * Math.PI * R;
-function SASRing({ score }: { score: number }) {
-  const color  = score >= 75 ? '#00E5A0' : score >= 45 ? '#FFA726' : '#FF4D6A';
-  const glow   = score >= 75 ? 'rgba(0,229,160,0.4)' : score >= 45 ? 'rgba(255,167,38,0.4)' : 'rgba(255,77,106,0.4)';
-  const label  = score >= 75 ? 'NOMINAL' : score >= 45 ? 'ELEVATED' : 'CRITICAL';
-  const filled = (score / 100) * CIRC;
+// ── Micro-label ───────────────────────────────────────────────────────────────
+function Label({ children, color = TEXT_DIM }: { children: React.ReactNode; color?: string }) {
   return (
-    <div className="relative flex items-center justify-center" style={{ width: 175, height: 175 }}>
-      {/* Outer ambient ring */}
-      <div className="absolute inset-0 rounded-full" style={{
-        background: `radial-gradient(circle at center, ${glow} 0%, transparent 70%)`,
-        opacity: 0.3,
-      }} />
-      <svg width="175" height="175" viewBox="0 0 175 175">
-        {/* Track */}
-        <circle cx="87.5" cy="87.5" r={R} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="9" />
-        {/* Fill */}
-        <circle cx="87.5" cy="87.5" r={R} fill="none" stroke={color} strokeWidth="9" strokeLinecap="round"
-          strokeDasharray={`${filled} ${CIRC - filled}`}
-          transform="rotate(-90 87.5 87.5)"
-          style={{ filter: `drop-shadow(0 0 10px ${color})`, transition: 'stroke-dasharray 1.5s ease, stroke 0.6s ease' }}
-        />
-        {/* Tick marks */}
-        {[0, 25, 50, 75].map(v => {
-          const a = ((v / 100) * 360 - 90) * (Math.PI / 180);
-          const ix = 87.5 + (R + 15) * Math.cos(a), iy = 87.5 + (R + 15) * Math.sin(a);
-          const ox = 87.5 + (R + 19) * Math.cos(a), oy = 87.5 + (R + 19) * Math.sin(a);
-          return <line key={v} x1={ix} y1={iy} x2={ox} y2={oy} stroke={TEXT_DIM} strokeWidth="1.5" />;
-        })}
-      </svg>
-      <div className="absolute flex flex-col items-center justify-center gap-0.5">
-        <span className="text-[7px] font-mono font-black tracking-[0.25em]" style={{ color: `${color}60` }}>SAS INDEX</span>
-        <span className="font-black tabular-nums leading-none" style={{
-          fontSize: 48, color, fontFamily: 'JetBrains Mono, monospace',
-          textShadow: `0 0 24px ${glow}`,
+    <span style={{
+      fontFamily: MONO, fontSize: 9.5, fontWeight: 500,
+      letterSpacing: '0.14em', textTransform: 'uppercase', color,
+    }}>{children}</span>
+  );
+}
+
+// ── Posture block ─────────────────────────────────────────────────────────────
+// Replaces the glowing gauge. Same score, stated as a numeral and a hairline
+// meter — a ring drawn in neon reads no faster from ten metres than a number
+// does, and it costs the board its typographic identity.
+function Posture({ score }: { score: number }) {
+  const color = score >= 75 ? GREEN : score >= 45 ? AMBER : CORAL;
+  const label = score >= 75 ? 'Nominal' : score >= 45 ? 'Elevated' : 'Critical';
+  return (
+    <div className="px-4 py-5" style={{ borderBottom: `1px solid ${LINE}` }}>
+      <Label>Service assurance</Label>
+      <div className="flex items-baseline gap-3 mt-1.5">
+        <span style={{
+          fontFamily: DISPLAY, fontSize: 68, fontWeight: 600,
+          lineHeight: 0.9, letterSpacing: '-0.03em', color,
         }}>{score}</span>
-        <span className="text-[8px] font-black tracking-[0.18em] px-2 py-0.5 rounded"
-          style={{ color, background: `${color}15`, border: `1px solid ${color}30` }}>{label}</span>
+        <span style={{ fontFamily: BODY, fontSize: 15, color: TEXT_MUTED }}>{label}</span>
+      </div>
+      <div className="mt-3.5 h-1 rounded-full overflow-hidden" style={{ background: LINE }}>
+        <div
+          className="h-full rounded-full"
+          style={{ width: `${Math.max(score, 2)}%`, background: color, transition: 'width 1s ease, background 0.6s ease' }}
+        />
       </div>
     </div>
   );
 }
 
-// ── Sev Counter ───────────────────────────────────────────────────────────────
-function SevCounter({ sev, count, icon: Icon }: { sev: SevKey; count: number; icon: React.ElementType }) {
+// ── Severity counter ──────────────────────────────────────────────────────────
+function SevCounter({ sev, count }: { sev: SevKey; count: number }) {
   const cfg = SEV[sev];
+  const lit = count > 0;
   return (
-    <div className="flex flex-col items-center py-3.5 rounded-xl relative overflow-hidden"
-      style={{ background: cfg.bg, border: `1px solid ${cfg.border}` }}>
-      {count > 0 && <div className="absolute top-0 inset-x-0 h-px" style={{ background: cfg.color, boxShadow: `0 0 6px ${cfg.color}` }} />}
-      <Icon className="w-3.5 h-3.5 mb-2" style={{ color: cfg.color }} />
-      <span className="text-[24px] font-black tabular-nums leading-none mb-0.5" style={{
-        color: cfg.color,
-        textShadow: count > 0 ? `0 0 20px ${cfg.glow}` : 'none',
-        fontFamily: 'JetBrains Mono, monospace',
-      }}>{count}</span>
-      <span className="text-[7px] font-black tracking-[0.18em]" style={{ color: `${cfg.color}60` }}>{cfg.label}</span>
+    <div className="px-3 py-3 rounded" style={{
+      background: lit ? cfg.bg : CARD,
+      border: `1px solid ${lit ? cfg.border : LINE}`,
+    }}>
+      <Label color={lit ? cfg.color : TEXT_DIM}>{cfg.label}</Label>
+      <div style={{
+        fontFamily: DISPLAY, fontSize: 34, fontWeight: 600, lineHeight: 1.05,
+        letterSpacing: '-0.02em', color: lit ? cfg.color : TEXT_DIM, marginTop: 2,
+      }}>{count}</div>
     </div>
   );
 }
 
-// ── Org Card ──────────────────────────────────────────────────────────────────
-function OrgCard({ name, critical, warning, info }: {
+// ── Org row ───────────────────────────────────────────────────────────────────
+function OrgRow({ name, critical, warning, info }: {
   name: string; critical: number; warning: number; info: number;
 }) {
-  const total = critical + warning + info;
-  const hasCrit = critical > 0;
-  const hasWarn = warning > 0;
-  const statusColor = hasCrit ? '#FF4D6A' : hasWarn ? '#FFA726' : '#00E5A0';
-  const bg = hasCrit ? 'rgba(255,77,106,0.06)' : hasWarn ? 'rgba(255,167,38,0.05)' : 'rgba(0,229,160,0.04)';
-  const border = hasCrit ? 'rgba(255,77,106,0.22)' : hasWarn ? 'rgba(255,167,38,0.16)' : 'rgba(0,229,160,0.10)';
-
+  const statusColor = critical > 0 ? CORAL : warning > 0 ? AMBER : GREEN;
   return (
-    <div className="rounded-lg px-2.5 py-2 relative overflow-hidden"
-      style={{ background: bg, border: `1px solid ${border}` }}>
-      {hasCrit && (
-        <div className="absolute top-0 left-0 w-full h-0.5"
-          style={{ background: '#FF4D6A', boxShadow: '0 0 6px rgba(255,77,106,0.6)' }} />
-      )}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span className="w-1.5 h-1.5 rounded-full shrink-0"
-            style={{ background: statusColor, boxShadow: hasCrit ? `0 0 5px ${statusColor}` : 'none' }} />
-          <span className="text-[10px] font-semibold truncate" style={{ color: TEXT_PRI }}>{name}</span>
-        </div>
-        <div className="flex items-center gap-1.5 shrink-0 ml-2">
-          {critical > 0 && <span className="text-[9px] font-black tabular-nums" style={{ color: '#FF4D6A' }}>{critical}C</span>}
-          {warning  > 0 && <span className="text-[9px] font-black tabular-nums" style={{ color: '#FFA726' }}>{warning}W</span>}
-          {info     > 0 && <span className="text-[9px] font-black tabular-nums" style={{ color: '#4FC3F7' }}>{info}I</span>}
-          {total === 0  && <span className="text-[9px] font-bold" style={{ color: '#00E5A0' }}>OK</span>}
-        </div>
-      </div>
+    <div className="flex items-center justify-between gap-2 px-3 py-2 rounded" style={{
+      background: CARD,
+      border: `1px solid ${LINE}`,
+      borderLeft: `2px solid ${statusColor}`,
+    }}>
+      <span className="truncate" style={{ fontFamily: BODY, fontSize: 12.5, color: TEXT }}>{name}</span>
+      <span className="flex items-center gap-2 shrink-0" style={{ fontFamily: MONO, fontSize: 11 }}>
+        {critical > 0 && <span style={{ color: CORAL }}>{critical}c</span>}
+        {warning > 0 && <span style={{ color: AMBER }}>{warning}w</span>}
+        {info > 0 && <span style={{ color: BLUE }}>{info}i</span>}
+        {critical + warning + info === 0 && <span style={{ color: GREEN }}>clear</span>}
+      </span>
     </div>
   );
 }
 
-// ── Panel Header ──────────────────────────────────────────────────────────────
-function PanelHeader({ icon: Icon, title, right, iconColor = '#4FC3F7' }: {
-  icon: React.ElementType; title: string; right?: React.ReactNode; iconColor?: string;
+// ── Panel header ──────────────────────────────────────────────────────────────
+function PanelHeader({ icon: Icon, title, right }: {
+  icon: React.ElementType; title: string; right?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between px-3 py-2 shrink-0"
-      style={{ borderBottom: `1px solid ${BORDER}`, background: 'rgba(0,0,0,0.25)' }}>
-      <div className="flex items-center gap-1.5">
-        <Icon className="w-3 h-3" style={{ color: iconColor }} />
-        <span className="text-[9px] font-black tracking-[0.18em] uppercase" style={{ color: TEXT_SEC }}>{title}</span>
-      </div>
-      {right && <span className="text-[9px] font-mono" style={{ color: TEXT_DIM }}>{right}</span>}
+    <div className="flex items-center justify-between px-3.5 py-2.5 shrink-0"
+      style={{ borderBottom: `1px solid ${LINE}`, background: PANEL }}>
+      <span className="flex items-center gap-2">
+        <Icon className="w-3.5 h-3.5" style={{ color: TEXT_DIM }} strokeWidth={1.75} />
+        <Label color={TEXT_MUTED}>{title}</Label>
+      </span>
+      {right}
     </div>
   );
 }
 
-// ── Main NOC View ──────────────────────────────────────────────────────────────
+// ── Board ─────────────────────────────────────────────────────────────────────
 export default function NOCView() {
   const [fullscreen, setFullscreen] = useState(false);
   const [tick, setTick] = useState(0);
@@ -208,7 +202,7 @@ export default function NOCView() {
 
   const critical = alerts.filter(a => a.severity === 'CRITICAL');
   const warning  = alerts.filter(a => a.severity === 'WARNING');
-  const info     = alerts.filter(a => !['CRITICAL','WARNING'].includes(a.severity));
+  const info     = alerts.filter(a => !['CRITICAL', 'WARNING'].includes(a.severity));
   const orgsAffected = new Set(alerts.map(a => a.organizationId).filter(Boolean)).size;
   const sas = Math.max(0, Math.round(100 - critical.length * 5 - warning.length * 1.5 - orgsAffected * 2));
 
@@ -254,318 +248,321 @@ export default function NOCView() {
 
   const systemOK = critical.length === 0 && warning.length === 0;
 
+  const FEED_COLS = '3px 1fr 132px 88px 60px';
+
   return (
-    <>
+    <Page>
       <style>{`
-        @keyframes noc-ticker   { from { transform: translateX(0) } to { transform: translateX(-50%) } }
-        @keyframes noc-blink    { 0%,100% { opacity:1 } 50% { opacity:0.4 } }
-        @keyframes noc-scanline { 0% { transform: translateY(-100%) } 100% { transform: translateY(100vh) } }
-        @keyframes noc-fadein   { from { opacity:0; transform: translateY(4px) } to { opacity:1; transform: none } }
-        .noc-ticker-inner { animation: noc-ticker 90s linear infinite; will-change: transform; }
-        .noc-blink { animation: noc-blink 2s ease-in-out infinite; }
-        .noc-row-in { animation: noc-fadein 0.3s ease both; }
+        @keyframes noc-ticker { from { transform: translateX(0) } to { transform: translateX(-50%) } }
+        .noc-ticker-inner { animation: noc-ticker 120s linear infinite; will-change: transform; }
+        .noc-feed-row:hover { background: ${HOVER} !important; }
+        @media (prefers-reduced-motion: reduce) {
+          .noc-ticker-inner { animation: none; }
+        }
       `}</style>
 
-      <div className={`flex flex-col ${fullscreen ? 'fixed inset-0 z-50' : '-m-6'}`}
+      {!fullscreen && (
+        <>
+          <div className="cx-hero">
+            <div className="flex items-start justify-between gap-6 flex-wrap">
+              <div className="min-w-0">
+                <span className="cx-eyebrow">Operate · wallboard</span>
+                <h1 className="cx-hero__title">NOC</h1>
+                <p className="cx-hero__deck">
+                  Live firing alerts, on-call coverage, and service assurance across organisations.
+                </p>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <span className={clsx('cx-pill', systemOK ? 'cx-pill--ok' : 'cx-pill--alert')}>
+                  {systemOK ? 'All clear' : `${alerts.length} firing`}
+                </span>
+                <span className="text-right">
+                  <span className="block tabular-nums font-mono text-[15px] tracking-wide">
+                    {clockTime()}
+                  </span>
+                  <span className="block font-mono text-[9.5px] uppercase tracking-widest opacity-55">
+                    {clockDate()}
+                  </span>
+                </span>
+                {isLoading
+                  ? <RefreshCw className="w-4 h-4 animate-spin opacity-55" strokeWidth={1.75} />
+                  : <Wifi className="w-4 h-4" style={{ color: GREEN }} strokeWidth={1.75} />}
+                <button
+                  type="button"
+                  onClick={toggleFullscreen}
+                  aria-label="Fill the screen"
+                  className="cx-hero__btn cx-hero__btn--ghost !px-2"
+                >
+                  <Maximize2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <dl className="cx-hero__kpis cx-hero__kpis--5 mt-6">
+              {[
+                { label: 'Critical', value: critical.length, sub: 'firing now', tone: critical.length > 0 ? 'danger' : undefined },
+                { label: 'Warning', value: warning.length, sub: 'firing now', tone: warning.length > 0 ? 'warn' : undefined },
+                { label: 'Info', value: info.length, sub: 'firing now' },
+                { label: 'Open incidents', value: incidents.length, sub: p1Incidents > 0 ? `${p1Incidents} P1` : 'none P1', tone: p1Incidents > 0 ? 'danger' : undefined },
+                { label: 'Assurance', value: sas, sub: sas >= 75 ? 'nominal' : sas >= 45 ? 'elevated' : 'critical', tone: sas < 45 ? 'danger' : sas < 75 ? 'warn' : undefined },
+              ].map((kpi) => (
+                <div key={kpi.label} className={clsx('cx-hero__kpi', kpi.tone && `cx-hero__kpi--${kpi.tone}`)}>
+                  <dt className="cx-hero__kpi-label">{kpi.label}</dt>
+                  <dd>
+                    <div className="cx-hero__kpi-value">{kpi.value}</div>
+                    <div className="cx-hero__kpi-sub">{kpi.sub}</div>
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+
+          <nav className="cx-crumb" aria-label="Breadcrumb">
+            <Link to="/dashboard">Operations</Link>
+            <span aria-hidden>/</span>
+            <span className="cx-crumb__current">NOC</span>
+          </nav>
+        </>
+      )}
+
+      <div className={fullscreen ? 'fixed inset-0 z-50 flex flex-col' : 'cx-noc flex flex-col'}
         style={{
-          background: `linear-gradient(160deg, ${BG_BASE} 0%, #081828 50%, #061018 100%)`,
-          minHeight: fullscreen ? '100vh' : 'calc(100vh - 56px)',
-          fontFamily: 'JetBrains Mono, monospace',
-          color: TEXT_PRI,
-          position: 'relative',
+          background: INK,
+          minHeight: fullscreen ? '100vh' : undefined,
+          fontFamily: BODY,
+          color: TEXT,
         }}>
 
-        {/* Grid texture overlay */}
-        <div className="pointer-events-none absolute inset-0 opacity-[0.025]" style={{
-          backgroundImage: 'linear-gradient(rgba(99,179,255,1) 1px, transparent 1px), linear-gradient(90deg, rgba(99,179,255,1) 1px, transparent 1px)',
-          backgroundSize: '40px 40px',
-        }} />
-
-        {/* Ambient corner glows */}
-        <div className="pointer-events-none absolute top-0 left-0 w-96 h-96 opacity-10"
-          style={{ background: 'radial-gradient(circle at top left, #1565C0, transparent 70%)' }} />
-        <div className="pointer-events-none absolute bottom-0 right-0 w-96 h-96 opacity-8"
-          style={{ background: 'radial-gradient(circle at bottom right, #0D3B66, transparent 70%)' }} />
-
-        {/* ══ TOP BAR ══ */}
-        <div className="relative flex items-center justify-between px-5 h-11 shrink-0 z-10"
-          style={{ borderBottom: `1px solid ${BORDER_LT}`, background: 'rgba(6,18,32,0.85)', backdropFilter: 'blur(8px)' }}>
-
-          {/* Left: branding */}
-          <div className="flex items-center gap-5">
-            <div className="flex items-center gap-2.5">
-              <Eye className="w-4 h-4" style={{ color: '#4FC3F7' }} />
-              <span className="text-[12px] font-black tracking-[0.25em] uppercase" style={{ color: 'var(--argus-ink)' }}>WeCrew NOC</span>
-              <span className="text-[8px] font-bold px-1.5 py-0.5 rounded" style={{
-                background: systemOK ? 'rgba(0,229,160,0.12)' : 'rgba(255,77,106,0.12)',
-                color: systemOK ? '#00E5A0' : '#FF4D6A',
-                border: `1px solid ${systemOK ? 'rgba(0,229,160,0.3)' : 'rgba(255,77,106,0.3)'}`,
+        {fullscreen && (
+          <div className="flex items-center justify-between gap-4 px-5 h-12 shrink-0 flex-wrap"
+            style={{ borderBottom: `1px solid ${LINE_STRONG}`, background: PANEL }}>
+            <div className="flex items-center gap-4">
+              <span className="flex items-center gap-2.5">
+                <Eye className="w-4 h-4" style={{ color: CORAL }} strokeWidth={1.75} />
+                <span style={{
+                  fontFamily: DISPLAY, fontSize: 17, fontWeight: 600,
+                  letterSpacing: '-0.01em', color: TEXT,
+                }}>NOC</span>
+              </span>
+              <span className="px-2 py-0.5 rounded-full" style={{
+                fontFamily: MONO, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
+                background: systemOK ? 'rgba(52,211,153,0.14)' : 'rgba(255,91,46,0.14)',
+                color: systemOK ? GREEN : CORAL,
+                border: `1px solid ${systemOK ? 'rgba(52,211,153,0.3)' : 'rgba(255,91,46,0.3)'}`,
               }}>
-                {systemOK ? 'ALL CLEAR' : `${alerts.length} FIRING`}
+                {systemOK ? 'All clear' : `${alerts.length} firing`}
               </span>
             </div>
-            <div style={{ width: 1, height: 16, background: BORDER_LT }} />
-            <div className="flex items-center gap-3 text-[9px]" style={{ color: TEXT_SEC }}>
-              <span><span className="font-black" style={{ color: '#FF4D6A' }}>{critical.length}</span> CRIT</span>
-              <span><span className="font-black" style={{ color: '#FFA726' }}>{warning.length}</span> WARN</span>
-              <span><span className="font-black" style={{ color: '#4FC3F7' }}>{info.length}</span> INFO</span>
-            </div>
-            {cascades.length > 0 && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full noc-blink"
-                style={{ background: 'rgba(255,77,106,0.12)', border: '1px solid rgba(255,77,106,0.35)' }}>
-                <Zap className="w-3 h-3" style={{ color: '#FF4D6A' }} />
-                <span className="text-[9px] font-black tracking-widest" style={{ color: '#FF4D6A' }}>
-                  CASCADE STORM · {cascades.length}
+            <div className="flex items-center gap-4">
+              <span className="text-right">
+                <span className="block tabular-nums" style={{ fontFamily: MONO, fontSize: 15, color: TEXT, letterSpacing: '0.02em' }}>
+                  {clockTime()}
                 </span>
-              </div>
-            )}
+                <span className="block" style={{ fontFamily: MONO, fontSize: 9.5, color: TEXT_DIM }}>{clockDate()}</span>
+              </span>
+              {isLoading
+                ? <RefreshCw className="w-4 h-4 animate-spin" style={{ color: TEXT_DIM }} strokeWidth={1.75} />
+                : <Wifi className="w-4 h-4" style={{ color: GREEN }} strokeWidth={1.75} />}
+              <button
+                type="button"
+                onClick={toggleFullscreen}
+                aria-label="Leave fullscreen"
+                className="p-1.5 rounded"
+                style={{ color: TEXT_MUTED }}
+              >
+                <Minimize2 className="w-4 h-4" />
+              </button>
+            </div>
           </div>
+        )}
 
-          {/* Right: clock + controls */}
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <div className="text-[13px] font-black tabular-nums" style={{ color: TEXT_PRI, letterSpacing: '0.05em' }}>{clockTime()}</div>
-              <div className="text-[8px]" style={{ color: TEXT_DIM }}>{clockDate()}</div>
-            </div>
-            <div style={{ width: 1, height: 20, background: BORDER }} />
-            {isLoading
-              ? <RefreshCw className="w-3.5 h-3.5 animate-spin" style={{ color: TEXT_SEC }} />
-              : <Wifi className="w-3.5 h-3.5" style={{ color: '#00E5A0' }} />}
-            <button onClick={toggleFullscreen} className="p-1 rounded transition-colors"
-              style={{ color: TEXT_SEC }} onMouseEnter={e => (e.currentTarget.style.color = TEXT_PRI)}
-              onMouseLeave={e => (e.currentTarget.style.color = TEXT_SEC)}>
-              {fullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-            </button>
-          </div>
-        </div>
+        {/* ══ MAIN GRID ══ */}
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 min-h-0 overflow-hidden">
 
-        {/* ══ MAIN 12-COL GRID ══ */}
-        <div className="relative flex-1 grid grid-cols-12 gap-0 min-h-0 overflow-hidden z-10">
+          {/* ─── LEFT: posture, counts, stats ─── */}
+          <div className="lg:col-span-3 flex flex-col overflow-y-auto" style={{ borderRight: `1px solid ${LINE}` }}>
+            <Posture score={sas} />
 
-          {/* ─── LEFT: SAS + Counters + Stats (col 1-3) ─── */}
-          <div className="col-span-3 flex flex-col overflow-hidden" style={{ borderRight: `1px solid ${BORDER}` }}>
-
-            {/* SAS Ring */}
-            <div className="flex items-center justify-center py-5 shrink-0"
-              style={{ borderBottom: `1px solid ${BORDER}` }}>
-              <SASRing score={sas} />
+            <div className="grid grid-cols-3 gap-2 px-3 py-3 shrink-0" style={{ borderBottom: `1px solid ${LINE}` }}>
+              <SevCounter sev="CRITICAL" count={critical.length} />
+              <SevCounter sev="WARNING" count={warning.length} />
+              <SevCounter sev="INFO" count={info.length} />
             </div>
 
-            {/* Severity counters */}
-            <div className="grid grid-cols-3 gap-2 px-3 py-3 shrink-0"
-              style={{ borderBottom: `1px solid ${BORDER}` }}>
-              <SevCounter sev="CRITICAL" count={critical.length} icon={AlertTriangle} />
-              <SevCounter sev="WARNING"  count={warning.length}  icon={Activity} />
-              <SevCounter sev="INFO"     count={info.length}     icon={Shield} />
-            </div>
-
-            {/* Stat rows */}
-            <div className="px-3 py-3 space-y-1.5 shrink-0" style={{ borderBottom: `1px solid ${BORDER}` }}>
+            <div className="px-3 py-3 space-y-1.5 shrink-0" style={{ borderBottom: `1px solid ${LINE}` }}>
               {[
-                { icon: Server,        label: 'Orgs Affected',    val: orgsAffected,                     color: '#4FC3F7' },
-                { icon: AlertTriangle, label: 'Open Incidents',   val: incidents.length,                  color: '#FF4D6A' },
-                { icon: AlertTriangle, label: 'P1 Active',        val: p1Incidents,                       color: '#FF4D6A' },
-                { icon: Users,         label: 'On-Call Responders', val: oncallStats.activeResponders || 0, color: '#00E5A0' },
-                { icon: Shield,        label: 'Teams Covered',    val: oncallStats.teamsCovered || 0,     color: '#FFA726' },
+                { icon: Server,        label: 'Orgs affected',  val: orgsAffected,                      color: BLUE },
+                { icon: AlertTriangle, label: 'Open incidents', val: incidents.length,                  color: TEXT },
+                { icon: Activity,      label: 'P1 active',      val: p1Incidents,                       color: p1Incidents > 0 ? CORAL : TEXT },
+                { icon: Users,         label: 'Responders',     val: oncallStats.activeResponders || 0, color: (oncallStats.activeResponders || 0) > 0 ? GREEN : CORAL },
+                { icon: Shield,        label: 'Teams covered',  val: oncallStats.teamsCovered || 0,     color: TEXT },
               ].map(s => (
-                <div key={s.label} className="flex items-center justify-between px-3 py-1.5 rounded-lg transition-colors"
-                  style={{ background: BG_CARD, border: `1px solid ${BORDER}` }}
-                  onMouseEnter={e => (e.currentTarget.style.background = BG_HOVER)}
-                  onMouseLeave={e => (e.currentTarget.style.background = BG_CARD)}>
-                  <div className="flex items-center gap-2">
-                    <s.icon className="w-3 h-3" style={{ color: `${s.color}60` }} />
-                    <span className="text-[9px] uppercase tracking-wider" style={{ color: TEXT_SEC }}>{s.label}</span>
-                  </div>
-                  <span className="text-[16px] font-black tabular-nums" style={{ color: s.color, fontFamily: 'JetBrains Mono, monospace' }}>{s.val}</span>
+                <div key={s.label} className="flex items-center justify-between px-3 py-2 rounded"
+                  style={{ background: CARD, border: `1px solid ${LINE}` }}>
+                  <span className="flex items-center gap-2">
+                    <s.icon className="w-3.5 h-3.5" style={{ color: TEXT_DIM }} strokeWidth={1.75} />
+                    <Label color={TEXT_MUTED}>{s.label}</Label>
+                  </span>
+                  <span className="tabular-nums" style={{
+                    fontFamily: DISPLAY, fontSize: 20, fontWeight: 600, color: s.color, lineHeight: 1,
+                  }}>{s.val}</span>
                 </div>
               ))}
             </div>
 
-            {/* Sparkline: critical/5min last hour */}
             <div className="px-3 py-3 mt-auto shrink-0">
-              <div className="rounded-xl p-3" style={{ background: BG_CARD, border: `1px solid ${BORDER}` }}>
-                <span className="block text-[7px] font-bold tracking-widest uppercase mb-2" style={{ color: TEXT_DIM }}>
-                  Critical / 5 min · last 60 min
-                </span>
-                <div className="flex items-end gap-0.5 h-8">
+              <div className="rounded p-3" style={{ background: CARD, border: `1px solid ${LINE}` }}>
+                <Label>Critical per 5 min · last hour</Label>
+                <div className="flex items-end gap-1 h-10 mt-2.5">
                   {buckets.map((b, i) => (
-                    <div key={i} className="flex-1 rounded-sm transition-all duration-500"
+                    <div key={i} className="flex-1 rounded-sm"
                       title={`${b} critical`}
                       style={{
-                        height: `${Math.max((b / maxB) * 100, 8)}%`,
-                        background: b > 0 ? `rgba(255,77,106,${0.3 + (b / maxB) * 0.65})` : 'rgba(255,77,106,0.06)',
-                        boxShadow: b > 0 ? '0 0 4px rgba(255,77,106,0.3)' : 'none',
+                        height: `${Math.max((b / maxB) * 100, 6)}%`,
+                        background: b > 0 ? CORAL : LINE,
+                        opacity: b > 0 ? 0.45 + (b / maxB) * 0.55 : 1,
+                        transition: 'height 0.5s ease',
                       }} />
                   ))}
                 </div>
-                <div className="flex justify-between mt-1">
-                  <span className="text-[7px]" style={{ color: TEXT_DIM }}>-60m</span>
-                  <span className="text-[7px]" style={{ color: TEXT_DIM }}>now</span>
+                <div className="flex justify-between mt-1.5">
+                  <Label>−60m</Label>
+                  <Label>now</Label>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* ─── CENTER: Live Alert Feed (col 4-9) ─── */}
-          <div className="col-span-6 flex flex-col overflow-hidden" style={{ borderRight: `1px solid ${BORDER}` }}>
+          {/* ─── CENTRE: live feed ─── */}
+          <div className="lg:col-span-6 flex flex-col overflow-hidden" style={{ borderRight: `1px solid ${LINE}` }}>
 
-            {/* Cascade storm banner */}
             {cascades.length > 0 && (
-              <div className="px-4 py-2.5 shrink-0"
-                style={{ borderBottom: `1px solid rgba(255,77,106,0.2)`, background: 'rgba(255,77,106,0.05)' }}>
-                <div className="flex items-center gap-2 mb-2">
-                  <Zap className="w-3.5 h-3.5" style={{ color: '#FF4D6A' }} />
-                  <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: '#FF4D6A' }}>
-                    Active Cascade Storms
-                  </span>
-                </div>
+              <div className="px-4 py-3 shrink-0"
+                style={{ borderBottom: `1px solid rgba(255,91,46,0.25)`, background: 'rgba(255,91,46,0.06)' }}>
+                <span className="flex items-center gap-2 mb-2">
+                  <Zap className="w-3.5 h-3.5" style={{ color: CORAL }} strokeWidth={1.75} />
+                  <Label color={CORAL}>Cascades — one host, many alerts</Label>
+                </span>
                 <div className="flex gap-2 flex-wrap">
                   {cascades.map(([inst, list]) => (
-                    <div key={inst} className="flex items-center gap-2 px-2.5 py-1 rounded-lg"
-                      style={{ background: 'rgba(255,77,106,0.08)', border: '1px solid rgba(255,77,106,0.22)' }}>
-                      <span className="text-[10px] font-mono truncate max-w-[180px]" style={{ color: '#FFCDD2' }}>{inst}</span>
-                      <span className="text-[10px] font-black" style={{ color: '#FF4D6A' }}>{list.length}×</span>
-                    </div>
+                    <span key={inst} className="flex items-center gap-2 px-2.5 py-1 rounded"
+                      style={{ background: 'rgba(255,91,46,0.10)', border: `1px solid rgba(255,91,46,0.28)` }}>
+                      <span className="truncate max-w-[200px]" style={{ fontFamily: MONO, fontSize: 11.5, color: TEXT }}>{inst}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 11.5, fontWeight: 500, color: CORAL }}>{list.length}×</span>
+                    </span>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Feed header */}
-            <div className="px-4 py-2 shrink-0 flex items-center justify-between"
-              style={{ borderBottom: `1px solid ${BORDER}`, background: 'rgba(0,0,0,0.3)' }}>
-              <div className="flex items-center gap-2">
-                <Radio className="w-3.5 h-3.5 noc-blink" style={{ color: '#FF4D6A' }} />
-                <span className="text-[10px] font-black tracking-widest uppercase" style={{ color: TEXT_SEC }}>Live Alert Feed</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[9px] font-mono" style={{ color: TEXT_DIM }}>{alerts.length} firing</span>
-              </div>
+            <div className="px-4 py-2.5 shrink-0 flex items-center justify-between"
+              style={{ borderBottom: `1px solid ${LINE}`, background: PANEL }}>
+              <span className="flex items-center gap-2">
+                <Radio className="w-3.5 h-3.5" style={{ color: CORAL }} strokeWidth={1.75} />
+                <Label color={TEXT_MUTED}>Live alert feed</Label>
+              </span>
+              <Label>{alerts.length} firing</Label>
             </div>
 
-            {/* Feed rows */}
             <div className="flex-1 overflow-y-auto">
               {liveFeed.length === 0 && !isLoading ? (
-                <div className="flex flex-col items-center justify-center h-full gap-3">
-                  <WifiOff className="w-9 h-9" style={{ color: TEXT_DIM }} />
-                  <span className="text-[11px] uppercase tracking-[0.2em]" style={{ color: '#00E5A0' }}>All Systems Operational</span>
-                  <span className="text-[9px]" style={{ color: TEXT_DIM }}>No firing alerts</span>
+                <div className="flex flex-col items-center justify-center h-full gap-2.5">
+                  <Shield className="w-8 h-8" style={{ color: GREEN }} strokeWidth={1.5} />
+                  <span style={{ fontFamily: DISPLAY, fontSize: 22, fontWeight: 600, color: TEXT }}>
+                    Nothing is firing
+                  </span>
+                  <Label>Every monitored service is reporting healthy</Label>
                 </div>
               ) : (
-                <div>
-                  {/* Column headers */}
-                  <div className="grid px-4 py-1.5 text-[7px] font-black tracking-[0.15em] uppercase sticky top-0"
-                    style={{ background: BG_PANEL, borderBottom: `1px solid ${BORDER}`, color: TEXT_DIM,
-                      gridTemplateColumns: '6px 1fr 120px 70px 48px' }}>
+                <>
+                  <div className="grid px-4 py-2 sticky top-0 z-10"
+                    style={{ background: PANEL, borderBottom: `1px solid ${LINE}`, gridTemplateColumns: FEED_COLS, gap: 12 }}>
                     <span />
-                    <span>Alert Name</span>
-                    <span>Organization</span>
-                    <span>Instance</span>
-                    <span className="text-right">Age</span>
+                    <Label>Alert</Label>
+                    <Label>Organisation</Label>
+                    <Label>Host</Label>
+                    <Label>Age</Label>
                   </div>
-                  {liveFeed.map((alert, idx) => {
+                  {liveFeed.map((alert) => {
                     const cfg = SEV[alert.severity as SevKey] || SEV.INFO;
                     const inst = parseInstance(alert);
                     return (
-                      <div key={alert.id} className="noc-row-in"
-                        style={{ animationDelay: `${Math.min(idx * 20, 400)}ms` }}>
-                        <div className="grid px-4 py-2 items-center transition-colors cursor-default"
-                          style={{
-                            borderBottom: `1px solid ${BORDER}`,
-                            gridTemplateColumns: '6px 1fr 120px 70px 48px',
-                          }}
-                          onMouseEnter={e => (e.currentTarget.style.background = BG_HOVER)}
-                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                          {/* Severity stripe */}
-                          <div className="w-1 h-5 rounded-full mr-3"
-                            style={{ background: cfg.color, boxShadow: `0 0 6px ${cfg.glow}` }} />
-                          {/* Name */}
-                          <div className="min-w-0 pr-3">
-                            <span className="text-[11px] font-semibold truncate block" style={{ color: TEXT_PRI }}>{alert.name}</span>
-                          </div>
-                          {/* Org */}
-                          <span className="text-[10px] truncate pr-2" style={{ color: TEXT_SEC }}>
-                            {alert.organization?.name || '—'}
-                          </span>
-                          {/* Instance */}
-                          <span className="text-[9px] font-mono truncate pr-2" style={{ color: TEXT_DIM }}>{inst || '—'}</span>
-                          {/* Age + badge */}
-                          <div className="flex flex-col items-end gap-0.5">
-                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded"
-                              style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}>
-                              {cfg.label}
-                            </span>
-                            <span className="text-[8px] font-mono" style={{ color: TEXT_DIM }}>{relTime(alert.createdAt)}</span>
-                          </div>
-                        </div>
+                      <div key={alert.id} className="noc-feed-row grid px-4 py-2.5 items-center transition-colors"
+                        style={{ borderBottom: `1px solid ${LINE}`, gridTemplateColumns: FEED_COLS, gap: 12 }}>
+                        <span className="h-5 rounded-full" style={{ background: cfg.color }} />
+                        <span className="truncate" style={{ fontFamily: BODY, fontSize: 13.5, color: TEXT }}>{alert.name}</span>
+                        <span className="truncate" style={{ fontFamily: BODY, fontSize: 12, color: TEXT_MUTED }}>
+                          {alert.organization?.name || '—'}
+                        </span>
+                        <span className="truncate" style={{ fontFamily: MONO, fontSize: 11, color: TEXT_DIM }}>{inst || '—'}</span>
+                        <span className="text-right tabular-nums" style={{ fontFamily: MONO, fontSize: 11.5, color: cfg.color }}>
+                          {relTime(alert.createdAt)}
+                        </span>
                       </div>
                     );
                   })}
-                </div>
+                </>
               )}
             </div>
           </div>
 
-          {/* ─── RIGHT: Org Health + On-Call (col 10-12) ─── */}
-          <div className="col-span-3 flex flex-col overflow-hidden">
+          {/* ─── RIGHT: org health + on-call ─── */}
+          <div className="lg:col-span-3 flex flex-col overflow-hidden">
 
-            {/* Org Health */}
-            <div className="flex-1 flex flex-col overflow-hidden" style={{ borderBottom: `1px solid ${BORDER}` }}>
-              <PanelHeader icon={Server} title="Org Health Matrix" iconColor="#4FC3F7" right={`${byOrg.length} orgs`} />
-              <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+            <div className="flex-1 flex flex-col overflow-hidden" style={{ borderBottom: `1px solid ${LINE}` }}>
+              <PanelHeader icon={Server} title="Org health" right={<Label>{byOrg.length} affected</Label>} />
+              <div className="flex-1 overflow-y-auto p-2.5 space-y-1.5">
                 {byOrg.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full gap-2">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-                      style={{ background: 'rgba(0,229,160,0.08)', border: '1px solid rgba(0,229,160,0.2)' }}>
-                      <Shield className="w-5 h-5" style={{ color: '#00E5A0' }} />
-                    </div>
-                    <span className="text-[10px] uppercase tracking-widest font-bold" style={{ color: '#00E5A0' }}>All Clear</span>
+                  <div className="flex flex-col items-center justify-center h-full gap-2 py-6">
+                    <Shield className="w-6 h-6" style={{ color: GREEN }} strokeWidth={1.5} />
+                    <Label color={GREEN}>All organisations clear</Label>
                   </div>
                 ) : (
                   byOrg.map(org => (
-                    <OrgCard key={org.id} name={org.name} critical={org.critical} warning={org.warning} info={org.info} />
+                    <OrgRow key={org.id} name={org.name} critical={org.critical} warning={org.warning} info={org.info} />
                   ))
                 )}
               </div>
             </div>
 
-            {/* On-Call */}
-            <div className="shrink-0 flex flex-col" style={{ maxHeight: '42%' }}>
-              <PanelHeader icon={Users} title="On-Call Now" iconColor="#00E5A0"
-                right={<span style={{ color: (oncallStats.activeResponders || 0) > 0 ? '#00E5A0' : '#FF4D6A' }}>
-                  {oncallStats.activeResponders || 0} active
-                </span>} />
-              <div className="flex-1 overflow-y-auto p-2 space-y-1">
+            <div className="shrink-0 flex flex-col" style={{ maxHeight: '44%' }}>
+              <PanelHeader
+                icon={Users}
+                title="On call now"
+                right={
+                  <Label color={(oncallStats.activeResponders || 0) > 0 ? GREEN : CORAL}>
+                    {oncallStats.activeResponders || 0} on duty
+                  </Label>
+                }
+              />
+              <div className="flex-1 overflow-y-auto p-2.5 space-y-1.5">
                 {schedules.length === 0 ? (
-                  <div className="flex items-center justify-center py-4">
-                    <span className="text-[9px]" style={{ color: TEXT_DIM }}>No active schedules</span>
+                  <div className="px-1 py-4">
+                    <Label color={CORAL}>Nobody is on call</Label>
                   </div>
                 ) : (
                   schedules.slice(0, 8).map(s => (
-                    <div key={s.id} className="flex items-center gap-2 rounded-lg px-2.5 py-2 transition-colors"
+                    <div key={s.id} className="flex items-center gap-2.5 rounded px-2.5 py-2"
                       style={{
-                        background: s.isPrimary ? 'rgba(0,229,160,0.05)' : BG_CARD,
-                        border: `1px solid ${s.isPrimary ? 'rgba(0,229,160,0.18)' : BORDER}`,
+                        background: CARD,
+                        border: `1px solid ${LINE}`,
+                        borderLeft: `2px solid ${s.isPrimary ? CORAL : LINE_STRONG}`,
                       }}>
-                      <div className="w-6 h-6 rounded-full flex items-center justify-center text-[8px] font-black shrink-0"
+                      <span className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
                         style={{
-                          background: s.isPrimary ? 'rgba(0,229,160,0.18)' : 'rgba(255,255,255,0.06)',
-                          color: s.isPrimary ? '#00E5A0' : TEXT_SEC,
+                          background: s.isPrimary ? CORAL : HOVER,
+                          color: s.isPrimary ? '#fff' : TEXT_MUTED,
+                          fontFamily: MONO, fontSize: 10, fontWeight: 500,
                         }}>
                         {s.user.firstName[0]}{s.user.lastName[0]}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="text-[9px] font-semibold truncate" style={{ color: TEXT_PRI }}>
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate" style={{ fontFamily: BODY, fontSize: 12.5, color: TEXT }}>
                           {s.user.firstName} {s.user.lastName}
-                        </div>
-                        <div className="text-[8px] truncate" style={{ color: TEXT_DIM }}>{s.team.name}</div>
-                      </div>
-                      {s.isPrimary && (
-                        <span className="text-[7px] font-black px-1 py-0.5 rounded shrink-0"
-                          style={{ background: 'rgba(0,229,160,0.12)', color: '#00E5A0', border: '1px solid rgba(0,229,160,0.2)' }}>
-                          P
                         </span>
-                      )}
+                        <span className="block truncate" style={{ fontFamily: MONO, fontSize: 10, color: TEXT_DIM }}>
+                          {s.team.name} · {s.isPrimary ? 'primary' : 'backup'}
+                        </span>
+                      </span>
                     </div>
                   ))
                 )}
@@ -574,37 +571,34 @@ export default function NOCView() {
           </div>
         </div>
 
-        {/* ══ BOTTOM TICKER ══ */}
-        <div className="relative flex items-center gap-3 shrink-0 overflow-hidden px-4 h-8 z-10"
-          style={{ borderTop: `1px solid ${BORDER_LT}`, background: 'rgba(6,18,32,0.9)' }}>
-          <span className="text-[7px] font-black uppercase tracking-widest shrink-0 px-1.5 py-0.5 rounded noc-blink"
-            style={{ color: '#FF4D6A', background: 'rgba(255,77,106,0.12)', border: '1px solid rgba(255,77,106,0.3)' }}>
-            LIVE
-          </span>
+        {/* ══ TICKER ══ */}
+        <div className="flex items-center gap-3 shrink-0 overflow-hidden px-4 h-9"
+          style={{ borderTop: `1px solid ${LINE_STRONG}`, background: PANEL }}>
+          <Label color={CORAL}>Live</Label>
           <div className="flex-1 overflow-hidden">
             {liveFeed.length > 0 ? (
               <div className="noc-ticker-inner flex gap-10 whitespace-nowrap">
                 {[...liveFeed, ...liveFeed].map((a, i) => {
                   const cfg = SEV[a.severity as SevKey] || SEV.INFO;
                   return (
-                    <span key={`${a.id}-${i}`} className="inline-flex items-center gap-1.5 shrink-0">
-                      <span className="inline-block w-1 h-1 rounded-full"
-                        style={{ background: cfg.color, boxShadow: `0 0 4px ${cfg.glow}` }} />
-                      <span className="text-[9px]" style={{ color: TEXT_PRI }}>{a.name}</span>
-                      <span className="text-[9px]" style={{ color: TEXT_SEC }}>{a.organization?.name || parseInstance(a) || '—'}</span>
-                      <span className="text-[8px] font-bold" style={{ color: `${cfg.color}80` }}>{cfg.label}</span>
+                    <span key={`${a.id}-${i}`} className="inline-flex items-center gap-2 shrink-0">
+                      <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: cfg.color }} />
+                      <span style={{ fontFamily: BODY, fontSize: 12, color: TEXT }}>{a.name}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 11, color: TEXT_DIM }}>
+                        {a.organization?.name || parseInstance(a) || '—'}
+                      </span>
                     </span>
                   );
                 })}
               </div>
             ) : (
-              <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: '#00E5A0' }}>
-                All systems operational — no active alerts
+              <span style={{ fontFamily: BODY, fontSize: 12, color: TEXT_MUTED }}>
+                No active alerts — every monitored service is reporting healthy.
               </span>
             )}
           </div>
         </div>
       </div>
-    </>
+    </Page>
   );
 }

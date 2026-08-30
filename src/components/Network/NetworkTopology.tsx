@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
 import {
   Server,
@@ -19,10 +19,10 @@ import {
   ChevronRight,
   LayoutGrid,
   ListTree,
-  Wifi,
-  WifiOff,
+  type LucideIcon,
 } from 'lucide-react';
 import { useAssets } from '../../hooks/useAssets';
+import { Page, Toolbar, Segmented } from '../ui/PageChrome';
 
 // -- Types --
 
@@ -38,6 +38,8 @@ type CIType =
   | 'LOAD_BALANCER';
 
 type CIStatus = 'LIVE' | 'MAINTENANCE' | 'DECOMMISSIONED' | 'PLANNED';
+
+interface HeroKpi { label: string; value: number; sub: string; tone?: string }
 
 interface ConfigItem {
   id: string;
@@ -68,7 +70,7 @@ const CI_TYPES: CIType[] = [
 
 const CI_STATUSES: CIStatus[] = ['LIVE', 'MAINTENANCE', 'DECOMMISSIONED', 'PLANNED'];
 
-const typeIcons: Record<CIType, React.ComponentType<{ className?: string }>> = {
+const typeIcons: Record<CIType, LucideIcon> = {
   SERVER: Server,
   KUBERNETES_CLUSTER: Container,
   DATABASE: Database,
@@ -92,67 +94,41 @@ const typeLabels: Record<CIType, string> = {
   LOAD_BALANCER: 'Load Balancers',
 };
 
-const typeColors: Record<CIType, string> = {
-  SERVER: 'bg-[color:var(--argus-signal-dim)] text-signal border-[color:var(--argus-signal)]/25',
-  KUBERNETES_CLUSTER: 'bg-violet-50 text-violet border-violet-200',
-  DATABASE: 'bg-amber-50 text-amber border-amber-200',
-  APPLICATION: 'bg-emerald-50 text-emerald border-emerald-200',
-  NETWORK: 'bg-sky-50 text-sky-600 border-sky-200',
-  STORAGE: 'bg-orange-50 text-orange-600 border-orange-200',
-  CONTAINER: 'bg-purple-50 text-purple-600 border-purple-200',
-  VM: 'bg-[color:var(--argus-signal-dim)] text-signal border-[color:var(--argus-signal)]/25',
-  LOAD_BALANCER: 'bg-rose-50 text-rose-600 border-rose-200',
+const TYPE_TONE: Record<CIType, { bg: string; fg: string }> = {
+  SERVER: { bg: 'var(--argus-signal-dim)', fg: 'var(--argus-signal)' },
+  KUBERNETES_CLUSTER: { bg: 'var(--argus-violet-dim)', fg: 'var(--argus-violet)' },
+  DATABASE: { bg: 'var(--argus-amber-dim)', fg: 'var(--argus-amber)' },
+  APPLICATION: { bg: 'var(--argus-emerald-dim)', fg: 'var(--argus-emerald)' },
+  NETWORK: { bg: 'var(--argus-signal-dim)', fg: 'var(--argus-signal)' },
+  STORAGE: { bg: 'var(--argus-amber-dim)', fg: 'var(--argus-amber)' },
+  CONTAINER: { bg: 'var(--argus-violet-dim)', fg: 'var(--argus-violet)' },
+  VM: { bg: 'var(--argus-signal-dim)', fg: 'var(--argus-signal)' },
+  LOAD_BALANCER: { bg: 'var(--argus-crimson-dim)', fg: 'var(--argus-crimson)' },
 };
 
-const typeIconBg: Record<CIType, string> = {
-  SERVER: 'bg-indigo-100',
-  KUBERNETES_CLUSTER: 'bg-violet-100',
-  DATABASE: 'bg-amber-100',
-  APPLICATION: 'bg-emerald-100',
-  NETWORK: 'bg-sky-100',
-  STORAGE: 'bg-orange-100',
-  CONTAINER: 'bg-purple-100',
-  VM: 'bg-indigo-100',
-  LOAD_BALANCER: 'bg-rose-100',
-};
-
-const statusColors: Record<CIStatus, string> = {
-  LIVE: 'bg-emerald-50 text-emerald border-emerald-200',
-  MAINTENANCE: 'bg-amber-50 text-amber border-amber-200',
-  DECOMMISSIONED: 'bg-stone-100 text-stone-400 border-stone-200',
-  PLANNED: 'bg-[color:var(--argus-signal-dim)] text-signal border-[color:var(--argus-signal)]/25',
-};
-
-const statusDotColors: Record<CIStatus, string> = {
-  LIVE: 'bg-emerald',
-  MAINTENANCE: 'bg-amber',
-  DECOMMISSIONED: 'bg-stone-400',
-  PLANNED: 'bg-signal',
+const STATUS_TONE: Record<CIStatus, 'ok' | 'warn' | 'neutral' | 'alert'> = {
+  LIVE: 'ok',
+  MAINTENANCE: 'warn',
+  DECOMMISSIONED: 'neutral',
+  PLANNED: 'alert',
 };
 
 // -- Subcomponents --
 
 function StatusBadge({ status }: { status: CIStatus }) {
   return (
-    <span
-      className={clsx(
-        'inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-mono font-medium rounded-md border',
-        statusColors[status]
-      )}
-    >
-      <span className={clsx('w-1.5 h-1.5 rounded-full', statusDotColors[status])} />
+    <span className={clsx('cx-pill', `cx-pill--${STATUS_TONE[status]}`)}>
       {status}
     </span>
   );
 }
 
 function TypeBadge({ type }: { type: CIType }) {
+  const tone = TYPE_TONE[type];
   return (
     <span
-      className={clsx(
-        'inline-flex items-center px-2 py-0.5 text-[10px] font-mono font-medium rounded-md border',
-        typeColors[type]
-      )}
+      className="inline-flex items-center px-2 py-0.5 text-[10px] font-mono font-medium rounded-md"
+      style={{ background: tone.bg, color: tone.fg }}
     >
       {type.replace(/_/g, ' ')}
     </span>
@@ -174,36 +150,37 @@ function HealthIndicator({ enabled }: { enabled: boolean }) {
   return (
     <span className="flex items-center gap-1.5">
       <span className="relative flex h-2 w-2">
-        <span className="relative inline-flex rounded-full h-2 w-2 bg-stone-400" />
+        <span className="relative inline-flex rounded-full h-2 w-2 bg-graphite" />
       </span>
-      <span className="text-[10px] text-stone-400 font-mono">Unmonitored</span>
+      <span className="text-[10px] text-dim font-mono">Unmonitored</span>
     </span>
   );
 }
 
 function TreeNode({ ci, onClick }: { ci: ConfigItem; onClick: () => void }) {
   const Icon = typeIcons[ci.type] || Server;
+  const tone = TYPE_TONE[ci.type];
   return (
     <div
       onClick={onClick}
-      className="flex items-center gap-3 px-4 py-2.5 hover:bg-stone-50 cursor-pointer transition-colors rounded-lg group"
+      className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate cursor-pointer transition-colors rounded-lg group"
     >
       <div className="w-6 h-6 flex items-center justify-center">
-        <div className="w-1.5 h-1.5 rounded-full border-2 border-stone-300" />
+        <div className="w-1.5 h-1.5 rounded-full border-2 border-steel" />
       </div>
-      <div className={clsx('p-1.5 rounded-lg', typeIconBg[ci.type])}>
-        <Icon className={clsx('w-3.5 h-3.5', typeColors[ci.type].split(' ')[1])} />
+      <div className="p-1.5 rounded-lg" style={{ background: tone.bg }}>
+        <Icon className="w-3.5 h-3.5" style={{ color: tone.fg }} />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-stone-900 group-hover:text-signal transition-colors truncate">
+        <p className="text-sm font-medium text-ink group-hover:text-signal transition-colors truncate">
           {ci.name}
         </p>
         <div className="flex items-center gap-2 mt-0.5">
           {ci.hostname && (
-            <span className="text-[10px] text-stone-400 font-mono truncate">{ci.hostname}</span>
+            <span className="text-[10px] text-dim font-mono truncate">{ci.hostname}</span>
           )}
           {ci.ipAddress && (
-            <span className="text-[10px] text-stone-400 font-mono">{ci.ipAddress}</span>
+            <span className="text-[10px] text-dim font-mono">{ci.ipAddress}</span>
           )}
         </div>
       </div>
@@ -226,40 +203,40 @@ function TreeGroup({
 }) {
   const [expanded, setExpanded] = useState(true);
   const Icon = typeIcons[type] || Server;
+  const tone = TYPE_TONE[type];
 
   return (
-    <div className="glass-card border-stone-200 overflow-hidden">
+    <div className="bg-obsidian border border-steel overflow-hidden rounded">
       <button
+        type="button"
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-stone-50 transition-colors"
+        className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-slate transition-colors"
       >
         {expanded ? (
-          <ChevronDown className="w-4 h-4 text-stone-400" />
+          <ChevronDown className="w-4 h-4 text-dim" />
         ) : (
-          <ChevronRight className="w-4 h-4 text-stone-400" />
+          <ChevronRight className="w-4 h-4 text-dim" />
         )}
-        <div className={clsx('p-2 rounded-xl', typeIconBg[type])}>
-          <Icon className={clsx('w-5 h-5', typeColors[type].split(' ')[1])} />
+        <div className="p-2 rounded-lg" style={{ background: tone.bg }}>
+          <Icon className="w-5 h-5" style={{ color: tone.fg }} />
         </div>
         <div className="flex-1 text-left">
-          <span className="text-sm font-display font-bold text-stone-900">
+          <span className="text-sm font-display font-bold text-ink">
             {typeLabels[type]}
           </span>
         </div>
-        <span className="inline-flex items-center justify-center min-w-[28px] h-6 px-2 rounded-full bg-stone-100 border border-stone-200 text-xs font-mono font-medium text-stone-600">
-          {items.length}
-        </span>
+        <span className="cx-pill cx-pill--neutral">{items.length}</span>
       </button>
       {expanded && items.length > 0 && (
-        <div className="border-t border-stone-100 px-2 py-1">
+        <div className="px-2 py-1" style={{ borderTop: '1px solid var(--argus-border)' }}>
           {items.map((ci) => (
             <TreeNode key={ci.id} ci={ci} onClick={() => onClickItem(ci.id)} />
           ))}
         </div>
       )}
       {expanded && items.length === 0 && (
-        <div className="border-t border-stone-100 px-5 py-4 text-center">
-          <p className="text-xs text-stone-400">No configuration items in this category</p>
+        <div className="px-5 py-4 text-center" style={{ borderTop: '1px solid var(--argus-border)' }}>
+          <p className="text-xs text-dim">No configuration items in this category</p>
         </div>
       )}
     </div>
@@ -274,22 +251,23 @@ function GridCard({
   onClick: () => void;
 }) {
   const Icon = typeIcons[ci.type] || Server;
+  const tone = TYPE_TONE[ci.type];
   return (
     <div
       onClick={onClick}
-      className="glass-card-hover p-5 cursor-pointer transition-all duration-300 hover:scale-[1.02] group"
+      className="p-5 cursor-pointer transition-colors group bg-obsidian border border-steel rounded"
     >
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
-          <div className={clsx('p-2.5 rounded-xl', typeIconBg[ci.type])}>
-            <Icon className={clsx('w-5 h-5', typeColors[ci.type].split(' ')[1])} />
+          <div className="p-2.5 rounded-lg" style={{ background: tone.bg }}>
+            <Icon className="w-5 h-5" style={{ color: tone.fg }} />
           </div>
           <div className="min-w-0">
-            <h3 className="text-sm font-display font-bold text-stone-900 group-hover:text-signal transition-colors truncate">
+            <h3 className="text-sm font-display font-bold text-ink group-hover:text-signal transition-colors truncate">
               {ci.name}
             </h3>
             {ci.hostname && (
-              <p className="text-[11px] text-stone-400 font-mono mt-0.5 truncate">
+              <p className="text-[11px] text-dim font-mono mt-0.5 truncate">
                 {ci.hostname}
               </p>
             )}
@@ -303,17 +281,17 @@ function GridCard({
         <StatusBadge status={ci.status} />
       </div>
 
-      <div className="space-y-1.5 text-xs text-stone-500">
+      <div className="space-y-1.5 text-xs text-muted">
         <div className="flex items-center justify-between">
-          <span className="text-stone-300">IP</span>
+          <span className="text-dim">IP</span>
           <span className="font-mono">{ci.ipAddress ?? '--'}</span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-stone-300">Location</span>
+          <span className="text-dim">Location</span>
           <span className="font-mono">{ci.location ?? '--'}</span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-stone-300">Data Center</span>
+          <span className="text-dim">Data Center</span>
           <span className="font-mono">{ci.dataCenter ?? '--'}</span>
         </div>
       </div>
@@ -331,27 +309,26 @@ function GridGroup({
   onClickItem: (id: string) => void;
 }) {
   const Icon = typeIcons[type] || Server;
+  const tone = TYPE_TONE[type];
 
   return (
     <div>
       <div className="flex items-center gap-3 mb-3">
-        <div className={clsx('p-2 rounded-xl', typeIconBg[type])}>
-          <Icon className={clsx('w-5 h-5', typeColors[type].split(' ')[1])} />
+        <div className="p-2 rounded-lg" style={{ background: tone.bg }}>
+          <Icon className="w-5 h-5" style={{ color: tone.fg }} />
         </div>
-        <h2 className="text-base font-display font-bold text-stone-900">{typeLabels[type]}</h2>
-        <span className="inline-flex items-center justify-center min-w-[28px] h-6 px-2 rounded-full bg-stone-100 border border-stone-200 text-xs font-mono font-medium text-stone-600">
-          {items.length}
-        </span>
+        <h2 className="text-base font-display font-bold text-ink">{typeLabels[type]}</h2>
+        <span className="cx-pill cx-pill--neutral">{items.length}</span>
       </div>
       {items.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           {items.map((ci) => (
             <GridCard key={ci.id} ci={ci} onClick={() => onClickItem(ci.id)} />
           ))}
         </div>
       ) : (
-        <div className="glass-card p-6 text-center">
-          <p className="text-xs text-stone-400">No configuration items</p>
+        <div className="bg-obsidian border border-steel p-6 text-center rounded">
+          <p className="text-xs text-dim">No configuration items</p>
         </div>
       )}
     </div>
@@ -430,133 +407,123 @@ export default function NetworkTopology() {
     return counts;
   }, [assets]);
 
+  // Hoisted out of JSX: an inline array literal created during render aliases
+  // statusCounts, which makes React Compiler treat it as possibly-mutated and
+  // skip optimizing this whole component.
+  const heroKpis = useMemo<HeroKpi[]>(
+    () => [
+      { label: 'Items', value: totalCount, sub: 'in this view' },
+      { label: 'Live', value: statusCounts.LIVE, sub: 'serving traffic' },
+      { label: 'Maintenance', value: statusCounts.MAINTENANCE, sub: 'alerts suppressed', tone: statusCounts.MAINTENANCE > 0 ? 'warn' : undefined },
+      { label: 'Planned', value: statusCounts.PLANNED, sub: 'not yet live' },
+      { label: 'Decommissioned', value: statusCounts.DECOMMISSIONED, sub: 'retired' },
+    ],
+    [totalCount, statusCounts]
+  );
+
   const handleNavigate = (id: string) => {
     navigate(`/assets/${id}`);
   };
 
   return (
-    <div className="animate-fade-in space-y-0">
-      {/* ── HERO BANNER ── */}
-      <div className="relative rounded-2xl overflow-hidden bg-obsidian text-ink border border-[color:var(--argus-border)] mb-5">
-        <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'radial-gradient(circle, rgba(255,255,255,1) 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
-        <div className="absolute top-0 right-0 w-80 h-80 bg-sky-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4" />
-        <div className="relative px-6 py-5">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="flex items-center gap-2.5 mb-1.5">
-                <div className="w-8 h-8 rounded-lg bg-[color:var(--argus-elevated)] flex items-center justify-center">
-                  <Network size={16} className="text-sky-400" />
-                </div>
-                <h1 className="font-display text-2xl font-bold text-ink tracking-tight">Network Topology</h1>
-              </div>
-              <p className="text-muted text-sm ml-[42px]">
-                CMDB Configuration Items &middot; <span className="font-mono text-ink">{totalCount}</span> total CIs
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="hidden lg:flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[11px] font-mono text-emerald-400">
-                  <Wifi className="w-3 h-3" />
-                  {statusCounts.LIVE} Live
-                </span>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] font-mono text-amber-400">
-                  <WifiOff className="w-3 h-3" />
-                  {statusCounts.MAINTENANCE} Maint.
-                </span>
-              </div>
-              <div className="flex items-center gap-1 p-1 rounded-lg bg-[color:var(--argus-elevated)] border border-[color:var(--argus-border)]">
-                <button onClick={() => setViewMode('tree')} className={clsx('p-2 rounded-md transition-all duration-200', viewMode === 'tree' ? 'bg-sky-500/20 text-sky-400' : 'text-muted hover:text-ink')} title="Tree view">
-                  <ListTree className="w-4 h-4" />
-                </button>
-                <button onClick={() => setViewMode('grid')} className={clsx('p-2 rounded-md transition-all duration-200', viewMode === 'grid' ? 'bg-sky-500/20 text-sky-400' : 'text-muted hover:text-ink')} title="Grid view">
-                  <LayoutGrid className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
+    <Page>
+      <div className="cx-hero">
+        <div className="flex items-start justify-between gap-6 flex-wrap">
+          <div className="min-w-0">
+            <span className="cx-eyebrow">Operate · topology</span>
+            <h1 className="cx-hero__title">Network</h1>
+            <p className="cx-hero__deck">
+              Configuration items from the CMDB, grouped by type. Open a node to reach the asset record.
+            </p>
           </div>
+          <Segmented
+            options={[
+              { value: 'tree', label: 'Tree', icon: ListTree },
+              { value: 'grid', label: 'Grid', icon: LayoutGrid },
+            ]}
+            value={viewMode}
+            onChange={(v) => setViewMode(v as 'tree' | 'grid')}
+          />
         </div>
-      </div>
-      <div className="h-0.5 bg-gradient-to-r from-transparent via-coral opacity-60 to-transparent -mt-5 mb-4" />
-
-      {/* Filter Bar */}
-      <div className="glass-card p-4 border-stone-200">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 text-stone-500">
-            <Filter className="w-4 h-4" />
-            <span className="text-xs font-medium uppercase tracking-wider">Filters</span>
-          </div>
-
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value as CIType | 'ALL')}
-            className="input-field text-sm py-1.5 px-3 min-w-[170px]"
-          >
-            <option value="ALL">All Types</option>
-            {CI_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {typeLabels[t]}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as CIStatus | 'ALL')}
-            className="input-field text-sm py-1.5 px-3 min-w-[170px]"
-          >
-            <option value="ALL">All Statuses</option>
-            {CI_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s.charAt(0) + s.slice(1).toLowerCase()}
-              </option>
-            ))}
-          </select>
-
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-            <input
-              type="text"
-              placeholder="Search by name, IP, hostname..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="input-field text-sm py-1.5 pl-9 pr-3 w-full"
-            />
-          </div>
-        </div>
+        <dl className="cx-hero__kpis cx-hero__kpis--5 mt-6">
+          {heroKpis.map((kpi) => (
+            <div key={kpi.label} className={clsx('cx-hero__kpi', kpi.tone && `cx-hero__kpi--${kpi.tone}`)}>
+              <dt className="cx-hero__kpi-label">{kpi.label}</dt>
+              <dd>
+                <div className="cx-hero__kpi-value">{kpi.value}</div>
+                <div className="cx-hero__kpi-sub">{kpi.sub}</div>
+              </dd>
+            </div>
+          ))}
+        </dl>
       </div>
 
-      {/* Loading State */}
+      <nav className="cx-crumb" aria-label="Breadcrumb">
+        <Link to="/dashboard">Operations</Link>
+        <span aria-hidden>/</span>
+        <span className="cx-crumb__current">Network</span>
+      </nav>
+
+      <Toolbar>
+        <div className="flex items-center gap-1.5 text-muted">
+          <Filter className="w-3.5 h-3.5" />
+          <span className="text-[10px] font-semibold uppercase tracking-widest">Filters</span>
+        </div>
+        <select
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value as CIType | 'ALL')}
+          className={clsx('filter-select', typeFilter !== 'ALL' && 'filter-select--active')}
+        >
+          <option value="ALL">All types</option>
+          {CI_TYPES.map((t) => (
+            <option key={t} value={t}>{typeLabels[t]}</option>
+          ))}
+        </select>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as CIStatus | 'ALL')}
+          className={clsx('filter-select', statusFilter !== 'ALL' && 'filter-select--active')}
+        >
+          <option value="ALL">All statuses</option>
+          {CI_STATUSES.map((s) => (
+            <option key={s} value={s}>{s.charAt(0) + s.slice(1).toLowerCase()}</option>
+          ))}
+        </select>
+        <div className="relative flex-1 min-w-[200px] max-w-md">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-dim" />
+          <input
+            type="text"
+            placeholder="Search by name, IP, hostname..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="input-field pl-8 py-1.5 text-[13px]"
+          />
+        </div>
+      </Toolbar>
+
       {isLoading && (
-        <div className="glass-card p-12 text-center">
+        <div className="bg-obsidian border border-steel p-12 text-center rounded">
           <Loader2 className="w-8 h-8 text-signal mx-auto mb-3 animate-spin" />
-          <p className="text-stone-500 font-medium">Loading network topology...</p>
-          <p className="text-stone-300 text-sm mt-1">Fetching configuration items from CMDB</p>
+          <p className="text-muted font-medium">Loading network topology…</p>
+          <p className="text-dim text-sm mt-1">Fetching configuration items from CMDB</p>
         </div>
       )}
 
-      {/* Error State */}
       {!isLoading && isError && (
-        <div className="glass-card p-12 text-center">
+        <div className="bg-obsidian border border-steel p-12 text-center rounded">
           <AlertTriangle className="w-8 h-8 text-amber mx-auto mb-3" />
-          <p className="text-stone-500 font-medium">Failed to load network topology</p>
-          <p className="text-stone-300 text-sm mt-1">
+          <p className="text-muted font-medium">Failed to load network topology</p>
+          <p className="text-dim text-sm mt-1">
             {error instanceof Error ? error.message : 'An unexpected error occurred'}
           </p>
-          <button
-            onClick={() => window.location.reload()}
-            className="btn-primary mt-4 text-sm"
-          >
-            Retry
-          </button>
         </div>
       )}
 
-      {/* Empty State */}
       {!isLoading && !isError && assets.length === 0 && (
-        <div className="glass-card p-12 text-center">
-          <Network className="w-12 h-12 text-stone-300 mx-auto mb-3" />
-          <p className="text-stone-500 font-medium">No configuration items found</p>
-          <p className="text-stone-300 text-sm mt-1">
+        <div className="bg-obsidian border border-steel p-12 text-center rounded">
+          <Network className="w-12 h-12 text-graphite mx-auto mb-3" />
+          <p className="text-muted font-medium">No configuration items found</p>
+          <p className="text-dim text-sm mt-1">
             {searchQuery || typeFilter !== 'ALL' || statusFilter !== 'ALL'
               ? 'Adjust filters or search criteria to see results'
               : 'Add assets to the CMDB to populate the network topology'}
@@ -564,7 +531,6 @@ export default function NetworkTopology() {
         </div>
       )}
 
-      {/* Tree View */}
       {!isLoading && !isError && viewMode === 'tree' && assets.length > 0 && (
         <div className="space-y-3">
           {visibleTypes.map((type) => (
@@ -578,7 +544,6 @@ export default function NetworkTopology() {
         </div>
       )}
 
-      {/* Grid View */}
       {!isLoading && !isError && viewMode === 'grid' && assets.length > 0 && (
         <div className="space-y-8">
           {visibleTypes.map((type) => {
@@ -595,6 +560,6 @@ export default function NetworkTopology() {
           })}
         </div>
       )}
-    </div>
+    </Page>
   );
 }

@@ -65,7 +65,7 @@ export default function PublicLayout() {
     );
 
   return (
-    <div className="flex min-h-screen flex-col bg-void font-body text-ink">
+    <div className="flex min-h-screen min-h-[100dvh] flex-col overflow-x-hidden bg-void font-body text-ink">
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded focus:bg-obsidian focus:px-3 focus:py-2 focus:text-[13px] focus:text-ink"

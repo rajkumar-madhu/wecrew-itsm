@@ -111,7 +111,7 @@ export default function CalEmbed({
     <div className={className}>
       <div
         ref={containerRef}
-        className="min-h-[520px] w-full overflow-hidden rounded border border-steel bg-obsidian"
+        className="min-h-[520px] w-full overflow-y-auto rounded border border-steel bg-obsidian"
         // The embed fills this element; the text is what a visitor sees if the
         // script is blocked or fails.
       />

@@ -43,7 +43,7 @@ export default function Layout() {
   }, [mobileOpen, isMobile]);
 
   return (
-    <div className="app-shell min-h-screen min-h-[100dvh] bg-void text-ink">
+    <div className="app-shell h-[100dvh] overflow-hidden bg-void text-ink">
       {isMobile && mobileOpen && (
         <button
           type="button"
@@ -67,7 +67,7 @@ export default function Layout() {
 
       <div
         className={clsx(
-          'transition-[margin] duration-200 min-h-screen min-h-[100dvh] flex flex-col',
+          'transition-[margin] duration-200 h-full min-h-0 flex flex-col overflow-hidden',
           isMobile ? 'ml-0' : collapsed ? 'ml-[56px]' : 'ml-[240px]'
         )}
       >
@@ -75,7 +75,7 @@ export default function Layout() {
           onMenuClick={() => setMobileOpen(true)}
           showMenuButton={isMobile}
         />
-        <main className="flex-1 px-3 py-3 md:px-4 md:py-4 min-h-0 w-full max-w-[100vw] overflow-x-hidden">
+        <main className="flex-1 flex flex-col px-3 py-2 md:px-4 md:py-3 min-h-0 w-full max-w-[100vw] overflow-x-hidden overflow-y-auto">
           <Outlet />
         </main>
       </div>

@@ -27,7 +27,7 @@ const ProblemList = lazy(() => import('./components/Problems/ProblemList'));
 const ProblemCreate = lazy(() => import('./components/Problems/ProblemCreate'));
 const ProblemDetail = lazy(() => import('./components/Problems/ProblemDetail'));
 const AlertList = lazy(() => import('./components/Alerts/AlertList'));
-const AssetDashboard = lazy(() => import('./components/Assets/AssetDashboard'));
+const AssetList = lazy(() => import('./components/Assets/AssetList'));
 const AssetCreate = lazy(() => import('./components/Assets/AssetCreate'));
 const AssetDetail = lazy(() => import('./components/Assets/AssetDetail'));
 const IntegrationHub = lazy(() => import('./components/Integrations/IntegrationHub'));
@@ -161,7 +161,7 @@ export default function App() {
         <Route path="/maintenance" element={<Suspense fallback={<LoadingFallback />}><MaintenanceWindowScheduler /></Suspense>} />
         <Route path="/noc" element={<Suspense fallback={<LoadingFallback />}><NOCView /></Suspense>} />
         <Route path="/alerts" element={<Suspense fallback={<LoadingFallback />}><AlertList /></Suspense>} />
-        <Route path="/assets" element={<Suspense fallback={<LoadingFallback />}><AssetDashboard /></Suspense>} />
+        <Route path="/assets" element={<Suspense fallback={<LoadingFallback />}><AssetList /></Suspense>} />
         <Route path="/assets/create" element={<Suspense fallback={<LoadingFallback />}><AssetCreate /></Suspense>} />
         <Route path="/assets/:id" element={<Suspense fallback={<LoadingFallback />}><AssetDetail /></Suspense>} />
         <Route path="/network" element={<Suspense fallback={<LoadingFallback />}><NetworkTopology /></Suspense>} />

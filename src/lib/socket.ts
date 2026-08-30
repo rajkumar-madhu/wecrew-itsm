@@ -1,15 +1,6 @@
-function getAuthStorageKey() {
-  try {
-    if (!localStorage.getItem(getAuthStorageKey())) {
-      const legacy = localStorage.getItem('linkedeye-auth');
-      if (legacy) {
-        localStorage.setItem('wecrew-auth', legacy);
-        localStorage.removeItem('linkedeye-auth');
-      }
-    }
-  } catch {}
-  return 'wecrew-auth';
-}
+/* See the note in lib/api.ts — this was a self-recursive function. The legacy
+   key migration is handled once, correctly, in authStore's onRehydrateStorage. */
+const AUTH_STORAGE_KEY = 'wecrew-auth';
 
 import { useEffect, useRef } from 'react';
 import { io, type Socket } from 'socket.io-client';
@@ -18,7 +9,7 @@ let socket: Socket | null = null;
 
 function getToken(): string | null {
   try {
-    const stored = localStorage.getItem(getAuthStorageKey());
+    const stored = localStorage.getItem(AUTH_STORAGE_KEY);
     return stored ? JSON.parse(stored).state?.token : null;
   } catch {
     return null;

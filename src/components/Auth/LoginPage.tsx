@@ -137,7 +137,7 @@ export default function LoginPage() {
           </div>
 
           <p className="relative text-[11px] text-white/30 font-mono">
-            FinSpot · {LOGIN_UI_BUILD}
+            WeCrew · {LOGIN_UI_BUILD}
           </p>
         </div>
       </aside>

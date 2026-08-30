@@ -241,7 +241,36 @@ html.dark {
 
   /* ── Codex page chrome ── */
   .cx-page {
-    @apply space-y-3 animate-fade-in;
+    @apply animate-fade-in;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    height: 100%;
+    min-height: 0;
+    flex: 1 1 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+  .cx-page__body {
+    flex: 1 1 auto;
+    min-height: min-content;
+    overflow: visible;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  /* Fill-viewport boards (NOC, chat) keep an inner scroll; everything else
+     grows and the page itself scrolls — including when the pointer is on the hero. */
+  .cx-page__body:has(> .cx-noc),
+  .cx-page__body:has(> .cx-board) {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .cx-page__body > .cx-noc,
+  .cx-page__body > .cx-board {
+    flex: 1 1 0;
+    min-height: 0;
   }
   .cx-page-header {
     @apply flex items-start justify-between gap-3 flex-wrap;
@@ -374,6 +403,7 @@ html.dark {
 
   .cx-toolbar {
     @apply flex flex-wrap items-center gap-2;
+    flex-shrink: 0;
     background: var(--argus-surface);
     border: 1px solid var(--argus-border);
     border-radius: var(--cx-radius);
@@ -410,6 +440,7 @@ html.dark {
 
   .cx-segmented {
     @apply inline-flex items-center p-0.5;
+    flex-shrink: 0;
     background: var(--argus-elevated);
     border: 1px solid var(--argus-border);
     border-radius: var(--cx-radius-sm);
@@ -640,41 +671,48 @@ html.dark {
   .cx-hero {
     position: relative;
     overflow: hidden;
+    flex-shrink: 0;
     border-radius: var(--cx-radius);
     background:
       radial-gradient(120% 140% at 82% 18%, rgba(255, 91, 46, 0.28) 0%, transparent 58%),
       radial-gradient(120% 150% at 100% 100%, rgba(43, 76, 255, 0.32) 0%, transparent 62%),
       var(--brand-ink);
     color: var(--brand-paper);
-    padding: 1.5rem;
+    padding: 0.875rem 1.125rem;
   }
   .cx-hero__title {
     font-family: Fraunces, "IBM Plex Sans", ui-serif, Georgia, serif;
-    font-size: 2rem;
+    font-size: 1.5rem;
     font-weight: 600;
     letter-spacing: -0.02em;
     line-height: 1.12;
     color: #fff;
-    margin: 0.375rem 0 0;
+    margin: 0.2rem 0 0;
   }
   .cx-hero__deck {
-    margin: 0.5rem 0 0;
-    font-size: 0.875rem;
-    line-height: 1.5;
+    margin: 0.25rem 0 0;
+    font-size: 0.8125rem;
+    line-height: 1.4;
     color: rgba(244, 241, 234, 0.72);
     max-width: 58ch;
+  }
+  .app-shell .cx-hero__deck {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
   .cx-hero__kpis {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.625rem;
+    gap: 0.5rem;
   }
   .cx-hero__kpi {
     background: rgba(255, 255, 255, 0.07);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: var(--cx-radius-sm);
-    padding: 0.75rem 0.875rem;
-    min-width: 118px;
+    padding: 0.45rem 0.7rem;
+    min-width: 0;
   }
   .cx-hero__kpi-label {
     font-family: "JetBrains Mono", ui-monospace, monospace;
@@ -686,12 +724,12 @@ html.dark {
   }
   .cx-hero__kpi-value {
     font-family: Fraunces, "IBM Plex Sans", ui-serif, Georgia, serif;
-    font-size: 1.875rem;
+    font-size: 1.375rem;
     font-weight: 600;
-    line-height: 1.15;
+    line-height: 1.1;
     letter-spacing: -0.02em;
     color: #fff;
-    margin-top: 0.125rem;
+    margin-top: 0.0625rem;
   }
   .cx-hero__kpi--danger .cx-hero__kpi-value { color: #ff7a6b; }
   .cx-hero__kpi--warn .cx-hero__kpi-value { color: #fbbf24; }
@@ -700,7 +738,7 @@ html.dark {
     font-size: 10px;
     letter-spacing: 0.06em;
     color: rgba(244, 241, 234, 0.5);
-    margin-top: 0.125rem;
+    margin-top: 0.0625rem;
   }
   .cx-hero__btn {
     @apply inline-flex items-center justify-center gap-1.5 font-medium transition-colors duration-100;
@@ -740,6 +778,21 @@ html.dark {
     padding: 0.75rem 0.875rem;
     border-right: 1px solid var(--argus-border);
     border-top: 1px solid var(--argus-border);
+  }
+  .cx-signals__cell--link {
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+    background: transparent;
+    transition: background-color 0.12s ease;
+  }
+  .cx-signals__cell--link:hover {
+    background: var(--argus-signal-dim);
+  }
+  .cx-signals__cell--link:focus-visible {
+    outline: 2px solid var(--argus-signal);
+    outline-offset: -2px;
+    z-index: 1;
   }
   .cx-signals__cell:nth-child(-n + 2) { border-top: none; }
   @media (min-width: 640px) {
@@ -835,20 +888,18 @@ html.dark {
      whose own head carries the search and filters.
      ══════════════════════════════════════════════════════════ */
 
-  /* Hero stat strip at 5 tiles. The base .cx-hero__kpis is a hard 3-up, which
-     leaves an orphan pair on a five-stat page; this steps 2 → 3 → 5 instead. */
+  /* Hero stat strip at 5 tiles — stay on one row from md up so the
+     hero does not wrap and push the board off the viewport. */
   .cx-hero__kpis--5 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  @media (min-width: 640px) {
-    .cx-hero__kpis--5 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  }
-  @media (min-width: 1280px) {
+  @media (min-width: 768px) {
     .cx-hero__kpis--5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   }
 
   .cx-crumb {
     @apply flex items-center gap-1.5 flex-wrap;
+    flex-shrink: 0;
     font-size: 11.5px;
     color: var(--argus-dim);
   }
@@ -1148,6 +1199,639 @@ html.dark {
     background: rgba(255, 122, 107, 0.16);
     color: #ff9f94;
   }
+
+  /* ══════════════════════════════════════════════════════════
+     Signature devices — one per operations page
+
+     Each of these encodes the question its page actually answers,
+     so none of them is reusable decoration: the window is a date
+     axis, the estate is a fleet census, the ribbon is a rota. They
+     share the hairline-on-paper grammar of .cx-signals so the four
+     pages still read as one product.
+     ══════════════════════════════════════════════════════════ */
+
+  /* ── Forward window (Changes) ──────────────────────────────
+     A fortnight of calendar laid out as columns. One tick per
+     change, stacked in the day it starts, coloured by risk. The
+     CAB's question is collision, so a day carrying more than one
+     high-risk change tints coral rather than being left to counting. */
+  .cx-window {
+    background: var(--argus-surface);
+    border: 1px solid var(--argus-border);
+    border-radius: var(--cx-radius);
+    box-shadow: var(--argus-shadow-card);
+    overflow: hidden;
+  }
+  .cx-window__head {
+    @apply flex items-center justify-between gap-3 flex-wrap;
+    padding: 0.625rem 0.875rem;
+    border-bottom: 1px solid var(--argus-border);
+  }
+  .cx-window__legend {
+    @apply inline-flex items-center gap-3 flex-wrap;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--argus-dim);
+  }
+  .cx-window__key {
+    @apply inline-flex items-center gap-1.5;
+  }
+  .cx-window__swatch {
+    display: inline-block;
+    width: 10px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--argus-graphite);
+  }
+  .cx-window__scroll {
+    overflow-x: auto;
+  }
+  .cx-window__track {
+    display: grid;
+    grid-template-columns: repeat(14, minmax(58px, 1fr));
+    min-width: 100%;
+  }
+  .cx-window__day {
+    border-right: 1px solid var(--argus-border);
+    padding: 0.5rem 0.4375rem 0.625rem;
+    min-height: 92px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+  .cx-window__day:last-child {
+    border-right: none;
+  }
+  .cx-window__day--weekend {
+    background: var(--argus-elevated);
+  }
+  .cx-window__day--today {
+    background: var(--argus-signal-dim);
+    box-shadow: inset 0 2px 0 var(--argus-signal);
+  }
+  .cx-window__day--collide {
+    background: var(--argus-coral-dim);
+    box-shadow: inset 0 2px 0 var(--argus-coral);
+  }
+  .cx-window__dow {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--argus-dim);
+  }
+  .cx-window__date {
+    font-family: Fraunces, "IBM Plex Sans", ui-serif, Georgia, serif;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--argus-ink);
+  }
+  .cx-window__stack {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-top: auto;
+  }
+  .cx-window__tick {
+    display: block;
+    width: 100%;
+    height: 5px;
+    border-radius: 2px;
+    background: var(--argus-graphite);
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    transition: transform 0.1s ease;
+  }
+  .cx-window__tick:hover {
+    transform: scaleY(1.6);
+  }
+  .cx-window__tick:focus-visible {
+    outline: 2px solid var(--argus-signal);
+    outline-offset: 1px;
+  }
+  .cx-window__tick--high { background: var(--argus-crimson); }
+  .cx-window__tick--medium { background: var(--argus-amber); }
+  .cx-window__tick--low { background: var(--argus-emerald); }
+  .cx-window__none {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 9px;
+    color: var(--argus-graphite);
+    margin-top: auto;
+  }
+
+  /* ── Week track (Maintenance) ──────────────────────────────
+     Yesterday through +6 days as one rail. Bands are windows;
+     the NOW pin is coral because an active window is the moment
+     alerts should be quiet — missing it is the failure. */
+  .cx-track {
+    background: var(--argus-surface);
+    border: 1px solid var(--argus-border);
+    border-radius: var(--cx-radius);
+    box-shadow: var(--argus-shadow-card);
+    overflow: hidden;
+  }
+  .cx-track__head {
+    @apply flex items-center justify-between gap-3 flex-wrap;
+    padding: 0.625rem 0.875rem;
+    border-bottom: 1px solid var(--argus-border);
+  }
+  .cx-track__legend {
+    @apply inline-flex items-center gap-3 flex-wrap;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--argus-dim);
+  }
+  .cx-track__key {
+    @apply inline-flex items-center gap-1.5;
+  }
+  .cx-track__swatch {
+    display: inline-block;
+    width: 10px;
+    height: 4px;
+    border-radius: 2px;
+  }
+  .cx-track__swatch--active { background: var(--argus-emerald); }
+  .cx-track__swatch--upcoming { background: var(--argus-signal); }
+  .cx-track__body { padding: 1.25rem 0.875rem 0.875rem; }
+  .cx-track__days { position: relative; height: 0.75rem; }
+  .cx-track__day {
+    position: absolute;
+    transform: translateX(-50%);
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--argus-dim);
+    white-space: nowrap;
+  }
+  .cx-track__rail {
+    position: relative;
+    height: 2rem;
+    margin-top: 0.75rem;
+    background: var(--argus-elevated);
+    border-radius: var(--cx-radius-sm);
+  }
+  .cx-track__now {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--argus-coral);
+    z-index: 2;
+  }
+  .cx-track__now-label {
+    position: absolute;
+    top: -0.9rem;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--argus-coral);
+  }
+  .cx-track__band {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    border-radius: 3px;
+    overflow: hidden;
+    cursor: default;
+  }
+  .cx-track__band--active {
+    background: var(--argus-emerald-dim);
+    border: 1px solid color-mix(in srgb, var(--argus-emerald) 35%, transparent);
+  }
+  .cx-track__band--upcoming {
+    background: var(--argus-signal-dim);
+    border: 1px solid color-mix(in srgb, var(--argus-signal) 35%, transparent);
+  }
+  .cx-track__band-label {
+    padding: 0 0.35rem;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 8px;
+    font-weight: 700;
+    line-height: 1.5rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .cx-track__band--active .cx-track__band-label { color: var(--argus-emerald); }
+  .cx-track__band--upcoming .cx-track__band-label { color: var(--argus-signal); }
+  .cx-track__empty {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10px;
+    color: var(--argus-graphite);
+  }
+
+  /* ── Month calendar (On-call) ──────────────────────────────
+     Seven columns, one cell per day. Today is a signal inset,
+     weekend is elevated, an empty weekday is the gap the rota
+     is supposed to fill. Click a day to assign a shift. */
+  .cx-cal {
+    background: var(--argus-surface);
+    border: 1px solid var(--argus-border);
+    border-radius: var(--cx-radius);
+    box-shadow: var(--argus-shadow-card);
+    overflow: hidden;
+  }
+  .cx-cal__head {
+    @apply flex items-center justify-between gap-3;
+    padding: 0.625rem 0.875rem;
+    border-bottom: 1px solid var(--argus-border);
+  }
+  .cx-cal__month {
+    font-family: Fraunces, "IBM Plex Sans", ui-serif, Georgia, serif;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--argus-ink);
+  }
+  .cx-cal__year {
+    font-family: Fraunces, "IBM Plex Sans", ui-serif, Georgia, serif;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--argus-dim);
+    margin-left: 0.4rem;
+  }
+  .cx-cal__nav {
+    @apply inline-flex items-center justify-center rounded text-muted hover:text-ink;
+    width: 2rem;
+    height: 2rem;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+  }
+  .cx-cal__nav:hover { background: var(--argus-elevated); }
+  .cx-cal__body { padding: 0.75rem; }
+  .cx-cal__dows {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 0.25rem;
+    margin-bottom: 0.25rem;
+  }
+  .cx-cal__dow {
+    text-align: center;
+    padding: 0.375rem 0;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--argus-dim);
+  }
+  .cx-cal__grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 0.25rem;
+  }
+  .cx-cal__pad {
+    min-height: 110px;
+    border-radius: var(--cx-radius-sm);
+    background: var(--argus-elevated);
+    opacity: 0.45;
+  }
+  .cx-cal__day {
+    min-height: 110px;
+    border-radius: var(--cx-radius-sm);
+    padding: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    background: var(--argus-surface);
+    border: 1px solid var(--argus-border);
+    cursor: default;
+    transition: background 0.1s ease;
+  }
+  .cx-cal__day--click {
+    cursor: pointer;
+  }
+  .cx-cal__day--click:hover {
+    background: var(--argus-elevated);
+  }
+  .cx-cal__day--weekend {
+    background: var(--argus-elevated);
+  }
+  .cx-cal__day--today {
+    background: var(--argus-signal-dim);
+    border-color: color-mix(in srgb, var(--argus-signal) 35%, transparent);
+    box-shadow: inset 0 2px 0 var(--argus-signal);
+  }
+  .cx-cal__day--today.cx-cal__day--click:hover {
+    background: var(--argus-signal-dim);
+  }
+  .cx-cal__day--collide {
+    background: var(--argus-coral-dim);
+    box-shadow: inset 0 2px 0 var(--argus-coral);
+  }
+  .cx-cal__num {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--argus-muted);
+  }
+  .cx-cal__day--weekend .cx-cal__num { color: var(--argus-dim); }
+  .cx-cal__day--today .cx-cal__num { color: var(--argus-signal); }
+  .cx-cal__today {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--argus-signal);
+    background: var(--argus-signal-dim);
+    border: 1px solid color-mix(in srgb, var(--argus-signal) 30%, transparent);
+    border-radius: 999px;
+    padding: 0.1rem 0.4rem;
+  }
+  .cx-cal__chips {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    overflow: hidden;
+    margin-top: 0.35rem;
+  }
+  .cx-cal__more {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 8px;
+    color: var(--argus-dim);
+    padding: 0 0.25rem;
+  }
+  .cx-cal__add {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    color: var(--argus-graphite);
+    transition: opacity 0.1s ease;
+  }
+  .cx-cal__day:hover .cx-cal__add { opacity: 1; }
+  .cx-cal__legend {
+    @apply flex items-center gap-2 flex-wrap;
+    padding: 0.75rem 0.875rem 0.875rem;
+    border-top: 1px solid var(--argus-border);
+  }
+  .cx-cal__legend-label {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--argus-dim);
+    margin-right: 0.25rem;
+  }
+
+  /* ── Estate map (CMDB) ─────────────────────────────────────
+     A census, not a chart: one cell per configuration item, banded
+     by type. Status is the fill; monitoring is the outline, because
+     an unmonitored CI is invisible to every other page in the app
+     and that absence is the thing worth spotting. */
+  .cx-estate {
+    background: var(--argus-surface);
+    border: 1px solid var(--argus-border);
+    border-radius: var(--cx-radius);
+    box-shadow: var(--argus-shadow-card);
+    overflow: hidden;
+  }
+  .cx-estate__head {
+    @apply flex items-center justify-between gap-3 flex-wrap;
+    padding: 0.625rem 0.875rem;
+    border-bottom: 1px solid var(--argus-border);
+  }
+  .cx-estate__band {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+    padding: 0.5625rem 0.875rem;
+    border-bottom: 1px solid var(--argus-border);
+  }
+  @media (min-width: 768px) {
+    .cx-estate__band {
+      grid-template-columns: 148px 1fr auto;
+      align-items: center;
+      gap: 0.875rem;
+    }
+  }
+  .cx-estate__band:last-child {
+    border-bottom: none;
+  }
+  .cx-estate__type {
+    @apply inline-flex items-center gap-1.5 min-w-0;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--argus-muted);
+  }
+  .cx-estate__cells {
+    @apply flex flex-wrap items-center;
+    gap: 3px;
+  }
+  .cx-estate__cell {
+    display: inline-block;
+    flex-shrink: 0;
+    width: 15px;
+    height: 15px;
+    border-radius: 3px;
+    background: var(--argus-graphite);
+    border: 1.5px solid transparent;
+    padding: 0;
+    cursor: pointer;
+    transition: transform 0.1s ease;
+  }
+  .cx-estate__cell:hover {
+    transform: scale(1.25);
+  }
+  .cx-estate__cell:focus-visible {
+    outline: 2px solid var(--argus-signal);
+    outline-offset: 1px;
+  }
+  .cx-estate__cell--live { background: var(--argus-emerald); }
+  .cx-estate__cell--maintenance { background: var(--argus-amber); }
+  .cx-estate__cell--planned { background: var(--argus-signal); }
+  .cx-estate__cell--decommissioned {
+    background: var(--argus-steel);
+    border-color: transparent;
+  }
+  /* Monitoring blind spot — the outline is the alarm, so it has to
+     survive whatever fill the status put underneath it. */
+  .cx-estate__cell--blind {
+    border-color: var(--argus-coral);
+    box-shadow: 0 0 0 1px var(--argus-coral-dim);
+  }
+  .cx-estate__count {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: var(--argus-dim);
+    white-space: nowrap;
+  }
+
+  /* ── Coverage ribbon (On-Call) ─────────────────────────────
+     168 cells, one per hour of the week. Polarity is deliberately
+     inverted from the usual heatmap: a covered hour is quiet paper
+     and an uncovered hour is coral, because the gap is the only
+     state anyone needs to act on. */
+  .cx-ribbon {
+    background: var(--argus-surface);
+    border: 1px solid var(--argus-border);
+    border-radius: var(--cx-radius);
+    box-shadow: var(--argus-shadow-card);
+    overflow: hidden;
+  }
+  .cx-ribbon__head {
+    @apply flex items-center justify-between gap-3 flex-wrap;
+    padding: 0.625rem 0.875rem;
+    border-bottom: 1px solid var(--argus-border);
+  }
+  .cx-ribbon__body {
+    padding: 0.75rem 0.875rem 0.875rem;
+    overflow-x: auto;
+  }
+  .cx-ribbon__inner {
+    min-width: 460px;
+  }
+  .cx-ribbon__hours {
+    display: grid;
+    grid-template-columns: repeat(24, minmax(0, 1fr));
+    gap: 2px;
+    margin-left: 34px;
+    margin-bottom: 0.25rem;
+  }
+  .cx-ribbon__hour {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 8.5px;
+    color: var(--argus-graphite);
+    text-align: center;
+  }
+  .cx-ribbon__row {
+    @apply flex items-center;
+    gap: 2px;
+    margin-bottom: 2px;
+  }
+  .cx-ribbon__day {
+    width: 32px;
+    flex-shrink: 0;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--argus-dim);
+  }
+  .cx-ribbon__day--today {
+    color: var(--argus-coral);
+  }
+  .cx-ribbon__cells {
+    display: grid;
+    grid-template-columns: repeat(24, minmax(0, 1fr));
+    gap: 2px;
+    flex: 1;
+  }
+  .cx-ribbon__cell {
+    height: 15px;
+    border-radius: 2px;
+    background: var(--argus-emerald-dim);
+  }
+  .cx-ribbon__cell--thin {
+    background: var(--argus-amber-dim);
+    box-shadow: inset 0 0 0 1px var(--argus-amber-dim);
+  }
+  .cx-ribbon__cell--gap {
+    background: var(--argus-coral);
+  }
+  .cx-ribbon__cell--past {
+    opacity: 0.4;
+  }
+  .cx-ribbon__legend {
+    @apply flex flex-wrap items-center gap-3;
+    margin-top: 0.625rem;
+    margin-left: 34px;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--argus-dim);
+  }
+  .cx-ribbon__key {
+    @apply inline-flex items-center gap-1.5;
+  }
+  .cx-ribbon__swatch {
+    width: 11px;
+    height: 11px;
+    border-radius: 2px;
+    background: var(--argus-emerald-dim);
+  }
+
+  /* ── Roster card (On-Call) ─────────────────────────────────
+     Who is holding the pager, stated once and plainly. */
+  .cx-roster {
+    @apply flex items-center gap-3;
+    background: var(--argus-surface);
+    border: 1px solid var(--argus-border);
+    border-radius: var(--cx-radius);
+    padding: 0.6875rem 0.875rem;
+  }
+  .cx-roster--primary {
+    border-color: var(--argus-coral);
+    background: var(--argus-coral-dim);
+  }
+  .cx-roster__mark {
+    @apply inline-flex items-center justify-center shrink-0;
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    background: var(--argus-elevated);
+    border: 1px solid var(--argus-border);
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--argus-muted);
+  }
+  .cx-roster--primary .cx-roster__mark {
+    background: var(--argus-coral);
+    border-color: var(--argus-coral);
+    color: #fff;
+  }
+  .cx-roster__name {
+    font-family: Fraunces, "IBM Plex Sans", ui-serif, Georgia, serif;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--argus-ink);
+  }
+  .cx-roster__meta {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    color: var(--argus-muted);
+    margin-top: 0.0625rem;
+  }
+
+  /* ── NOC wallboard ─────────────────────────────────────────
+     Fills leftover viewport under the shared page hero. */
+  .cx-noc {
+    flex: 1 1 0;
+    min-height: 0;
+    background: var(--brand-ink);
+    color: var(--brand-paper);
+    border: 1px solid var(--argus-border);
+    overflow: hidden;
+  }
 }
 
 /* Motion — restrained */
@@ -1446,4 +2130,29 @@ html.light .app-shell .cx-inspector .border-white\/20 {
 /* Primary jump keeps white-on-coral; the safety net would ink the label. */
 html.light .app-shell .cx-inspector .cx-inspector__jump--primary {
   color: #ffffff !important;
+}
+
+/* Unlayered th/td remaps beat @layer .cx-table; put the table
+   colours back so register headers stay dim, not muted-as-body. */
+html.light .app-shell .cx-table thead th {
+  color: var(--argus-dim);
+}
+html.light .app-shell .cx-table tbody td {
+  color: var(--argus-ink);
+}
+
+/* NOC wallboard — same opt-out reason as .cx-hero. The board is
+   ink regardless of theme; the safety net would otherwise ink
+   headings and inherited copy on a dark surface. */
+html.light .app-shell .cx-noc,
+html.light .app-shell .cx-noc h1,
+html.light .app-shell .cx-noc h2,
+html.light .app-shell .cx-noc h3,
+html.light .app-shell .cx-noc h4 {
+  color: #f4f1ea !important;
+}
+
+/* Compact KPI gap — utility mt-6 on heroes would otherwise overflow the viewport */
+.cx-hero .cx-hero__kpis {
+  margin-top: 0.75rem;
 }

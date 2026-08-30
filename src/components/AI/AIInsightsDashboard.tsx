@@ -15,7 +15,6 @@ import {
   Bot,
   User,
   ExternalLink,
-  Activity,
   Server,
   Database,
   FileText,
@@ -28,6 +27,7 @@ import {
   TrendingUp,
   RefreshCw,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import api from '../../lib/api';
 import {
   useClusterHealth,
@@ -36,6 +36,7 @@ import {
   useLogAnalysis,
   useAITips,
 } from '../../hooks/useAIAgent';
+import { Page } from '../ui/PageChrome';
 
 /* ====================================================================
    SUBCOMPONENTS
@@ -1045,37 +1046,25 @@ export default function AIInsightsDashboard() {
   ];
 
   return (
-    <div className="animate-fade-in space-y-0">
-
-      {/* ── HERO BANNER ── */}
-      <div className="relative rounded-2xl overflow-hidden bg-obsidian text-ink border border-[color:var(--argus-border)] mb-5">
-        <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'radial-gradient(circle, rgba(255,255,255,1) 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
-        <div className="absolute top-0 right-0 w-80 h-80 bg-violet-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4" />
-        <div className="relative px-6 py-5">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="flex items-center gap-2.5 mb-1.5">
-                <div className="w-8 h-8 rounded-lg bg-[color:var(--argus-elevated)] flex items-center justify-center">
-                  <Brain size={16} className="text-violet-400" />
-                </div>
-                <h1 className="font-display text-2xl font-bold text-ink tracking-tight">AI Insights</h1>
-                <span className="text-[9px] font-mono font-bold text-violet-300 bg-violet-500/15 px-1.5 py-0.5 rounded border border-violet-400/20">AI</span>
-              </div>
-              <p className="text-slate-400 text-sm ml-[42px]">
-                AI-powered analysis and recommendations
-              </p>
-            </div>
-            <div className={clsx(
-              'flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs',
-              'border-emerald-500/20 bg-emerald-500/10 text-emerald-400'
-            )}>
-              <Activity className="w-3.5 h-3.5" />
-              <span className="font-mono">AI Engine: Online</span>
-            </div>
+    <Page>
+      <div className="cx-hero">
+        <div className="flex items-start justify-between gap-6 flex-wrap">
+          <div className="min-w-0">
+            <span className="cx-eyebrow">Intelligence · AI</span>
+            <h1 className="cx-hero__title">AI insights</h1>
+            <p className="cx-hero__deck">
+              Analysis and recommendations attached to the same records as incidents and alerts — never an action taken on its own.
+            </p>
           </div>
+          <span className="cx-pill cx-pill--ok">AI engine online</span>
         </div>
       </div>
-      <div className="h-0.5 bg-gradient-to-r from-transparent via-violet-500/60 to-transparent -mt-5 mb-4" />
+
+      <nav className="cx-crumb" aria-label="Breadcrumb">
+        <Link to="/dashboard">Operations</Link>
+        <span aria-hidden>/</span>
+        <span className="cx-crumb__current">AI insights</span>
+      </nav>
 
       {/* ── KPI Row (4 cards) ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1566,6 +1555,6 @@ export default function AIInsightsDashboard() {
         <br />
         <span className="font-mono text-[10px]">Models auto-classify incidents, suggest resolutions, and detect infrastructure patterns</span>
       </div>
-    </div>
+    </Page>
   );
 }
