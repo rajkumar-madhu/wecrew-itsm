@@ -268,25 +268,21 @@ export default function AssetList() {
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<AssetType | ''>('');
   const [statusFilter, setStatusFilter] = useState<AssetStatus | ''>('');
-  const [monitoringFilter, setMonitoringFilter] = useState<'' | 'ON' | 'OFF'>('');
-
-  const hasFilters = Boolean(searchQuery || typeFilter || statusFilter || monitoringFilter);
+  const hasFilters = Boolean(searchQuery || typeFilter || statusFilter);
 
   const clearFilters = () => {
     setSearchQuery('');
     setTypeFilter('');
     setStatusFilter('');
-    setMonitoringFilter('');
   };
 
   const queryFilters = useMemo(() => {
     const f: Record<string, string> = {};
     if (typeFilter) f.type = typeFilter;
     if (statusFilter) f.status = statusFilter;
-    if (monitoringFilter) f.monitoringEnabled = monitoringFilter === 'ON' ? 'true' : 'false';
     if (searchQuery.trim()) f.search = searchQuery.trim();
     return f;
-  }, [typeFilter, statusFilter, monitoringFilter, searchQuery]);
+  }, [typeFilter, statusFilter, searchQuery]);
 
   const { data: assetsResponse, isLoading } = useAssets(queryFilters);
 
@@ -444,16 +440,14 @@ export default function AssetList() {
           ))}
         </select>
 
-        <select
-          aria-label="Filter by monitoring"
-          value={monitoringFilter}
-          onChange={(e) => setMonitoringFilter(e.target.value as '' | 'ON' | 'OFF')}
-          className={clsx('filter-select', monitoringFilter && 'filter-select--active')}
-        >
-          <option value="">Monitored or not</option>
-          <option value="ON">Monitoring on</option>
-          <option value="OFF">Monitoring off</option>
-        </select>
+        {/* The monitoring filter is deliberately absent. `listAssets`
+            destructures only type, status, search, ownerId, supportGroupId,
+            sortBy and sortOrder — `monitoringEnabled` was sent on the query
+            string and silently ignored, so the control returned an unchanged
+            list and read as "nothing matches that". Unmonitored items are still
+            surfaced, and more directly: the Unmonitored hero count and the
+            estate map's blind-spot band both derive from the census. Restore
+            this select when the API supports the parameter. */}
 
         {hasFilters && (
           <button

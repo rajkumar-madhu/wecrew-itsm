@@ -16,6 +16,7 @@ import toast from 'react-hot-toast';
 import { useQuery } from '@tanstack/react-query';
 import { useIncident, useIncidentTimeline, useAddWorkNote, useUpdateIncident, useIncidentLiveContext, useEscalationLogs } from '../../hooks/useIncidents';
 import { useTeams } from '../../hooks/useTeams';
+import { useUserCensus } from '../../hooks/useUsers';
 import IncidentReportGenerator from './IncidentReportGenerator';
 import api from '../../lib/api';
 
@@ -589,12 +590,11 @@ export default function IncidentDetail() {
   const [subImpact, setSubImpact] = useState('');
   const [subUrgency, setSubUrgency] = useState('');
 
-  // Users list for assignment
-  const { data: usersData } = useQuery({
-    queryKey: ['users-list'],
-    queryFn: async () => { const { data } = await api.get('/auth/users?limit=200'); return data; },
-    staleTime: 300000,
-  });
+  // Users list for assignment. `limit=200` did not error here — `listUsers`
+  // clamps `take` to 100 while still deriving `skip` from the raw value — it
+  // just silently returned the first hundred, so anyone below that cut simply
+  // could not be assigned an incident. The census walks every page.
+  const { data: usersData } = useUserCensus<Record<string, unknown>>();
 
   // Extract data
   const incident = incidentData?.data;
@@ -3192,7 +3192,7 @@ export default function IncidentDetail() {
               className="input-field w-full text-sm"
             >
               <option value="">Choose a user...</option>
-              {(usersData?.data || []).map((u: any) => (
+              {(usersData?.items || []).map((u: any) => (
                 <option key={u.id} value={u.id}>
                   {u.firstName} {u.lastName} — {u.role}
                 </option>
