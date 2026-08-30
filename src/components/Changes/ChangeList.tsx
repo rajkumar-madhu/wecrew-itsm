@@ -12,7 +12,7 @@ import {
   CalendarRange,
   AlertTriangle,
 } from 'lucide-react';
-import { useChanges } from '../../hooks/useChanges';
+import { useChanges, useChangeSchedule } from '../../hooks/useChanges';
 import { Page, Toolbar } from '../ui/PageChrome';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -35,6 +35,38 @@ interface Change {
 
 type SortField = 'number' | 'type' | 'state' | 'risk' | 'shortDescription' | 'plannedStartDate';
 type SortDir = 'asc' | 'desc';
+
+/**
+ * This table's column names are not all Prisma's. `listChanges` builds its
+ * `orderBy` straight from the `sortBy` it is handed, so sending the column key
+ * `risk` asks Prisma to order by a field that does not exist.
+ */
+const SORT_FIELD_TO_API: Record<SortField, string> = {
+  number: 'number',
+  type: 'type',
+  state: 'state',
+  risk: 'riskLevel',
+  shortDescription: 'shortDescription',
+  plannedStartDate: 'plannedStartDate',
+};
+
+/**
+ * Normalise one change record from the API.
+ *
+ * Two fields do not arrive under the names this table uses: risk is `riskLevel`
+ * on the model, and there is no `requestedBy` in the list payload at all — the
+ * controller's include returns `createdBy` and `assignedTo`. `ChangeCalendar`
+ * and `ChangeDetail` already carry the same `risk || riskLevel` fallback; doing
+ * it once here keeps the rest of this file reading the shape it declares.
+ */
+function asChange(raw: unknown): Change {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  return {
+    ...(r as unknown as Change),
+    risk: (r.risk || r.riskLevel || 'MEDIUM') as Risk,
+    requestedBy: (r.requestedBy ?? r.createdBy ?? null) as Change['requestedBy'],
+  };
+}
 
 const ALL_STATES: ChangeState[] = ['DRAFT', 'SUBMITTED', 'APPROVED', 'SCHEDULED', 'IMPLEMENTING', 'COMPLETED', 'CANCELLED'];
 const ALL_TYPES: ChangeType[] = ['NORMAL', 'STANDARD', 'EMERGENCY'];
@@ -269,26 +301,25 @@ export default function ChangeList() {
     search: search || undefined,
     state: selectedState || undefined,
     type: selectedType || undefined,
-    risk: selectedRisk || undefined,
-    sortBy: sortField,
-    sortDir,
+    riskLevel: selectedRisk || undefined,
+    sortBy: SORT_FIELD_TO_API[sortField],
+    sortOrder: sortDir,
   });
 
   // The window and the hero counts describe the whole schedule, not the current
   // filter — a forward window that moved every time someone typed in the search
   // box would answer nobody's question.
-  const { data: scheduleData } = useChanges({
-    limit: 250,
-    sortBy: 'plannedStartDate',
-    sortDir: 'asc',
-  });
+  const { data: scheduleData, isError: scheduleFailed } = useChangeSchedule();
 
-  const changes: Change[] = data?.data || [];
+  const changes: Change[] = useMemo(() => (data?.data || []).map(asChange), [data]);
   const pagination = data?.pagination;
   const totalItems = pagination?.total ?? changes.length;
   const totalPages = pagination?.pages ?? Math.max(1, Math.ceil(totalItems / pageSize));
 
-  const schedule: Change[] = useMemo(() => scheduleData?.data || [], [scheduleData]);
+  const schedule: Change[] = useMemo(
+    () => (scheduleData?.items || []).map(asChange),
+    [scheduleData]
+  );
 
   const upcoming = useMemo(() => {
     const from = startOfDay(new Date());
@@ -344,12 +375,17 @@ export default function ChangeList() {
       : <ChevronDown size={12} className="text-signal" />;
   };
 
+  // These five describe the whole register, so they are only as good as the
+  // schedule census. If that request failed, say so rather than report zero
+  // emergency changes to someone deciding whether to go home.
+  const n = (value: number) => (scheduleFailed ? '—' : value);
+
   const kpis = [
-    { label: 'Open', value: stats.live, sub: 'not yet run' },
-    { label: 'Awaiting approval', value: stats.awaiting, sub: 'needs a CAB decision', tone: stats.awaiting > 0 ? 'warn' : undefined },
-    { label: 'Lands this week', value: stats.thisWeek, sub: 'next 7 days' },
-    { label: 'Implementing', value: stats.implementing, sub: 'running now' },
-    { label: 'Emergency', value: stats.emergency, sub: 'bypassed the calendar', tone: stats.emergency > 0 ? 'danger' : undefined },
+    { label: 'Open', value: n(stats.live), sub: scheduleFailed ? 'schedule unavailable' : 'not yet run' },
+    { label: 'Awaiting approval', value: n(stats.awaiting), sub: 'needs a CAB decision', tone: !scheduleFailed && stats.awaiting > 0 ? 'warn' : undefined },
+    { label: 'Lands this week', value: n(stats.thisWeek), sub: 'next 7 days' },
+    { label: 'Implementing', value: n(stats.implementing), sub: 'running now' },
+    { label: 'Emergency', value: n(stats.emergency), sub: 'bypassed the calendar', tone: !scheduleFailed && stats.emergency > 0 ? 'danger' : undefined },
   ];
 
   return (

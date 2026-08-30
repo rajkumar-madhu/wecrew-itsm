@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
+import { fetchAllPages } from '../lib/pagination';
 
 export function useAssets(filters: Record<string, any> = {}) {
   return useQuery({
@@ -61,6 +62,23 @@ export function useAssetStats() {
   return useQuery({
     queryKey: ['assets', 'stats'],
     queryFn: async () => { const { data } = await api.get('/assets/stats'); return data; },
+    staleTime: 60000,
+  });
+}
+
+/**
+ * Every configuration item in the tenant, walked a page at a time.
+ *
+ * The estate map draws one selectable square per CI, so `/assets/stats` — which
+ * returns counts, not records — cannot stand in for this. The previous single
+ * request asked for `limit: 500`, which the API rejects outright (limit is
+ * capped at 100), leaving the map and every hero KPI reading zero next to a
+ * populated inventory table.
+ */
+export function useAssetCensus<T = unknown>() {
+  return useQuery({
+    queryKey: ['assets', 'census'],
+    queryFn: () => fetchAllPages<T>('/assets'),
     staleTime: 60000,
   });
 }

@@ -16,7 +16,7 @@ import {
   EyeOff,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { useAssets } from '../../hooks/useAssets';
+import { useAssets, useAssetCensus } from '../../hooks/useAssets';
 import { useAuthStore } from '../../stores/authStore';
 import { Page, Toolbar } from '../ui/PageChrome';
 
@@ -42,7 +42,7 @@ interface Asset {
   status: AssetStatus;
   ipAddress: string;
   location: string;
-  datacenter: string;
+  dataCenter: string;
   monitoringEnabled: boolean;
   description: string;
 }
@@ -114,10 +114,12 @@ function StatusBadge({ status }: { status: AssetStatus }) {
 function EstateMap({
   assets,
   loading,
+  failed,
   onSelect,
 }: {
   assets: Asset[];
   loading?: boolean;
+  failed?: boolean;
   onSelect: (id: string) => void;
 }) {
   const bands = useMemo(() => {
@@ -154,6 +156,21 @@ function EstateMap({
             <span className="cx-estate__count">—</span>
           </div>
         ))}
+      </div>
+    );
+  }
+
+  if (failed) {
+    return (
+      <div className="cx-estate">
+        <div className="cx-estate__head">
+          <span className="cx-listhead__count">
+            <span className="cx-listhead__count-value">The estate could not be read</span>
+            <span className="cx-listhead__count-meta">
+              an empty map here would claim the CMDB is empty — it is not saying that
+            </span>
+          </span>
+        </div>
       </div>
     );
   }
@@ -275,26 +292,37 @@ export default function AssetList() {
 
   // The estate map is a census of everything, not of the current filter — a map
   // that shrinks as you search stops being a map.
-  const { data: estateResponse, isLoading: estateLoading } = useAssets({ limit: 500 });
+  const {
+    data: estateResponse,
+    isLoading: estateLoading,
+    isError: estateFailed,
+  } = useAssetCensus<Asset>();
 
   const assets: Asset[] = assetsResponse?.data ?? [];
   const totalCount = assetsResponse?.pagination?.total ?? assets.length;
-  const estate: Asset[] = useMemo(() => estateResponse?.data ?? [], [estateResponse]);
+  const estate: Asset[] = useMemo(() => estateResponse?.items ?? [], [estateResponse]);
 
   const stats = useMemo(() => {
     const live = estate.filter((a) => a.status === 'LIVE').length;
     const maintenance = estate.filter((a) => a.status === 'MAINTENANCE').length;
     const blind = estate.filter((a) => !a.monitoringEnabled).length;
-    const sites = new Set(estate.map((a) => a.datacenter).filter(Boolean)).size;
-    return { total: estate.length, live, maintenance, blind, sites };
-  }, [estate]);
+    const sites = new Set(estate.map((a) => a.dataCenter).filter(Boolean)).size;
+    // `total` is the server's count of the whole collection, so the headline
+    // stays honest even if the walk was capped part-way through.
+    return { total: estateResponse?.total ?? estate.length, live, maintenance, blind, sites };
+  }, [estate, estateResponse]);
+
+  // A failed census must not render as a row of zeros: "0 unmonitored items" is
+  // a reassuring statement of fact, and it would be a lie about a request that
+  // never landed.
+  const n = (value: number) => (estateFailed ? '—' : value);
 
   const kpis = [
-    { label: 'Items', value: stats.total, sub: 'under management' },
-    { label: 'Live', value: stats.live, sub: 'serving traffic' },
-    { label: 'Maintenance', value: stats.maintenance, sub: 'alerts suppressed', tone: stats.maintenance > 0 ? 'warn' : undefined },
-    { label: 'Unmonitored', value: stats.blind, sub: 'raise no alerts', tone: stats.blind > 0 ? 'danger' : undefined },
-    { label: 'Datacenters', value: stats.sites, sub: 'distinct sites' },
+    { label: 'Items', value: n(stats.total), sub: estateFailed ? 'census unavailable' : 'under management' },
+    { label: 'Live', value: n(stats.live), sub: 'serving traffic' },
+    { label: 'Maintenance', value: n(stats.maintenance), sub: 'alerts suppressed', tone: !estateFailed && stats.maintenance > 0 ? 'warn' : undefined },
+    { label: 'Unmonitored', value: n(stats.blind), sub: 'raise no alerts', tone: !estateFailed && stats.blind > 0 ? 'danger' : undefined },
+    { label: 'Datacenters', value: n(stats.sites), sub: 'distinct sites' },
   ];
 
   return (
@@ -354,7 +382,12 @@ export default function AssetList() {
         </div>
       </div>
 
-      <EstateMap assets={estate} loading={estateLoading} onSelect={(id) => navigate(`/assets/${id}`)} />
+      <EstateMap
+        assets={estate}
+        loading={estateLoading}
+        failed={estateFailed}
+        onSelect={(id) => navigate(`/assets/${id}`)}
+      />
 
       {/* ── Inventory ── */}
       <div className="cx-sectionhead">
@@ -488,7 +521,7 @@ export default function AssetList() {
                       <td className="font-mono text-[12px] text-muted whitespace-nowrap">{asset.ipAddress || '—'}</td>
                       <td className="whitespace-nowrap text-[12px] text-muted">
                         {asset.location || '—'}
-                        {asset.datacenter && <span className="block text-[11px] text-dim">{asset.datacenter}</span>}
+                        {asset.dataCenter && <span className="block text-[11px] text-dim">{asset.dataCenter}</span>}
                       </td>
                       <td className="whitespace-nowrap">
                         {asset.monitoringEnabled ? (

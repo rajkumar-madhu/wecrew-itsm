@@ -25,12 +25,14 @@ export function useRealtime() {
     });
 
     // Change events
+    // Keyed on the whole 'changes' prefix, not just 'list', so the forward
+    // window's schedule census refreshes with the register it sits above.
     s.on('change:created', () => {
-      queryClient.invalidateQueries({ queryKey: ['changes', 'list'] });
+      queryClient.invalidateQueries({ queryKey: ['changes'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     });
     s.on('change:updated', (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ['changes', 'list'] });
+      queryClient.invalidateQueries({ queryKey: ['changes'] });
       queryClient.invalidateQueries({ queryKey: ['changes', 'detail', data?.id] });
     });
 

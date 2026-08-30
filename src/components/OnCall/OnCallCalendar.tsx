@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import api from '../../lib/api';
-import { useCreateOnCallSchedule } from '../../hooks/useOnCall';
+import { useCreateOnCallSchedule, useOnCallRota } from '../../hooks/useOnCall';
 import { Page, Toolbar } from '../ui/PageChrome';
 
 interface OnCallUser { id: string; firstName: string; lastName: string; phone?: string; email?: string; }
@@ -74,13 +74,10 @@ export default function OnCallCalendar() {
   });
   const members: TeamMember[] = teamDetailResp?.data?.members || [];
 
-  const { data: historyResp, isLoading } = useQuery({
-    queryKey: ['oncall-cal-history', teamId],
-    queryFn: async () => { const { data } = await api.get(`/teams/${teamId}/on-call/history?limit=500&page=1`); return data; },
-    enabled: !!teamId,
-    staleTime: 30000,
-  });
-  const schedules: Schedule[] = historyResp?.data?.schedules || [];
+  // `limit=500` was refused outright — the API caps limit at 100 — so the grid
+  // stayed empty for every team. The rota is walked a page at a time instead.
+  const { data: rotaResp, isLoading } = useOnCallRota<Schedule>(teamId);
+  const schedules: Schedule[] = rotaResp?.items || [];
 
   const cells = useMemo(() => {
     const firstDow = new Date(year, month, 1).getDay();

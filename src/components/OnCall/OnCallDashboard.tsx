@@ -18,6 +18,7 @@ import {
   useOnCallSchedules,
   useEscalationPolicies,
   useOnCallHistory,
+  useOnCallRota,
 } from '../../hooks/useOnCall';
 import { Page, Panel, Toolbar } from '../ui/PageChrome';
 
@@ -213,6 +214,12 @@ export default function OnCallDashboard() {
   const { data: schedulesData } = useOnCallSchedules(activeTeamId);
   const { data: escalationData } = useEscalationPolicies(activeTeamId);
   const { data: historyData } = useOnCallHistory(activeTeamId);
+  // The ribbon paints a whole week, so it needs the team's rota — not the
+  // overview, which only ever returns the shifts running at this instant.
+  const { data: rotaData, isError: rotaFailed } = useOnCallRota<{
+    startTime: string;
+    endTime: string;
+  }>(activeTeamId);
 
   const overview = overviewData?.data;
   const schedules: any[] = schedulesData?.data || [];
@@ -220,7 +227,7 @@ export default function OnCallDashboard() {
   const recentIncidents: any[] = historyData?.data?.recentIncidents || [];
 
   const stats = overview?.stats || { activeResponders: 0, teamsCovered: 0, openCritical: 0, totalSchedules: 0 };
-  const allOnCall: any[] = overview?.schedules || [];
+  const rota = useMemo(() => rotaData?.items ?? [], [rotaData]);
 
   const primarySchedules = schedules.filter((s: any) => s.isPrimary);
   const secondarySchedules = schedules.filter((s: any) => !s.isPrimary);
@@ -250,7 +257,7 @@ export default function OnCallDashboard() {
 
   const coverageMatrix = useMemo(() => {
     const matrix: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
-    for (const sched of allOnCall) {
+    for (const sched of rota) {
       const start = new Date(sched.startTime);
       const end = new Date(sched.endTime);
       for (let d = 0; d < 7; d++) {
@@ -262,9 +269,13 @@ export default function OnCallDashboard() {
       }
     }
     return matrix;
-  }, [allOnCall, weekDates]);
+  }, [rota, weekDates]);
 
   const uncoveredHours = useMemo(() => coverageMatrix.flat().filter((n) => n === 0).length, [coverageMatrix]);
+
+  // With no team selected there is no rota to read, so 168/168 uncovered would
+  // be an artefact of the empty selection rather than a gap in the schedule.
+  const rotaUnavailable = rotaFailed || !activeTeamId;
 
   const isLoadingAny = teamsLoading || overviewLoading;
 
@@ -272,10 +283,13 @@ export default function OnCallDashboard() {
     { label: 'On duty', value: stats.activeResponders, sub: 'holding a pager now' },
     { label: 'Teams covered', value: stats.teamsCovered, sub: `of ${teams.length || '—'} teams` },
     {
+      // Scoped to the selected team, like the rota panels below it. The ribbon
+      // is drawn from that team's shifts, so a figure claiming to cover the
+      // whole organisation would not match the grid underneath it.
       label: 'Uncovered hours',
-      value: uncoveredHours,
-      sub: 'this week',
-      tone: uncoveredHours > 0 ? 'danger' : undefined,
+      value: rotaUnavailable ? '—' : uncoveredHours,
+      sub: rotaUnavailable ? 'rota unavailable' : 'this week, selected team',
+      tone: !rotaUnavailable && uncoveredHours > 0 ? 'danger' : undefined,
     },
     {
       label: 'Open P1/P2',
@@ -337,7 +351,7 @@ export default function OnCallDashboard() {
         <div>
           <h2 className="cx-sectionhead__title">Coverage</h2>
           <p className="cx-sectionhead__deck">
-            Every hour of the week across all teams. Coral means nobody is on call for that hour.
+            Every hour of the week for the selected team. Coral means nobody is on call for that hour.
           </p>
         </div>
       </div>
