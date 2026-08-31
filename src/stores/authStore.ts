@@ -60,8 +60,22 @@ export const useAuthStore = create<AuthState>()(
           if (!res.ok) {
             const detail = payload?.details?.[0];
             let msg = payload?.error || detail?.msg || 'Login failed';
-            if (detail?.path === 'email' || /invalid value/i.test(msg) || msg === 'Validation failed') {
-              msg = 'Enter a valid email address (e.g. support@wecrew.in)';
+            if (res.status === 423) {
+              // The API answers a locked account with a bare "Account locked.
+              // Try again later." and no retry-after, so the wait is invisible
+              // and the correct password appears to have stopped working (the
+              // lock is checked before the password compare). Spell the policy
+              // out: 5 failed attempts -> a 15-minute lock, from
+              // MAX_LOGIN_ATTEMPTS / LOCK_DURATION in the backend's
+              // auth.controller.js. Prefer a real lockedUntil if the API ever
+              // starts sending one rather than hardcoding the wait forever.
+              const until = Date.parse(payload?.details?.lockedUntil ?? '');
+              const mins = Number.isNaN(until)
+                ? 15
+                : Math.max(1, Math.ceil((until - Date.now()) / 60000));
+              msg = `Too many failed sign-in attempts — this account is locked for up to ${mins} more minute${mins === 1 ? '' : 's'}. It unlocks by itself; the next successful sign-in clears it.`;
+            } else if (detail?.path === 'email' || /invalid value/i.test(msg) || msg === 'Validation failed') {
+              msg = 'Enter a valid email address (e.g. info@wecrew.in)';
             } else if (msg === 'Invalid credentials') {
               msg = 'Invalid email or password. Use your full email, not a username.';
             }

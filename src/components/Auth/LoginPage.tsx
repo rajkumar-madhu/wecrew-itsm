@@ -34,7 +34,7 @@ export default function LoginPage() {
       return;
     }
     if (!cleanEmail.includes('@')) {
-      setError('Use your full email address (for example support@wecrew.in)');
+      setError('Use your full email address (for example info@wecrew.in)');
       setShake(true);
       setTimeout(() => setShake(false), 400);
       return;
