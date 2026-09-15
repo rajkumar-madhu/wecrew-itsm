@@ -35,7 +35,19 @@ npm run preview    # serve dist/
 node --experimental-strip-types --test src/features/tickets/model.test.mjs
 # lint only what you touched
 npx eslint src/features/tickets
+
+# browser e2e (Playwright) — @playwright/test is NOT in package.json; install it first
+npm i -D @playwright/test && npx playwright test                 # all specs in e2e/
+npx playwright test e2e/demo.spec.ts                               # one spec
+E2E_EMAIL=… E2E_PASSWORD=… npx playwright test e2e/command-centre.spec.ts
+E2E_BASE_URL=https://itsm.wecrew.in npx playwright test e2e/public.spec.ts   # against live
 ```
+
+**E2E**: `playwright.config.ts` auto-starts `npm run dev` on `127.0.0.1:5174` only when `E2E_BASE_URL`
+is local, runs one worker, and uses the installed **Chrome** channel (`E2E_CHANNEL` to override).
+Authenticated specs `test.skip` without `E2E_EMAIL`/`E2E_PASSWORD` and need a real backend.
+`e2e/helpers.ts` asserts computed colours (`expectInkRail`, `expectPaperShell`, `isCoral`) — these specs
+are the regression guard for the brand palette, so a palette change must update them deliberately.
 
 **Tests** are plain `node:test` `.mjs` files next to the module, importing `.ts` directly via
 `--experimental-strip-types` (Node ≥ 22.6). Consequences: the `test` script lists files explicitly, so
@@ -43,7 +55,10 @@ npx eslint src/features/tickets
 no `@/` alias, no CSS imports, only erasable TS syntax (no `enum`/parameter properties). That's why the
 testable logic lives in `model.ts` / `*Store.ts` files separate from the components.
 
-Verification = `typecheck` + `test` + `build`, and no *new* lint errors in touched files.
+Verification = `typecheck` + `test` + `build`, and no *new* lint errors in touched files; add the relevant
+e2e spec for anything that changes routing, the shell, or colours.
+`python3 plugins/wecrew-saas-builder/scripts/wecrew-check.py --verify` (a repo-local Codex plugin, also
+listed in `.agents/plugins/marketplace.json`) wraps the inventory + typecheck/test step.
 
 ## Code layout: two generations
 
@@ -59,6 +74,12 @@ Verification = `typecheck` + `test` + `build`, and no *new* lint errors in touch
 `src/components/Layout/Layout.tsx` is shared by both, but its header is
 `features/workspace/WorkspaceHeader` (the old `Layout/Header.tsx` is unused) and the sidebar renders
 `workspaceNavigation` from `features/workspace/navigation.ts`.
+
+**Two dashboards — don't merge them.** Authenticated `/dashboard` is the **Command Centre**
+(`components/Dashboard/DashboardOverview.tsx`, `cx-hero`/`cx-signals`/quick-actions rail — the reference
+implementation of the Sovereign look). `/demo/dashboard` and `/dashboard/operations` render the
+`features/workspace/Dashboard` overview instead; `e2e/demo.spec.ts` asserts the demo is **not** Command
+Centre.
 
 ## Architecture
 
@@ -163,13 +184,28 @@ extend it.
 
 ## Styling — read before writing any className
 
-**Current look:** white paper, navy ink (`#172638`), teal accent (`#087f8c`), IBM Plex Sans everywhere,
-JetBrains Mono for micro-labels. This is applied by **`src/features/workspace/workspace.css`** (imported
-globally in `main.tsx` right after `index.css`), which **overrides the brand primitives** declared in
-`index.css` (`--brand-paper/ink/coral/blue/green`, which still hold the older Sovereign warm-paper/coral
-values) and forces `.font-display` to Plex. Both `--brand-coral` and `--brand-blue` now resolve to teal.
-When changing a colour, check `workspace.css` first — an edit to `index.css`'s `:root` alone may be
-overridden. The feature CSS files are minified single-line rules.
+**Current look (since the 2026-09-15 Command Centre release): the Sovereign brand** — warm paper
+workspace, **ink** nav rail and hero, **coral** accent, blue primary. The primitives live at the top of
+`:root` in `src/index.css` and everything derives from them:
+
+| Token | Light | Role |
+| --- | --- | --- |
+| `--brand-paper` | `#f4f1ea` | page background (`--argus-void`) |
+| `--brand-ink` | `#0e1116` | text, nav rail (`--argus-nav-bg`), hero panel |
+| `--brand-coral` | `#ff5b2e` | accent — primary buttons (`ax-button--primary`), active nav, eyebrows |
+| `--brand-blue` | `#2b4cff` | `--argus-signal`, links/charts |
+| `--brand-green` | `#0f7a55` | success/healthy |
+
+**`index.css` is the single source of tokens.** `src/features/workspace/workspace.css` (imported globally
+in `main.tsx` after `index.css`) holds only `ax-*` rules and must **not** remap `:root` — an earlier
+navy/teal "Argus" override there kept the rail light and every dashboard teal, and was removed. Design
+records in `docs/argus/IMPLEMENTATION.md` and `docs/wecrew/WHITE-THEME.md` describe that superseded
+palette; don't restore it from those docs.
+
+Type: IBM Plex Sans for body **and** headings (`font-display` maps to Plex in `tailwind.config.js`, and
+`workspace.css` forces it), JetBrains Mono for uppercase micro-labels. Fraunces is still loaded and used
+only by a few hand-written rules (NOC, login, public CSS). The feature CSS files are minified single-line
+rules.
 
 Three class vocabularies coexist:
 
@@ -187,7 +223,7 @@ Three class vocabularies coexist:
 `bg-obsidian`, `text-ink`, `text-muted`, `text-dim`, `border-steel`, `text-signal`, `bg-crimson-dim`, ….
 
 **Cascade trap:** the shim forces `h1`–`h4` and `.text-white` to ink. Genuinely dark surfaces
-(`.cx-hero`, `.cx-noc`, `.cx-inspector`) opt back out at the end of `index.css`; the `.text-white` rule
+(`aside.ax-sidebar`, `.cx-hero`, `.cx-noc`, `.cx-inspector`) opt back out at the end of `index.css`; the `.text-white` rule
 carries four `:not()` clauses, so an override must match its specificity — a plain
 `.my-class { color: #fff }` silently loses.
 
@@ -213,8 +249,15 @@ purpose so WS goes through the Vite proxy. `VITE_*` values are public — never 
 
 Multi-stage `Dockerfile` (node:20-alpine build → nginx:alpine) serving `dist/` with `nginx.conf`. Live at
 `https://itsm.wecrew.in` on the `kind-wecrew` cluster, deployment `linkedeye-core/linkedeye-frontend`,
-image `harbor.wecrew.in/linkedeye/argus-itsm-frontend:<timestamp>-<label>`; see
-`docs/wecrew/DEPLOYMENT.md` for the release/rollback procedure and latest image.
+container `frontend`, image `harbor.wecrew.in/linkedeye/argus-itsm-frontend:<YYYYMMDD-HHMMSS>-<label>`.
+
+Each release is recorded as a doc in `docs/wecrew/` (latest image, digest, previous image, verification,
+rollback command); `docs/wecrew/DEPLOYMENT.md` links the newest one at its top (currently
+`COMMAND-CENTRE-DEPLOYMENT.md`). The established flow is: tests + Docker build from the working tree →
+`docker push` to Harbor → also `kind load docker-image --name wecrew` (Harbor has been unstable) →
+`kubectl --context kind-wecrew -n linkedeye-core set image deployment/linkedeye-frontend frontend=<image>`
+→ `rollout status` → smoke `/`, `/login`, `/demo/dashboard`, `/assets`, `/health`. Rollback is the same
+`set image` with the previous tag. Only the frontend image changes; add a new release doc when you ship.
 
 The nginx `/assets` block is load-bearing: the SPA has CMDB routes at `/assets`, `/assets/create`,
 `/assets/:id` **and** Vite emits `/assets/<hash>.js`. A regex location matches real bundle extensions
