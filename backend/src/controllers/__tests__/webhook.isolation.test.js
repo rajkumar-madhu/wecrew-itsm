@@ -7,7 +7,7 @@ const crypto = require('crypto');
 
 const mockPrisma = {
   organization: { findUnique: jest.fn(), findFirst: jest.fn() },
-  alert: { findUnique: jest.fn(), findFirst: jest.fn(), update: jest.fn(), updateMany: jest.fn(), create: jest.fn() },
+  alert: { findFirst: jest.fn(), update: jest.fn(), updateMany: jest.fn(), create: jest.fn() },
   incident: { updateMany: jest.fn() },
   slackIntegration: { findFirst: jest.fn() },
   user: { findFirst: jest.fn() },
@@ -45,12 +45,13 @@ describe('alertmanager webhook', () => {
     const r = res();
     await ctrl.alertmanagerWebhook({ headers: {}, query: { orgId: 'victim' }, body, socket: {} }, r, next);
     expect(r.status).toHaveBeenCalledWith(401);
-    expect(mockPrisma.alert.findUnique).not.toHaveBeenCalled();
+    expect(mockPrisma.alert.findFirst).not.toHaveBeenCalled();
   });
 
   it('does not let a token holder resolve another org\'s alert', async () => {
     mockPrisma.organization.findUnique.mockResolvedValue({ id: 'acme', isActive: true });
-    mockPrisma.alert.findUnique.mockResolvedValue({ id: 'a1', organizationId: 'victim', name: 'CPU' });
+    // A stale row from before the lookup was scoped: the handler must still skip it.
+    mockPrisma.alert.findFirst.mockResolvedValue({ id: 'a1', organizationId: 'victim', name: 'CPU' });
     const r = res();
     await ctrl.alertmanagerWebhook({ headers: {}, query: { token: 'whk_acme' }, body, socket: {} }, r, next);
     expect(mockPrisma.alert.update).not.toHaveBeenCalled();

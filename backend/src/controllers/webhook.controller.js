@@ -158,7 +158,10 @@ async function alertmanagerWebhook(req, res, next) {
     const results = [];
     for (const a of incoming) {
       const alertId = a.labels?.alertname + ':' + (a.labels?.instance || a.fingerprint || Date.now());
-      const existing = await prisma.alert.findUnique({ where: { alertId } });
+      // alertId is unique per organization, never on its own.
+      const existing = await prisma.alert.findFirst({
+        where: { alertId, ...(auth.orgId ? { organizationId: auth.orgId } : {}) },
+      });
 
       // A token-authenticated sender may only touch its own org's alerts.
       if (existing && auth.orgId && existing.organizationId !== auth.orgId) {
