@@ -1,3 +1,4 @@
+import type React from 'react';
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { clsx } from 'clsx';
@@ -12,20 +13,18 @@ import {
   PhoneOutgoing,
   Bot,
   Search,
-  Filter,
   Loader2,
+  ChevronLeft,
+  ChevronRight,
   Play,
   Square,
   Volume2,
   Languages,
-  Heart,
-  Clock,
   User,
   ExternalLink,
   Send,
   Wifi,
   WifiOff,
-  MessageSquare,
 } from 'lucide-react';
 import {
   useVoiceCallLogs,
@@ -38,6 +37,7 @@ import {
 } from '../../hooks/useVoice';
 import { useSocket } from '../../lib/socket';
 import type { VoiceCallLog, VoiceHandler } from '../../types';
+import { Page, Toolbar, Panel, Segmented, GhostButton, PrimaryButton, EnterpriseHero, EnterprisePosture } from '../ui/PageChrome';
 
 // ── AI Voice Agent Chat ──
 
@@ -232,16 +232,16 @@ function AIAgentTab() {
   }, [textInput, addMsg]);
 
   return (
-    <div className="glass-card border-violet-100 overflow-hidden animate-fade-in" style={{ height: 'calc(100vh - 400px)', minHeight: '500px' }}>
+    <div className="overflow-hidden bg-[color:var(--argus-surface)]" style={{ height: 'calc(100vh - 400px)', minHeight: '500px' }}>
       {/* Header */}
-      <div className="px-5 py-3 border-b border-stone-200 bg-stone-50/50 flex items-center justify-between">
+      <div className="px-5 py-3 border-b border-steel bg-[color:var(--argus-elevated)] flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center">
-            <Bot className="w-4 h-4 text-violet" />
+          <div className="w-7 h-7 rounded-lg bg-signal-dim flex items-center justify-center">
+            <Bot className="w-4 h-4 text-signal" />
           </div>
           <div>
-            <h3 className="text-sm font-display font-bold text-stone-900">Santhira AI Agent</h3>
-            <p className="text-[10px] text-stone-400">GPT-4.1 &middot; Real-time voice &middot; ITSM tools</p>
+            <h3 className="text-sm font-display font-bold text-ink">Santhira AI Agent</h3>
+            <p className="text-[10px] text-dim">GPT-4.1 &middot; Real-time voice &middot; ITSM tools</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -249,7 +249,7 @@ function AIAgentTab() {
           <select
             value={agentLang}
             onChange={e => { setAgentLang(e.target.value); setMessages([{ id: 'welcome', role: 'assistant', text: "Language changed. Starting new session...", timestamp: new Date() }]); }}
-            className="px-2.5 py-1 rounded-lg border border-stone-200 bg-white text-[11px] font-mono text-stone-700 focus:outline-none focus:border-violet-300"
+            className="filter-select text-[11px]"
           >
             {AGENT_LANGUAGES.map(l => (
               <option key={l.code} value={l.code}>{l.label}</option>
@@ -260,8 +260,8 @@ function AIAgentTab() {
           <div className={clsx(
             'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono border',
             isConnected
-              ? 'border-emerald-200 bg-emerald-50 text-emerald'
-              : 'border-red-200 bg-red-50 text-crimson'
+              ? 'border-steel bg-emerald-dim text-emerald'
+              : 'border-steel bg-crimson-dim text-crimson'
           )}>
             {isConnected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
             {isConnected ? 'Connected' : 'Disconnected'}
@@ -273,17 +273,20 @@ function AIAgentTab() {
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3" style={{ height: 'calc(100% - 140px)' }}>
         {messages.map(msg => (
           <div key={msg.id} className={clsx('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}>
-            <div className={clsx(
-              'max-w-[75%] rounded-xl px-4 py-2.5 text-sm leading-relaxed',
-              msg.role === 'user'
-                ? 'bg-signal text-white rounded-br-sm'
-                : msg.role === 'system'
-                ? 'bg-red-50 text-crimson border border-red-200 rounded-bl-sm'
-                : 'bg-stone-100 text-stone-800 border border-stone-200 rounded-bl-sm'
-            )}>
+            <div
+              className={clsx(
+                'max-w-[75%] rounded-xl px-4 py-2.5 text-sm leading-relaxed',
+                msg.role === 'user'
+                  ? 'rounded-br-sm'
+                  : msg.role === 'system'
+                  ? 'bg-crimson-dim text-crimson rounded-bl-sm'
+                  : 'bg-[color:var(--argus-elevated)] text-ink border border-steel rounded-bl-sm'
+              )}
+              style={msg.role === 'user' ? { background: 'var(--argus-signal)', color: 'var(--brand-paper)' } : undefined}
+            >
               <div className={clsx(
                 'text-[10px] font-mono font-medium uppercase tracking-wider mb-1',
-                msg.role === 'user' ? 'text-ink/60' : msg.role === 'system' ? 'text-crimson/60' : 'text-stone-400'
+                msg.role === 'user' ? 'opacity-70' : msg.role === 'system' ? 'text-crimson' : 'text-dim'
               )}>
                 {msg.role === 'user' ? 'You' : msg.role === 'system' ? 'System' : 'Santhira'}
               </div>
@@ -294,7 +297,7 @@ function AIAgentTab() {
 
         {isProcessing && (
           <div className="flex justify-start">
-            <div className="bg-stone-100 border border-stone-200 rounded-xl rounded-bl-sm px-4 py-2.5 text-sm text-stone-500 flex items-center gap-2">
+            <div className="bg-[color:var(--argus-elevated)] border border-steel rounded-xl rounded-bl-sm px-4 py-2.5 text-sm text-muted flex items-center gap-2">
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
               <span className="italic">{processingText || 'Processing...'}</span>
             </div>
@@ -305,7 +308,7 @@ function AIAgentTab() {
       </div>
 
       {/* Input Area */}
-      <div className="border-t border-stone-200 bg-stone-50/50 px-5 py-3 flex items-center gap-3">
+      <div className="border-t border-steel bg-[color:var(--argus-elevated)] px-5 py-3 flex items-center gap-3">
         {/* Text Input */}
         <div className="flex-1 relative">
           <input
@@ -315,7 +318,7 @@ function AIAgentTab() {
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendText(); } }}
             placeholder="Type a message or use the mic..."
             disabled={!isConnected || isRecording}
-            className="w-full px-4 py-2.5 bg-white border border-stone-200 rounded-xl text-sm text-stone-900 placeholder-stone-400 focus:outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-100 disabled:opacity-50 transition-all"
+            className="input-field disabled:opacity-50"
           />
         </div>
 
@@ -323,7 +326,8 @@ function AIAgentTab() {
         <button
           onClick={handleSendText}
           disabled={!isConnected || !textInput.trim() || isRecording}
-          className="w-10 h-10 rounded-xl bg-signal text-white flex items-center justify-center hover:bg-[#4338CA] disabled:opacity-30 transition-all"
+          className="w-10 h-10 rounded-xl bg-signal flex items-center justify-center disabled:opacity-30 transition-all"
+          style={{ color: 'var(--brand-paper)' }}
         >
           <Send className="w-4 h-4" />
         </button>
@@ -335,9 +339,10 @@ function AIAgentTab() {
           className={clsx(
             'w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300',
             isRecording
-              ? 'bg-crimson text-white animate-pulse shadow-lg shadow-red-200'
-              : 'bg-violet text-white hover:bg-[#6D28D9] shadow-lg shadow-violet-200'
+              ? 'bg-coral animate-pulse'
+              : 'bg-signal hover:opacity-90'
           )}
+          style={{ color: 'var(--brand-paper)' }}
           title={isRecording ? 'Stop recording' : 'Start recording'}
         >
           {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
@@ -349,43 +354,11 @@ function AIAgentTab() {
 
 // ── Subcomponents ──
 
-function StatsCard({
-  icon: Icon,
-  label,
-  value,
-  color,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: string | number;
-  color: string;
-}) {
-  const c: Record<string, { border: string; icon: string; bg: string }> = {
-    signal: { border: 'border-[color:var(--argus-signal)]/25', icon: 'text-signal', bg: 'bg-[color:var(--argus-signal-dim)]' },
-    crimson: { border: 'border-red-200', icon: 'text-crimson', bg: 'bg-red-50' },
-    amber: { border: 'border-amber-200', icon: 'text-amber', bg: 'bg-amber-50' },
-    emerald: { border: 'border-emerald-200', icon: 'text-emerald', bg: 'bg-emerald-50' },
-    violet: { border: 'border-violet-200', icon: 'text-violet', bg: 'bg-violet-50' },
-  };
-  const s = c[color] || c.signal;
-  return (
-    <div className={clsx('glass-card p-4 transition-all duration-300', s.border)}>
-      <div className="flex items-start justify-between mb-2">
-        <div className={clsx('p-2 rounded-xl', s.bg)}>
-          <Icon className={clsx('w-4 h-4', s.icon)} />
-        </div>
-      </div>
-      <p className="text-2xl font-display font-bold text-stone-900 tracking-tight">{value}</p>
-      <p className="text-xs text-stone-400 mt-0.5">{label}</p>
-    </div>
-  );
-}
-
 function HandlerBadge({ handler }: { handler: VoiceHandler }) {
-  const cls: Record<VoiceHandler, string> = {
-    AI_BOT: 'bg-violet-50 text-violet border-violet-200',
-    HUMAN: 'bg-[color:var(--argus-signal-dim)] text-signal border-[color:var(--argus-signal)]/25',
-    IVR: 'bg-amber-50 text-amber border-amber-200',
+  const tone: Record<VoiceHandler, 'alert' | 'ok' | 'warn'> = {
+    AI_BOT: 'alert',
+    HUMAN: 'ok',
+    IVR: 'warn',
   };
   const icons: Record<VoiceHandler, React.ComponentType<{ className?: string }>> = {
     AI_BOT: Bot,
@@ -394,7 +367,7 @@ function HandlerBadge({ handler }: { handler: VoiceHandler }) {
   };
   const IconComp = icons[handler];
   return (
-    <span className={clsx('inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono font-medium rounded-md border', cls[handler])}>
+    <span className={clsx('cx-pill inline-flex items-center gap-1', `cx-pill--${tone[handler]}`)}>
       <IconComp className="w-3 h-3" />
       {handler.replace('_', ' ')}
     </span>
@@ -402,18 +375,14 @@ function HandlerBadge({ handler }: { handler: VoiceHandler }) {
 }
 
 function StatusBadge({ status }: { status: string | null }) {
-  if (!status) return <span className="text-[10px] text-stone-300">-</span>;
+  if (!status) return <span className="text-[10px] text-dim">—</span>;
   const s = status.toLowerCase();
-  const cls =
-    s === 'completed' ? 'bg-emerald-50 text-emerald border-emerald-200' :
-    s === 'in-progress' || s === 'ringing' ? 'bg-amber-50 text-amber border-amber-200' :
-    s === 'failed' || s === 'busy' || s === 'no-answer' ? 'bg-red-50 text-crimson border-red-200' :
-    'bg-stone-100 text-stone-500 border-stone-200';
-  return (
-    <span className={clsx('inline-flex items-center px-2 py-0.5 text-[10px] font-mono font-medium rounded-md border', cls)}>
-      {status}
-    </span>
-  );
+  const tone =
+    s === 'completed' ? 'ok' :
+    s === 'in-progress' || s === 'ringing' ? 'warn' :
+    s === 'failed' || s === 'busy' || s === 'no-answer' ? 'danger' :
+    'neutral';
+  return <span className={clsx('cx-pill', `cx-pill--${tone}`)}>{status}</span>;
 }
 
 function formatDuration(seconds: number | null): string {
@@ -572,132 +541,94 @@ export default function VoiceDashboard() {
     { id: 'call' as const, label: 'Make Call', icon: PhoneCall },
   ];
 
+  const kpis = [
+    { label: 'Calls', value: stats?.total ?? '—', sub: 'on record' },
+    { label: 'Inbound', value: stats?.inbound ?? '—', sub: 'received at the gateway' },
+    { label: 'Outbound', value: stats?.outbound ?? '—', sub: 'initiated from here' },
+    { label: 'AI handled', value: stats?.aiHandled ?? '—', sub: 'bot took the call' },
+    { label: 'Avg duration', value: formatDuration(stats?.averageDurationSeconds ?? 0), sub: 'talk time' },
+  ];
+
   return (
-    <div className="animate-fade-in space-y-0">
-      {/* ── HERO BANNER ── */}
-      <div className="relative rounded-2xl overflow-hidden bg-obsidian text-ink border border-[color:var(--argus-border)] mb-5">
-        <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'radial-gradient(circle, rgba(255,255,255,1) 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
-        <div className="absolute top-0 right-0 w-80 h-80 bg-violet-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4" />
-        <div className="relative px-6 py-5">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="flex items-center gap-2.5 mb-1.5">
-                <div className="w-8 h-8 rounded-lg bg-[color:var(--argus-elevated)] flex items-center justify-center">
-                  <Mic size={16} className="text-violet-400" />
-                </div>
-                <h1 className="font-display text-2xl font-bold text-ink tracking-tight">Voice Gateway</h1>
-              </div>
-              <p className="text-slate-400 text-sm ml-[42px]">
-                Multilingual voice AI &middot; STT + TTS + IVR &middot; <span className="font-mono text-slate-300">{stats?.total ?? 0}</span> total calls
-              </p>
-            </div>
-            <div className={clsx(
-              'flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs',
-              voiceHealth?.healthy
-                ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400'
-                : 'border-red-500/20 bg-red-500/10 text-red-400'
-            )}>
-              <Heart className="w-3.5 h-3.5" />
-              <span className="font-mono">Voice Server: {voiceHealth?.healthy ? 'Online' : 'Offline'}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="h-0.5 bg-gradient-to-r from-transparent via-violet-500/60 to-transparent -mt-5 mb-4" />
+    <Page>
+      <EnterpriseHero
+        plane="respond"
+        domain="communications"
+        title="Voice"
+        deck="Org-scoped STT, TTS and Twilio IVR — evidence on every call. A missed call here is a pager that never rang."
+        meta={
+          <>
+            <span className="text-xs font-mono text-white/70">Voice server</span>
+            <span className={clsx('cx-pill', voiceHealth?.healthy ? 'cx-pill--ok' : 'cx-pill--alert')}>
+              {voiceHealth?.healthy ? 'online' : 'offline'}
+            </span>
+          </>
+        }
+        kpiCols={5}
+        kpis={kpis}
+      />
+      <EnterprisePosture chips={['Org-scoped call logs', 'Evidence on every session', 'Audit export ready']} />
 
-      {/* Stats Bar */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <StatsCard icon={Phone} label="Total Calls" value={stats?.total ?? 0} color="signal" />
-        <StatsCard icon={PhoneIncoming} label="Inbound" value={stats?.inbound ?? 0} color="emerald" />
-        <StatsCard icon={PhoneOutgoing} label="Outbound" value={stats?.outbound ?? 0} color="amber" />
-        <StatsCard icon={Bot} label="AI Handled" value={stats?.aiHandled ?? 0} color="violet" />
-        <StatsCard icon={Clock} label="Avg Duration" value={formatDuration(stats?.averageDurationSeconds ?? 0)} color="signal" />
-      </div>
+      <nav className="cx-crumb" aria-label="Breadcrumb">
+        <Link to="/dashboard">Operations</Link>
+        <span aria-hidden>/</span>
+        <span className="cx-crumb__current">Voice</span>
+      </nav>
 
-      {/* Language Selector */}
-      {languages.length > 0 && (
-        <div className="glass-card p-4 border-stone-200">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 text-stone-500">
-              <Languages className="w-4 h-4" />
-              <span className="text-xs font-medium uppercase tracking-wider">Language</span>
-            </div>
-            <div className="flex gap-2">
-              {languages.map((lang: { code: string; name: string }) => (
-                <button
-                  key={lang.code}
-                  onClick={() => setSelectedLanguage(lang.code)}
-                  className={clsx(
-                    'px-3 py-1.5 rounded-lg text-xs font-mono border transition-all',
-                    selectedLanguage === lang.code
-                      ? 'border-[color:var(--argus-signal)]/25 bg-[color:var(--argus-signal-dim)] text-signal'
-                      : 'border-stone-200 text-stone-400 hover:text-stone-700 hover:border-stone-300'
-                  )}
-                >
-                  {lang.name}
-                </button>
-              ))}
-            </div>
+      <Toolbar>
+        <Segmented
+          options={tabs.map((tab) => ({ value: tab.id, label: tab.label, icon: tab.icon }))}
+          value={activeTab}
+          onChange={(v) => setActiveTab(v as typeof activeTab)}
+        />
+        {languages.length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <Languages size={14} className="text-dim" />
+            {languages.map((lang: { code: string; name: string }) => (
+              <GhostButton
+                key={lang.code}
+                active={selectedLanguage === lang.code}
+                onClick={() => setSelectedLanguage(lang.code)}
+              >
+                {lang.name}
+              </GhostButton>
+            ))}
           </div>
-        </div>
+        )}
+      </Toolbar>
+
+      {activeTab === 'agent' && (
+        <Panel noPad>
+          <AIAgentTab />
+        </Panel>
       )}
 
-      {/* Tab Navigation */}
-      <div className="glass-card p-1 border-stone-200 inline-flex gap-1">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={clsx(
-              'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all',
-              activeTab === tab.id
-                ? 'bg-[color:var(--argus-signal-dim)] text-signal border border-[color:var(--argus-signal)]/25'
-                : 'text-stone-400 hover:text-stone-700 hover:bg-stone-100 border border-transparent'
-            )}
-          >
-            <tab.icon className="w-4 h-4" />
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab Content: AI Agent */}
-      {activeTab === 'agent' && <AIAgentTab />}
-
-      {/* Tab Content: Transcribe */}
       {activeTab === 'transcribe' && (
-        <div className="glass-card p-6 border-indigo-100 space-y-5 animate-fade-in">
-          <h3 className="text-sm font-display font-bold text-stone-900 flex items-center gap-2">
-            <Mic className="w-4 h-4 text-signal" />
-            Speech-to-Text (Whisper STT)
-          </h3>
-
-          <div className="flex flex-col items-center gap-4">
-            {/* Record button */}
+        <Panel title="Speech to text" titleExtra={<span className="text-dim font-mono text-[10px]">Whisper STT</span>}>
+          <div className="flex flex-col items-center gap-4 py-4">
             <button
+              type="button"
               onClick={isRecording ? stopRecording : startRecording}
               disabled={transcribe.isPending}
               className={clsx(
-                'w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300',
+                'w-20 h-20 rounded-full flex items-center justify-center border-2 transition-all duration-300',
                 isRecording
-                  ? 'bg-red-50 border-2 border-crimson animate-pulse'
-                  : 'bg-[color:var(--argus-signal-dim)] border-2 border-[color:var(--argus-signal)]/25 hover:border-signal hover:bg-indigo-100'
+                  ? 'bg-coral-dim border-coral animate-pulse'
+                  : 'bg-signal-dim border-signal'
               )}
             >
               {transcribe.isPending ? (
                 <Loader2 className="w-8 h-8 text-signal animate-spin" />
               ) : isRecording ? (
-                <Square className="w-8 h-8 text-crimson" />
+                <Square className="w-8 h-8 text-coral" />
               ) : (
                 <Mic className="w-8 h-8 text-signal" />
               )}
             </button>
-            <p className="text-xs text-stone-400">
-              {isRecording ? 'Recording... Click to stop' : transcribe.isPending ? 'Transcribing...' : 'Click to record or upload a file'}
+            <p className="text-xs text-muted">
+              {isRecording ? 'Recording — click to stop' : transcribe.isPending ? 'Transcribing…' : 'Click to record or upload a file'}
             </p>
-
-            {/* File upload */}
-            <div className="flex items-center gap-3">
+            <div>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -705,72 +636,46 @@ export default function VoiceDashboard() {
                 onChange={handleFileTranscribe}
                 className="hidden"
               />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={transcribe.isPending}
-                className="btn-ghost px-4 py-2 text-xs disabled:opacity-50"
-              >
-                Upload Audio File
-              </button>
+              <GhostButton onClick={() => fileInputRef.current?.click()}>
+                Upload audio
+              </GhostButton>
             </div>
-
-            {/* Result */}
             {transcriptionResult && (
-              <div className="w-full mt-4 p-4 rounded-lg bg-stone-50 border border-stone-200">
-                <p className="text-xs text-stone-400 mb-1 font-semibold uppercase tracking-wider">Transcription Result</p>
-                <p className="text-sm text-stone-900 leading-relaxed">{transcriptionResult}</p>
+              <div className="w-full mt-2 p-4 border border-steel bg-[color:var(--argus-elevated)]">
+                <p className="text-[10px] text-dim mb-1 font-mono uppercase tracking-widest">Transcription</p>
+                <p className="text-sm text-ink leading-relaxed">{transcriptionResult}</p>
               </div>
             )}
           </div>
-        </div>
+        </Panel>
       )}
 
-      {/* Tab Content: Synthesize */}
       {activeTab === 'synthesize' && (
-        <div className="glass-card p-6 border-indigo-100 space-y-5 animate-fade-in">
-          <h3 className="text-sm font-display font-bold text-stone-900 flex items-center gap-2">
-            <Volume2 className="w-4 h-4 text-signal" />
-            Text-to-Speech (XTTS v2)
-          </h3>
-
+        <Panel title="Text to speech" titleExtra={<span className="text-dim font-mono text-[10px]">XTTS v2</span>}>
           <div className="space-y-4">
             <div>
-              <label className="text-xs text-stone-500 font-medium mb-1 block">Text to Speak</label>
+              <label className="block text-[10px] font-bold text-muted uppercase tracking-widest mb-1.5">Text to speak</label>
               <textarea
                 value={synthesizeText}
                 onChange={(e) => setSynthesizeText(e.target.value)}
-                placeholder="Enter text to convert to speech..."
+                placeholder="Enter text to convert to speech…"
                 rows={4}
                 className="input-field w-full text-sm resize-none"
               />
             </div>
-            <button
-              onClick={handleSynthesize}
-              disabled={synthesize.isPending}
-              className="btn-primary px-6 py-2 text-sm flex items-center gap-2 disabled:opacity-50"
-            >
-              {synthesize.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Play className="w-4 h-4" />
-              )}
-              {synthesize.isPending ? 'Generating...' : 'Speak'}
-            </button>
+            <PrimaryButton onClick={handleSynthesize} disabled={synthesize.isPending}>
+              {synthesize.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+              {synthesize.isPending ? 'Generating…' : 'Speak'}
+            </PrimaryButton>
           </div>
-        </div>
+        </Panel>
       )}
 
-      {/* Tab Content: Make Call */}
       {activeTab === 'call' && (
-        <div className="glass-card p-6 border-indigo-100 space-y-5 animate-fade-in">
-          <h3 className="text-sm font-display font-bold text-stone-900 flex items-center gap-2">
-            <PhoneCall className="w-4 h-4 text-signal" />
-            Outbound Call (Twilio IVR)
-          </h3>
-
+        <Panel title="Outbound call" titleExtra={<span className="text-dim font-mono text-[10px]">Twilio IVR</span>}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="text-xs text-stone-500 font-medium mb-1 block">Phone Number</label>
+              <label className="block text-[10px] font-bold text-muted uppercase tracking-widest mb-1.5">Phone number</label>
               <input
                 type="tel"
                 value={callNumber}
@@ -780,196 +685,168 @@ export default function VoiceDashboard() {
               />
             </div>
             <div className="flex items-end">
-              <button
-                onClick={handleMakeCall}
-                disabled={makeCall.isPending}
-                className="btn-primary px-6 py-2 text-sm flex items-center gap-2 disabled:opacity-50"
-              >
-                {makeCall.isPending ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <PhoneCall className="w-4 h-4" />
-                )}
-                {makeCall.isPending ? 'Calling...' : 'Initiate Call'}
-              </button>
+              <PrimaryButton onClick={handleMakeCall} disabled={makeCall.isPending}>
+                {makeCall.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <PhoneCall className="w-4 h-4" />}
+                {makeCall.isPending ? 'Calling…' : 'Initiate call'}
+              </PrimaryButton>
             </div>
           </div>
-          <p className="text-xs text-stone-300">
-            Calls use Twilio IVR. The recipient will hear an automated greeting and can interact via DTMF or speech.
+          <p className="text-xs text-muted mt-4">
+            The recipient hears an automated greeting and can interact via DTMF or speech.
           </p>
-        </div>
+        </Panel>
       )}
 
-      {/* Tab Content: Call Logs */}
       {activeTab === 'logs' && (
         <>
-          {/* Filter Bar */}
-          <div className="bg-white/90 backdrop-blur-xl rounded-xl border border-stone-200 shadow-sm p-3">
-            <div className="flex flex-wrap items-center gap-2.5">
-              <div className="flex items-center gap-1.5 text-stone-400">
-                <Filter size={13} />
-                <span className="text-[10px] font-semibold uppercase tracking-widest">Filters</span>
-              </div>
-
-              <select
-                value={directionFilter}
-                onChange={(e) => { setDirectionFilter(e.target.value); setPage(1); }}
-                className={`filter-select ${directionFilter !== 'ALL' ? 'filter-select--active' : ''}`}
-              >
-                <option value="ALL">All Directions</option>
-                <option value="INBOUND">Inbound</option>
-                <option value="OUTBOUND">Outbound</option>
-              </select>
-
-              <select
-                value={handlerFilter}
-                onChange={(e) => { setHandlerFilter(e.target.value); setPage(1); }}
-                className={`filter-select ${handlerFilter !== 'ALL' ? 'filter-select--active' : ''}`}
-              >
-                <option value="ALL">All Handlers</option>
-                <option value="AI_BOT">AI Bot</option>
-                <option value="HUMAN">Human</option>
-                <option value="IVR">IVR</option>
-              </select>
-
-              <div className="w-px h-7 bg-stone-200/60 hidden sm:block" />
-
-              <div className="relative flex-1 min-w-[200px]">
-                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-                <input
-                  type="text"
-                  placeholder="Search by caller, transcript, or call SID..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 bg-stone-50/80 border border-stone-200/80 rounded-lg text-sm text-stone-900 placeholder-stone-400 focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 transition-all"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Loading State */}
-          {logsLoading && (
-            <div className="glass-card p-12 text-center">
-              <Loader2 className="w-8 h-8 text-signal mx-auto mb-3 animate-spin" />
-              <p className="text-stone-500 font-medium">Loading call logs...</p>
-            </div>
-          )}
-
-          {/* Call Logs */}
-          {!logsLoading && (
-            <div className="space-y-3">
-              {filteredLogs.length === 0 && (
-                <div className="glass-card p-12 text-center">
-                  <Phone className="w-12 h-12 text-stone-300 mx-auto mb-3" />
-                  <p className="text-stone-500 font-medium">No call logs found</p>
-                  <p className="text-stone-300 text-sm mt-1">Make a call or adjust filters</p>
-                </div>
-              )}
-
-              {filteredLogs.map((call) => (
-                <div
-                  key={call.id}
-                  className="glass-card p-5 transition-all duration-300 hover:scale-[1.005] group border-stone-200 hover:border-[color:var(--argus-signal)]/25"
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="mt-1 flex-shrink-0">
-                      {call.direction === 'INBOUND' ? (
-                        <div className="p-2 rounded-xl bg-emerald-50">
-                          <PhoneIncoming className="w-4 h-4 text-emerald" />
-                        </div>
-                      ) : (
-                        <div className="p-2 rounded-xl bg-amber-50">
-                          <PhoneOutgoing className="w-4 h-4 text-amber" />
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-display font-bold text-stone-900">
-                          {call.callerName || call.callerNumber || 'Unknown'}
-                        </span>
-                        <StatusBadge status={call.status} />
-                        <HandlerBadge handler={call.handler} />
-                      </div>
-
-                      {call.transcript && (
-                        <p className="text-xs text-stone-500 mt-1.5 line-clamp-2 leading-relaxed">
-                          {call.transcript}
-                        </p>
-                      )}
-
-                      <div className="flex items-center gap-3 mt-3 flex-wrap">
-                        {call.callerNumber && (
-                          <span className="text-[11px] text-stone-400 font-mono flex items-center gap-1">
-                            <Phone className="w-3 h-3 text-stone-300" />
-                            {call.callerNumber}
-                          </span>
-                        )}
-                        {call.duration != null && (
-                          <span className="text-[11px] text-stone-400 font-mono flex items-center gap-1">
-                            <Clock className="w-3 h-3 text-stone-300" />
-                            {formatDuration(call.duration)}
-                          </span>
-                        )}
-                        {call.language && (
-                          <span className="text-[11px] text-stone-400 font-mono flex items-center gap-1">
-                            <Languages className="w-3 h-3 text-stone-300" />
-                            {call.language.toUpperCase()}
-                          </span>
-                        )}
-                        <span className="text-[11px] text-stone-400 font-mono">
-                          {new Date(call.createdAt).toLocaleString()}
-                        </span>
-                        {call.callSid && (
-                          <span className="text-[10px] text-stone-300 font-mono">
-                            SID: {call.callSid.substring(0, 16)}...
-                          </span>
-                        )}
-                        {call.linkedIncidentId && (
-                          <Link
-                            to={`/incidents/${call.linkedIncidentId}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="text-[11px] text-signal font-mono flex items-center gap-1 hover:underline"
-                          >
-                            <ExternalLink className="w-3 h-3" />
-                            Incident
-                          </Link>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Pagination */}
-          {pagination && pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between glass-card px-4 py-3 border-stone-200">
-              <span className="text-xs text-stone-400 font-mono">
-                Page {pagination.page} of {pagination.totalPages} ({pagination.total} total)
+          <Toolbar>
+            <div className="cx-listhead__count">
+              <span className="cx-listhead__count-value">
+                {logsLoading ? '—' : `${pagination?.total ?? filteredLogs.length} call${(pagination?.total ?? filteredLogs.length) === 1 ? '' : 's'}`}
               </span>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setPage(Math.max(1, page - 1))}
-                  disabled={!pagination.hasPrev}
-                  className="btn-ghost px-3 py-1.5 text-xs disabled:opacity-30"
-                >
-                  Previous
-                </button>
-                <button
-                  onClick={() => setPage(page + 1)}
-                  disabled={!pagination.hasNext}
-                  className="btn-ghost px-3 py-1.5 text-xs disabled:opacity-30"
-                >
-                  Next
-                </button>
-              </div>
+              {pagination && (
+                <span className="cx-listhead__count-meta">page {pagination.page} of {pagination.totalPages}</span>
+              )}
             </div>
-          )}
+
+            <div className="w-px h-5 bg-[color:var(--argus-border)] hidden sm:block" />
+
+            <select
+              value={directionFilter}
+              onChange={(e) => { setDirectionFilter(e.target.value); setPage(1); }}
+              className={clsx('filter-select', directionFilter !== 'ALL' && 'filter-select--active')}
+            >
+              <option value="ALL">All directions</option>
+              <option value="INBOUND">Inbound</option>
+              <option value="OUTBOUND">Outbound</option>
+            </select>
+
+            <select
+              value={handlerFilter}
+              onChange={(e) => { setHandlerFilter(e.target.value); setPage(1); }}
+              className={clsx('filter-select', handlerFilter !== 'ALL' && 'filter-select--active')}
+            >
+              <option value="ALL">All handlers</option>
+              <option value="AI_BOT">AI Bot</option>
+              <option value="HUMAN">Human</option>
+              <option value="IVR">IVR</option>
+            </select>
+
+            <div className="relative flex-1 min-w-[200px] max-w-md">
+              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-dim" />
+              <input
+                type="text"
+                placeholder="Search caller, transcript, or SID…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="input-field pl-8 py-1.5 text-[13px]"
+              />
+            </div>
+          </Toolbar>
+
+          <div className="cx-table-wrap">
+            <div className="overflow-x-auto">
+              <table className="cx-table">
+                <thead>
+                  <tr>
+                    <th>Dir</th>
+                    <th>Caller</th>
+                    <th>Transcript</th>
+                    <th>Handler</th>
+                    <th>Status</th>
+                    <th>Duration</th>
+                    <th>Incident</th>
+                    <th>Time</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {logsLoading ? (
+                    <tr>
+                      <td colSpan={8} className="py-14 text-center">
+                        <Loader2 size={18} className="mx-auto mb-2 animate-spin text-dim" />
+                        <p className="text-xs text-muted font-mono">Loading call logs…</p>
+                      </td>
+                    </tr>
+                  ) : filteredLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-14 text-center">
+                        <Phone size={22} className="mx-auto mb-2 text-graphite" strokeWidth={1.75} />
+                        <p className="text-sm text-ink font-medium">No call logs found</p>
+                        <p className="text-xs text-muted mt-1">Make a call or adjust the filters.</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredLogs.map((call) => (
+                      <tr key={call.id}>
+                        <td>
+                          {call.direction === 'INBOUND' ? (
+                            <PhoneIncoming size={14} className="text-emerald" />
+                          ) : (
+                            <PhoneOutgoing size={14} className="text-amber" />
+                          )}
+                        </td>
+                        <td>
+                          <div className="font-display text-sm text-ink">{call.callerName || 'Unknown'}</div>
+                          <div className="font-mono text-[11px] text-dim">{call.callerNumber || '—'}</div>
+                        </td>
+                        <td className="text-xs text-muted max-w-[280px] truncate">{call.transcript || '—'}</td>
+                        <td><HandlerBadge handler={call.handler} /></td>
+                        <td><StatusBadge status={call.status} /></td>
+                        <td className="font-mono text-[11px] text-dim">{formatDuration(call.duration)}</td>
+                        <td>
+                          {call.linkedIncidentId ? (
+                            <Link
+                              to={`/incidents/${call.linkedIncidentId}`}
+                              className="text-[11px] text-signal font-mono inline-flex items-center gap-1 hover:underline"
+                            >
+                              <ExternalLink size={12} />
+                              Incident
+                            </Link>
+                          ) : (
+                            <span className="text-[10px] text-dim">—</span>
+                          )}
+                        </td>
+                        <td className="text-[11px] text-dim font-mono whitespace-nowrap">
+                          {new Date(call.createdAt).toLocaleString()}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {pagination && pagination.totalPages > 1 && (
+              <div className="flex items-center justify-between px-3.5 py-2.5 border-t border-[color:var(--argus-border)]">
+                <span className="text-[12px] text-muted">
+                  Page {pagination.page} of {pagination.totalPages} · {pagination.total} total
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setPage(Math.max(1, page - 1))}
+                    disabled={!pagination.hasPrev}
+                    aria-label="Previous page"
+                    className="p-1.5 rounded text-muted hover:text-ink hover:bg-[color:var(--argus-elevated)] disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                  >
+                    <ChevronLeft size={15} />
+                  </button>
+                  <span className="px-2 text-[12px] font-mono text-muted">{pagination.page} / {pagination.totalPages}</span>
+                  <button
+                    type="button"
+                    onClick={() => setPage(page + 1)}
+                    disabled={!pagination.hasNext}
+                    aria-label="Next page"
+                    className="p-1.5 rounded text-muted hover:text-ink hover:bg-[color:var(--argus-elevated)] disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                  >
+                    <ChevronRight size={15} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </>
       )}
-    </div>
+    </Page>
   );
 }

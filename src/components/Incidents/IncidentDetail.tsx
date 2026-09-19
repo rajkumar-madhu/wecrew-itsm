@@ -14,8 +14,9 @@ import {
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
 import { useQuery } from '@tanstack/react-query';
-import { useIncident, useIncidentTimeline, useAddWorkNote, useUpdateIncident, useIncidentLiveContext, useEscalationLogs } from '../../hooks/useIncidents';
+import { useIncident, useIncidentTimeline, useAddWorkNote, useUpdateIncident, useIncidentLiveContext, useEscalationLogs, useDeleteIncident, useLinkProblem } from '../../hooks/useIncidents';
 import { useTeams } from '../../hooks/useTeams';
+import { useProblems } from '../../hooks/useProblems';
 import IncidentReportGenerator from './IncidentReportGenerator';
 import api from '../../lib/api';
 
@@ -126,9 +127,20 @@ const SOURCE_META: Record<string, { icon: React.ElementType; color: string; bg: 
   MANUAL:     { icon: Users,     color: 'text-stone-500',  bg: 'bg-stone-50',  label: 'Manual' },
 };
 
-// SLA targets in minutes
+// Fallback SLA targets in minutes (match backend SLA_DEFAULTS). Prefer per-incident
+// slaTargetResponse / slaTargetResolution timestamps when the API provides them.
 const SLA_RESPONSE: Record<Priority, number> = { P1: 5, P2: 15, P3: 60, P4: 240 };
 const SLA_RESOLUTION: Record<Priority, number> = { P1: 60, P2: 240, P3: 1440, P4: 4320 };
+
+function slaMinutesFromTarget(
+  createdAt: string | undefined,
+  targetIso: string | null | undefined,
+  fallback: number,
+): number {
+  if (!createdAt || !targetIso) return fallback;
+  const mins = Math.round((new Date(targetIso).getTime() - new Date(createdAt).getTime()) / 60000);
+  return mins > 0 ? mins : fallback;
+}
 
 const OPEN_STATES = ['NEW', 'IN_PROGRESS', 'ON_HOLD', 'ESCALATED'];
 
@@ -519,7 +531,10 @@ export default function IncidentDetail() {
   const { data: timelineData } = useIncidentTimeline(id || '');
   const addWorkNote = useAddWorkNote(id || '');
   const updateIncident = useUpdateIncident();
+  const deleteIncident = useDeleteIncident();
+  const linkProblem = useLinkProblem();
   const { data: teamsData } = useTeams();
+  const { data: problemsData } = useProblems({ limit: 100 });
 
   // UI state — ALL hooks must be before any early returns (React rules of hooks)
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
@@ -563,6 +578,10 @@ export default function IncidentDetail() {
   const [showReportGen, setShowReportGen] = useState(false);
   const [showCreateChangeModal, setShowCreateChangeModal] = useState(false);
   const [showSubIncidentModal, setShowSubIncidentModal] = useState(false);
+  const [showLinkProblemModal, setShowLinkProblemModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [linkProblemId, setLinkProblemId] = useState('');
+  const [linkProblemType, setLinkProblemType] = useState<'CAUSED_BY' | 'RELATED' | 'SYMPTOM_OF'>('RELATED');
   const [submitting, setSubmitting] = useState(false);
 
   // Assign modal state
@@ -621,11 +640,19 @@ export default function IncidentDetail() {
   const allowedTransitions = INCIDENT_TRANSITIONS[state] || [];
   const stateMeta = STATE_META[state];
 
-  // SLA calculations
+  // SLA calculations — use backend-set deadline timestamps when present
   const slaData = useMemo(() => {
     if (!incident) return null;
-    const respTarget = SLA_RESPONSE[priority];
-    const resTarget = SLA_RESOLUTION[priority];
+    const respTarget = slaMinutesFromTarget(
+      incident.createdAt,
+      incident.slaTargetResponse,
+      SLA_RESPONSE[priority],
+    );
+    const resTarget = slaMinutesFromTarget(
+      incident.createdAt,
+      incident.slaTargetResolution,
+      SLA_RESOLUTION[priority],
+    );
     return { respTarget, resTarget };
   }, [incident, priority]);
 
@@ -756,6 +783,40 @@ export default function IncidentDetail() {
       toast.error(err?.message || 'Failed to create sub-incident');
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleLinkProblem() {
+    if (!id || !linkProblemId) {
+      toast.error('Select a problem to link');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await linkProblem.mutateAsync({ id, problemId: linkProblemId, linkType: linkProblemType });
+      toast.success('Problem linked');
+      setShowLinkProblemModal(false);
+      setLinkProblemId('');
+      setLinkProblemType('RELATED');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || err?.message || 'Failed to link problem');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!id) return;
+    setSubmitting(true);
+    try {
+      await deleteIncident.mutateAsync(id);
+      toast.success('Incident deleted');
+      navigate('/incidents');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || err?.message || 'Failed to delete incident');
+    } finally {
+      setSubmitting(false);
+      setShowDeleteConfirm(false);
     }
   }
 
@@ -1008,6 +1069,21 @@ export default function IncidentDetail() {
                         >
                           <Copy size={14} className="text-stone-400" />
                           Copy INC Number
+                        </button>
+                        <button
+                          onClick={() => { setShowMoreMenu(false); setShowLinkProblemModal(true); }}
+                          className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-stone-600 hover:bg-stone-50 transition-colors"
+                        >
+                          <AlertTriangle size={14} className="text-violet-400" />
+                          Link Problem
+                        </button>
+                        <div className="my-1 border-t border-stone-100" />
+                        <button
+                          onClick={() => { setShowMoreMenu(false); setShowDeleteConfirm(true); }}
+                          className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                        >
+                          <XCircle size={14} />
+                          Delete Incident
                         </button>
                       </div>
                     </>
@@ -2583,6 +2659,13 @@ export default function IncidentDetail() {
                       >
                         <Layers size={13} /> Create Sub-Incident
                       </button>
+                      <button
+                        onClick={() => setShowLinkProblemModal(true)}
+                        className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all"
+                        style={{ background: '#F5F3FF', color: '#6D28D9', borderColor: '#DDD6FE' }}
+                      >
+                        <AlertTriangle size={13} /> Link Problem
+                      </button>
                     </div>
 
                     {/* Empty state */}
@@ -3469,6 +3552,94 @@ export default function IncidentDetail() {
               {submitting && <Loader2 size={14} className="animate-spin" />}
               <Plus size={14} />
               Create Sub-Incident
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* -- Link Problem Modal -- */}
+      <Modal
+        open={showLinkProblemModal}
+        onClose={() => { setShowLinkProblemModal(false); setLinkProblemId(''); setLinkProblemType('RELATED'); }}
+        title="Link Problem"
+        width="max-w-lg"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-stone-600 mb-1.5">Problem</label>
+            <select
+              className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm"
+              value={linkProblemId}
+              onChange={(e) => setLinkProblemId(e.target.value)}
+            >
+              <option value="">Select a problem…</option>
+              {(problemsData?.data || []).map((p: any) => (
+                <option key={p.id} value={p.id}>
+                  {p.number} — {p.shortDescription}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-stone-600 mb-1.5">Link type</label>
+            <select
+              className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm"
+              value={linkProblemType}
+              onChange={(e) => setLinkProblemType(e.target.value as typeof linkProblemType)}
+            >
+              <option value="RELATED">Related</option>
+              <option value="CAUSED_BY">Caused by</option>
+              <option value="SYMPTOM_OF">Symptom of</option>
+            </select>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => { setShowLinkProblemModal(false); setLinkProblemId(''); }}
+              className="px-4 py-2 rounded-lg text-sm text-stone-600 hover:bg-stone-100"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleLinkProblem}
+              disabled={!linkProblemId || submitting}
+              className="px-4 py-2 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50 flex items-center gap-1.5"
+            >
+              {submitting && <Loader2 size={14} className="animate-spin" />}
+              Link Problem
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* -- Delete Confirm -- */}
+      <Modal
+        open={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        title="Delete Incident"
+        width="max-w-md"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-stone-600">
+            Permanently delete <span className="font-mono font-semibold">{incident?.number}</span>? This cannot be undone.
+          </p>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(false)}
+              className="px-4 py-2 rounded-lg text-sm text-stone-600 hover:bg-stone-100"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={submitting}
+              className="px-4 py-2 rounded-lg text-sm font-medium bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 flex items-center gap-1.5"
+            >
+              {submitting && <Loader2 size={14} className="animate-spin" />}
+              Delete
             </button>
           </div>
         </div>

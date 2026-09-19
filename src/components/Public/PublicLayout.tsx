@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { Menu, Moon, Sun, X } from 'lucide-react';
 import { useThemeStore } from '../../stores/themeStore';
-import { COMPANY, NAV, PILOT_DAYS } from './site';
+import { COMPANY, FOOTER_COLUMNS, NAV, PILOT_DAYS } from './site';
 
 /*
   Shell for the public marketing routes (/, /itsm, /modules, /security, /pilot,
@@ -17,15 +17,18 @@ import { COMPANY, NAV, PILOT_DAYS } from './site';
 
 function Wordmark() {
   return (
-    <Link to="/" className="flex items-center gap-2" aria-label={`${COMPANY.name} home`}>
+    <Link to="/" className="flex items-center gap-2.5" aria-label={`${COMPANY.name} home`}>
       <span
-        className="grid h-7 w-7 place-items-center rounded font-display text-[15px] font-semibold text-white"
-        style={{ background: 'var(--brand-ink)' }}
+        className="grid h-7 w-7 place-items-center rounded-sm text-[11px] font-bold tracking-wide text-white"
+        style={{ background: 'var(--brand-coral)' }}
         aria-hidden
       >
-        W
+        WC
       </span>
-      <span className="font-display text-[17px] font-semibold tracking-tight text-ink">{COMPANY.name}</span>
+      <span className="leading-none">
+        <span className="block font-display text-[16px] font-semibold tracking-tight text-ink">{COMPANY.name}</span>
+        <span className="mt-0.5 block font-mono text-[9.5px] uppercase tracking-[0.14em] text-dim">ITSM</span>
+      </span>
     </Link>
   );
 }
@@ -65,7 +68,7 @@ export default function PublicLayout() {
     );
 
   return (
-    <div className="flex min-h-screen flex-col bg-void font-body text-ink">
+    <div className="flex min-h-screen min-h-[100dvh] flex-col overflow-x-hidden bg-void font-body text-ink">
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded focus:bg-obsidian focus:px-3 focus:py-2 focus:text-[13px] focus:text-ink"
@@ -77,15 +80,15 @@ export default function PublicLayout() {
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
           <Wordmark />
 
-          <nav className="hidden items-center gap-6 md:flex" aria-label="Primary">
-            {NAV.map((item) => (
+          <nav className="hidden items-center gap-5 lg:flex" aria-label="Primary">
+            {NAV.filter((item) => !item.footerOnly).map((item) => (
               <NavLink key={item.to} to={item.to} className={navLinkClass}>
                 {item.label}
               </NavLink>
             ))}
           </nav>
 
-          <div className="hidden items-center gap-2 md:flex">
+          <div className="hidden items-center gap-2 lg:flex">
             <ThemeToggle />
             <Link to="/login" className="cx-btn cx-btn--ghost">
               Sign in
@@ -98,7 +101,7 @@ export default function PublicLayout() {
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
-            className="grid h-9 w-9 place-items-center rounded border border-steel text-muted md:hidden"
+            className="grid h-9 w-9 place-items-center rounded border border-steel text-muted lg:hidden"
             aria-label={menuOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={menuOpen}
           >
@@ -107,9 +110,9 @@ export default function PublicLayout() {
         </div>
 
         {menuOpen && (
-          <div className="border-t border-steel bg-obsidian md:hidden">
+          <div className="border-t border-steel bg-obsidian lg:hidden">
             <nav className="mx-auto flex max-w-6xl flex-col gap-1 px-4 py-3 sm:px-6" aria-label="Primary">
-              {NAV.map((item) => (
+              {NAV.filter((item) => !item.footerOnly).map((item) => (
                 <NavLink
                   key={item.to}
                   to={item.to}
@@ -143,24 +146,26 @@ export default function PublicLayout() {
       </main>
 
       <footer className="mt-16 border-t border-steel bg-obsidian">
-        <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-[1.4fr_1fr_1fr]">
-          <div>
+        <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:px-6 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr_1.2fr]">
+          <div className="sm:col-span-2 lg:col-span-1">
             <Wordmark />
             <p className="mt-3 max-w-sm text-[13px] leading-relaxed text-muted">{COMPANY.tagline}</p>
           </div>
 
-          <div>
-            <p className="cx-eyebrow">Product</p>
-            <ul className="mt-3 space-y-2">
-              {NAV.map((item) => (
-                <li key={item.to}>
-                  <Link to={item.to} className="text-[13px] text-muted transition-colors hover:text-ink">
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
+          {FOOTER_COLUMNS.map((col) => (
+            <div key={col.title}>
+              <p className="cx-eyebrow">{col.title}</p>
+              <ul className="mt-3 space-y-2">
+                {col.links.map((link) => (
+                  <li key={link.to}>
+                    <Link to={link.to} className="text-[13px] text-muted transition-colors hover:text-ink">
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
 
           <div>
             <p className="cx-eyebrow">Contact</p>
@@ -168,6 +173,11 @@ export default function PublicLayout() {
               <li>
                 <a href={`mailto:${COMPANY.email}`} className="transition-colors hover:text-ink">
                   {COMPANY.email}
+                </a>
+              </li>
+              <li>
+                <a href={`mailto:${COMPANY.supportEmail}`} className="transition-colors hover:text-ink">
+                  {COMPANY.supportEmail}
                 </a>
               </li>
               {COMPANY.phone && (

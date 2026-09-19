@@ -9,7 +9,7 @@ import { useThemeStore } from '../../stores/themeStore';
 
 const routeTitles: Record<string, string> = {
   '/': 'Mission Control',
-  '/dashboard': 'Dashboard',
+  '/dashboard': 'Command Centre',
   '/incidents': 'Incidents',
   '/incidents/create': 'Create Incident',
   '/changes': 'Changes',
@@ -29,7 +29,7 @@ const routeTitles: Record<string, string> = {
   '/apm': 'Service Health',
   '/k8s': 'Kubernetes',
   '/logs': 'Log Explorer',
-  '/noc': 'NOC View',
+  '/noc': 'NOC',
   '/pagerduty': 'PagerDuty',
   '/chat': 'Team Chat',
   '/sms': 'SMS Gateway',
@@ -38,7 +38,16 @@ const routeTitles: Record<string, string> = {
   '/automation': 'Automation',
   '/knowledge-base': 'Knowledge Base',
   '/reports': 'Reports',
-  '/integrations': 'Integrations',
+  '/gprc': 'GPRC Overview',
+  '/risk': 'Risk Register',
+  '/compliance': 'Compliance',
+  '/internal-audit': 'Internal Audit',
+  '/performance': 'Strategy & KPIs',
+  '/controls': 'Controls & CAPA',
+  '/esg': 'ESG',
+  '/resilience': 'Operational Resilience',
+  '/digital-twin': 'Digital Twin',
+  '/integrations': 'Integration Hub',
   '/teams': 'Teams',
   '/users': 'Users',
   '/audit': 'Audit Log',
@@ -261,7 +270,8 @@ export default function Header({ onMenuClick, showMenuButton = false }: HeaderPr
                   )}
                   style={{ color: i === pathSegments.length - 1 ? 'var(--argus-ink)' : 'var(--argus-muted)' }}
                 >
-                  {seg.charAt(0).toUpperCase() + seg.slice(1).replace(/-/g, ' ')}
+                  {routeTitles[`/${pathSegments.slice(0, i + 1).join('/')}`]
+                    ?? seg.charAt(0).toUpperCase() + seg.slice(1).replace(/-/g, ' ')}
                 </span>
               </span>
             ))

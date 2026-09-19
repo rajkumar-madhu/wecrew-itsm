@@ -1,8 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
 
-export function useOrganizations(filters: Record<string, any> = {}) {
+// Organizations are platform-level: the API answers 403 to anyone but a
+// platform admin, so callers pass `enabled` rather than fetching blindly.
+export function useOrganizations(filters: Record<string, any> = {}, options: { enabled?: boolean } = {}) {
   return useQuery({
+    enabled: options.enabled ?? true,
     queryKey: ['organizations', filters],
     queryFn: async () => {
       const params = new URLSearchParams();

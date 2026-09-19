@@ -1,20 +1,21 @@
 import type React from 'react';
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { clsx } from 'clsx';
 import { useQuery } from '@tanstack/react-query';
 import {
   AreaChart, Area, BarChart, Bar, ResponsiveContainer, XAxis, YAxis,
-  Tooltip, CartesianGrid, Cell, LineChart, Line, RadialBarChart,
-  RadialBar, PieChart, Pie, Legend,
+  Tooltip, CartesianGrid, Cell, LineChart, Line, PieChart, Pie,
 } from 'recharts';
 import {
   Download, BarChart3, TrendingUp, Shield, FileText, Loader2,
-  AlertTriangle, CheckCircle2, Clock, Zap, Users, RefreshCw,
+  AlertTriangle, CheckCircle2, Clock, Zap, Users,
   ArrowUpRight, ArrowDownRight, Minus, Activity, Target,
   GitMerge, Bell, ChevronRight,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import api from '../../lib/api';
 import { useAuthStore } from '../../stores/authStore';
+import { Page, EnterpriseHero, EnterprisePosture } from '../ui/PageChrome';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -941,14 +942,6 @@ export default function ReportsDashboard() {
   const orgs = orgsData?.data || [];
   const selectedOrg = selectedOrgId ? orgs.find((o: any) => o.id === selectedOrgId) : null;
   const heroOrgName = selectedOrg?.name || organization?.name || null;
-  const heroEnv: string = selectedOrg?.environment || organization?.environment || 'DEV';
-
-  const envBadge = {
-    PROD: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-    DR:   'bg-amber-500/20 text-amber-400 border-amber-500/30',
-    UAT:  'bg-sky-500/20 text-sky-400 border-sky-500/30',
-    DEV:  'bg-violet-500/20 text-violet-400 border-violet-500/30',
-  }[heroEnv] || 'bg-violet-500/20 text-violet-400 border-violet-500/30';
 
   function handleExport() {
     const prev = document.title;
@@ -958,50 +951,37 @@ export default function ReportsDashboard() {
   }
 
   return (
-    <div className="animate-fade-in space-y-0">
-      {/* ── HERO ── */}
-      <div className="relative rounded-2xl overflow-hidden bg-obsidian text-ink border border-[color:var(--argus-border)] mb-5">
-        <div className="absolute inset-0 opacity-[0.04]"
-          style={{ backgroundImage: 'radial-gradient(circle, rgba(255,255,255,1) 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
-        <div className="absolute top-0 right-0 w-80 h-80 bg-[color:var(--argus-signal-dim)]/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-violet-500/6 rounded-full blur-3xl translate-y-1/2 -translate-x-1/4" />
-        <div className="relative px-6 py-5">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="flex items-center gap-2.5 mb-1.5">
-                <div className="w-8 h-8 rounded-lg bg-[color:var(--argus-elevated)] flex items-center justify-center">
-                  <BarChart3 size={16} className="text-signal" />
-                </div>
-                <h1 className="font-display text-2xl font-bold text-ink tracking-tight">
-                  {heroOrgName ? `${heroOrgName} — Analytics` : 'Analytics & Reports'}
-                </h1>
-                <span className={clsx('px-2 py-0.5 rounded text-[9px] font-bold font-mono uppercase border', envBadge)}>
-                  {heroEnv}
-                </span>
-              </div>
-              <p className="text-slate-400 text-sm ml-[42px]">
-                Operational intelligence · Incidents · SLA · Teams · Changes
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 bg-[color:var(--argus-elevated)] rounded-lg border border-[color:var(--argus-border)] p-0.5">
-                {(['7d', '30d', '90d'] as Period[]).map(p => (
-                  <button key={p} onClick={() => setPeriod(p)}
-                    className={clsx('px-3 py-1 rounded-md text-xs font-semibold transition-all',
-                      period === p ? 'bg-[color:var(--argus-signal-dim)]/30 text-signal' : 'text-slate-400 hover:text-ink')}>
-                    {p}
-                  </button>
-                ))}
-              </div>
-              <button onClick={handleExport}
-                className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-[color:var(--argus-signal)] to-[color:var(--argus-signal-bright)] text-white rounded-xl text-xs font-bold shadow-lg hover:shadow-indigo-500/25 transition-all hover:scale-[1.02]">
-                <Download size={13} /> Export PDF
+    <Page>
+      <EnterpriseHero
+        plane="intelligence"
+        domain="analytics"
+        title="Reports"
+        deck={
+          heroOrgName
+            ? `Org-scoped operational intelligence for ${heroOrgName} — incidents, SLA, teams and changes.`
+            : 'Org-scoped operational intelligence across incidents, SLA, teams and changes.'
+        }
+        orgName={heroOrgName}
+        actions={
+          <>
+            {(['7d', '30d', '90d'] as Period[]).map((p) => (
+              <button key={p} type="button" onClick={() => setPeriod(p)} className={period === p ? 'cx-hero__btn' : 'cx-hero__btn cx-hero__btn--ghost'}>
+                {p}
               </button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="h-0.5 bg-gradient-to-r from-transparent via-coral opacity-60 to-transparent -mt-5 mb-5" />
+            ))}
+            <button type="button" onClick={handleExport} className="cx-hero__btn">
+              <Download size={14} /> Export PDF
+            </button>
+          </>
+        }
+      />
+      <EnterprisePosture chips={['Org-scoped analytics', 'Evidence-first exports', 'Audit trail ready']} />
+
+      <nav className="cx-crumb" aria-label="Breadcrumb">
+        <Link to="/dashboard">Operations</Link>
+        <span aria-hidden>/</span>
+        <span className="cx-crumb__current">Reports</span>
+      </nav>
 
       {/* ── LAYOUT: sidebar + content ── */}
       <div className="flex gap-5">
@@ -1039,6 +1019,6 @@ export default function ReportsDashboard() {
           {section === 'changes'   && <ChangesSection   period={period} />}
         </main>
       </div>
-    </div>
+    </Page>
   );
 }

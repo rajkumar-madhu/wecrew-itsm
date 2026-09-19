@@ -1,14 +1,14 @@
 import type React from 'react';
 import { useState, useMemo } from 'react';
-import { clsx } from 'clsx';
 import {
   Activity, Cpu, HardDrive, Network, Server, AlertTriangle,
-  CheckCircle, XCircle, Clock, RefreshCw, Loader2, Eye, Wifi,
-  WifiOff, ArrowUpRight, ArrowDownRight, Shield, Globe,
-  Database, Layers, Box, ChevronDown, ChevronUp, Building2,
-  Zap, Radio, BarChart3, MonitorSmartphone,
+  CheckCircle, XCircle, RefreshCw, Loader2, Eye, Wifi,
+  WifiOff, ArrowUpRight, ArrowDownRight, Globe,
+  Layers, Box, ChevronDown, ChevronUp,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useApmOverview } from '../../hooks/useAPM';
+import { Page, EnterpriseHero, EnterprisePosture } from '../ui/PageChrome';
 
 // ── Helpers ──────────────────────────────────────────────
 
@@ -36,12 +36,6 @@ function formatUptime(seconds: number): string {
   if (days > 0) return `${days}d ${hrs}h`;
   const mins = Math.floor((seconds % 3600) / 60);
   return `${hrs}h ${mins}m`;
-}
-
-function severityColor(s: string): string {
-  if (s === 'critical' || s === 'CRITICAL') return 'text-[#EF4444]';
-  if (s === 'warning' || s === 'WARNING') return 'text-[#F59E0B]';
-  return 'text-[#6366F1]';
 }
 
 function severityBgStyle(s: string): React.CSSProperties {
@@ -211,7 +205,7 @@ const TABS = [
 
 export default function APMDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
-  const { data, isLoading, isError, refetch, dataUpdatedAt } = useApmOverview();
+  const { data, isLoading, isError, refetch } = useApmOverview();
 
   const org = data?.org;
   const summary = data?.summary;
@@ -222,7 +216,6 @@ export default function APMDashboard() {
   const alertsData = data?.alerts?.alerts || [];
   const processData = data?.processes;
   const isSimulated = data?.infrastructure?.simulated;
-  const lastUpdate = dataUpdatedAt ? new Date(dataUpdatedAt).toLocaleTimeString() : '';
 
   // Subsite filter for processes
   const subsites = processData?.subsites || [];
@@ -239,82 +232,68 @@ export default function APMDashboard() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64" style={{ color: 'var(--argus-muted)' }}>
-        <Loader2 className="w-8 h-8 animate-spin" style={{ color: '#6366F1' }} />
-        <span className="ml-3">Connecting to monitoring infrastructure...</span>
-      </div>
+      <Page>
+        <div className="flex items-center justify-center h-64 text-muted">
+          <Loader2 className="w-8 h-8 animate-spin text-signal" />
+          <span className="ml-3">Connecting to monitoring infrastructure…</span>
+        </div>
+      </Page>
     );
   }
 
   if (isError) {
     return (
-      <div className="flex flex-col items-center justify-center h-64" style={{ color: 'var(--argus-crimson)' }}>
-        <AlertTriangle className="w-10 h-10 mb-3" />
-        <p className="text-lg font-semibold">Failed to connect</p>
-        <p className="text-sm mt-1" style={{ color: 'var(--argus-muted)' }}>Unable to reach monitoring services</p>
-      </div>
+      <Page>
+        <div className="flex flex-col items-center justify-center h-64 text-crimson">
+          <AlertTriangle className="w-10 h-10 mb-3" />
+          <p className="text-lg font-semibold">Failed to connect</p>
+          <p className="text-sm mt-1 text-muted">Unable to reach monitoring services</p>
+        </div>
+      </Page>
     );
   }
 
   return (
-    <div className="animate-fade-in space-y-0" style={{ background: 'var(--argus-surface)', minHeight: '100vh', margin: '-1.5rem', padding: '1.5rem' }}>
-      {/* ── HERO BANNER ── */}
-      <div className="relative rounded-2xl overflow-hidden mb-5" style={{ background: 'var(--argus-surface)' }}>
-        <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ background: 'linear-gradient(90deg, transparent, #6366F1, transparent)' }} />
-        <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
-        <div className="absolute top-0 right-0 w-80 h-80 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4" style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.25) 0%, transparent 70%)' }} />
-        <div className="absolute bottom-0 left-0 w-60 h-60 rounded-full blur-3xl translate-y-1/3 -translate-x-1/4" style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.12) 0%, transparent 70%)' }} />
-        <div className="relative px-6 py-5">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="flex items-center gap-2.5 mb-1">
-                <div className="w-8 h-8 rounded-lg bg-[color:var(--argus-elevated)] flex items-center justify-center">
-                  <MonitorSmartphone size={16} className="text-[#10B981]" />
-                </div>
-                <h1 className="font-display text-2xl font-bold text-ink tracking-tight">Service Health</h1>
-                {isSimulated && <span className="text-[9px] font-mono font-bold text-[#F59E0B] bg-[#F59E0B]/15 px-1.5 py-0.5 rounded border border-[#F59E0B]/20">SIMULATED</span>}
-                {!isSimulated && <span className="text-[9px] font-mono font-bold text-[#10B981] bg-[#10B981]/15 px-1.5 py-0.5 rounded border border-[#10B981]/20">LIVE</span>}
-              </div>
-              {org?.name && (
-                <div className="flex items-center gap-2 ml-[42px] mb-2">
-                  <Building2 className="w-3.5 h-3.5 text-muted" />
-                  <span className="text-sm font-semibold text-ink">{org.name}</span>
-                  {org.environment && (
-                    <span className={clsx('text-[8px] font-bold px-1.5 py-0.5 rounded',
-                      org.environment === 'PROD' ? 'bg-[#10B981]/15 text-[#10B981]' :
-                      org.environment === 'DR' ? 'bg-[#F59E0B]/15 text-[#F59E0B]' :
-                      'bg-[color:var(--argus-signal)]/15 text-signal'
-                    )}>{org.environment}</span>
-                  )}
-                  {org.serverIp && <span className="text-[10px] font-mono text-muted">{org.serverIp}</span>}
-                  {org.fqdn && <span className="text-[10px] text-[#0EA5E9]">{org.fqdn}</span>}
-                </div>
-              )}
-              <div className="flex items-center gap-1.5 ml-[42px] text-muted text-xs">
-                <Clock className="w-3 h-3" /> Updated {lastUpdate}
-                <button onClick={() => refetch()} className="ml-2 p-1 rounded hover:bg-[color:var(--argus-elevated)]">
-                  <RefreshCw className="w-3 h-3 text-muted hover:text-ink" />
-                </button>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              {summary && [
-                { label: 'Total', value: summary.total, color: 'text-ink' },
-                { label: 'Healthy', value: summary.healthy, color: 'text-[#10B981]' },
-                { label: 'Warning', value: summary.warning, color: 'text-[#F59E0B]' },
-                { label: 'Critical', value: summary.critical, color: 'text-[#EF4444]' },
-                { label: 'Uptime', value: `${summary.uptime}%`, color: summary.uptime >= 99 ? 'text-[#10B981]' : summary.uptime >= 95 ? 'text-[#F59E0B]' : 'text-[#EF4444]' },
-              ].map(s => (
-                <div key={s.label} className="text-center px-3 py-2 rounded-xl bg-[color:var(--argus-elevated)] border border-[color:var(--argus-border)]">
-                  <p className={clsx('text-xl font-bold font-display', s.color)}>{s.value}</p>
-                  <p className="text-[9px] text-muted uppercase tracking-wider">{s.label}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="h-0.5 bg-gradient-to-r from-transparent via-[#10B981]/60 to-transparent -mt-5 mb-4" />
+    <Page>
+      <EnterpriseHero
+        plane="observe"
+        domain="service health"
+        title="Service health"
+        deck={
+          <>
+            {org?.name
+              ? `Org-scoped live probes for ${org.name}${org?.serverIp ? ` · ${org.serverIp}` : ''}.`
+              : `Org-scoped live probes across services${org?.serverIp ? ` · ${org.serverIp}` : ''}.`}
+            {isSimulated ? ' Showing simulated data until APM is connected.' : ''}
+          </>
+        }
+        orgName={org?.name}
+        env={org?.serverIp}
+        actions={
+          <button type="button" onClick={() => refetch()} className="cx-hero__btn">
+            <RefreshCw className="w-4 h-4" /> Refresh
+          </button>
+        }
+        kpiCols={5}
+        kpis={
+          summary
+            ? [
+                { label: 'Services', value: summary.total, sub: 'in the catalogue' },
+                { label: 'Healthy', value: summary.healthy, sub: 'passing probes' },
+                { label: 'Warning', value: summary.warning, sub: 'degraded', tone: summary.warning > 0 ? 'warn' : undefined },
+                { label: 'Critical', value: summary.critical, sub: 'failing', tone: summary.critical > 0 ? 'danger' : undefined },
+                { label: 'Uptime', value: `${summary.uptime}%`, sub: 'rolling window', tone: summary.uptime < 95 ? 'danger' : summary.uptime < 99 ? 'warn' : undefined },
+              ]
+            : undefined
+        }
+      />
+      <EnterprisePosture chips={['Org-scoped probes', 'Evidence-first health', 'Audit export ready']} />
+
+      <nav className="cx-crumb" aria-label="Breadcrumb">
+        <Link to="/dashboard">Operations</Link>
+        <span aria-hidden>/</span>
+        <span className="cx-crumb__current">Service health</span>
+      </nav>
 
       {/* ── Tabs ── */}
       <div className="flex items-center gap-1 mb-4 rounded-xl p-1 overflow-x-auto" style={{ background: 'var(--argus-elevated)', border: '1px solid var(--argus-border)', backdropFilter: 'blur(8px)' }}>
@@ -618,6 +597,6 @@ export default function APMDashboard() {
           ))}
         </div>
       )}
-    </div>
+    </Page>
   );
 }

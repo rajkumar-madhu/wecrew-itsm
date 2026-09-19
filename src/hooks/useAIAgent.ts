@@ -1,9 +1,18 @@
 import { useQuery } from '@tanstack/react-query';
 import api from '../lib/api';
+import { useAuthStore } from '../stores/authStore';
+
+// cluster-health / server-analysis / db-analysis / log-analysis read WeCrew's own
+// infrastructure, so the API serves them to platform admins only (403 otherwise).
+function useIsPlatformAdmin() {
+  return useAuthStore((s) => s.user?.role === 'ADMIN' && s.user?.isPlatformAdmin === true);
+}
 
 export function useClusterHealth() {
+  const platform = useIsPlatformAdmin();
   return useQuery({
     queryKey: ['ai-agent', 'cluster-health'],
+    enabled: platform,
     queryFn: async () => {
       const { data } = await api.get('/ai/cluster-health');
       return data;
@@ -15,8 +24,10 @@ export function useClusterHealth() {
 }
 
 export function useServerAnalysis() {
+  const platform = useIsPlatformAdmin();
   return useQuery({
     queryKey: ['ai-agent', 'server-analysis'],
+    enabled: platform,
     queryFn: async () => {
       const { data } = await api.get('/ai/server-analysis');
       return data;
@@ -28,8 +39,10 @@ export function useServerAnalysis() {
 }
 
 export function useDBAnalysis() {
+  const platform = useIsPlatformAdmin();
   return useQuery({
     queryKey: ['ai-agent', 'db-analysis'],
+    enabled: platform,
     queryFn: async () => {
       const { data } = await api.get('/ai/db-analysis');
       return data;
@@ -41,8 +54,10 @@ export function useDBAnalysis() {
 }
 
 export function useLogAnalysis() {
+  const platform = useIsPlatformAdmin();
   return useQuery({
     queryKey: ['ai-agent', 'log-analysis'],
+    enabled: platform,
     queryFn: async () => {
       const { data } = await api.get('/ai/log-analysis');
       return data;

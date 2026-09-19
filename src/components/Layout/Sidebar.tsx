@@ -6,7 +6,7 @@ import {
   Settings, ChevronLeft, ChevronRight, Shield, Layers,
   MessageSquare, Mic, Activity, LogOut, Phone, MessagesSquare,
   Monitor, CalendarDays, CalendarClock, GitMerge, Terminal,
-  BookOpen, Clock, FileSearch, UserCircle,
+  BookOpen, Clock, FileSearch, UserCircle, CheckCircle2, Globe, Waypoints, CreditCard,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import OrgSwitcher from './OrgSwitcher';
@@ -32,7 +32,7 @@ const navGroups: { label: string; items: NavItem[] }[] = [
   {
     label: 'Self-Service',
     items: [
-      { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', end: true },
+      { to: '/dashboard', icon: LayoutDashboard, label: 'Command Centre', end: true },
       { to: '/incidents', icon: AlertTriangle, label: 'Incidents' },
       { to: '/problems', icon: Bug, label: 'Problems' },
       { to: '/changes', icon: GitBranch, label: 'Changes' },
@@ -50,8 +50,8 @@ const navGroups: { label: string; items: NavItem[] }[] = [
       { to: '/apm', icon: Activity, label: 'Service health', badge: 'Live' },
       { to: '/k8s', icon: Layers, label: 'Kubernetes' },
       { to: '/logs', icon: Terminal, label: 'Log explorer' },
-      { to: '/noc', icon: Monitor, label: 'NOC view' },
-      { to: '/pagerduty', icon: Bell, label: 'PagerDuty' },
+      { to: '/noc', icon: Monitor, label: 'NOC' },
+      { to: '/integrations', icon: Plug, label: 'Integrations', roles: ['ADMIN'] },
     ],
   },
   {
@@ -76,12 +76,26 @@ const navGroups: { label: string; items: NavItem[] }[] = [
     ],
   },
   {
+    label: 'Governance & risk',
+    items: [
+      { to: '/gprc', icon: Shield, label: 'GPRC overview' },
+      { to: '/risk', icon: AlertTriangle, label: 'Risk register' },
+      { to: '/compliance', icon: CheckCircle2, label: 'Compliance' },
+      { to: '/internal-audit', icon: FileSearch, label: 'Internal audit' },
+      { to: '/performance', icon: BarChart3, label: 'Strategy & KPIs' },
+      { to: '/controls', icon: GitMerge, label: 'Controls & CAPA' },
+      { to: '/esg', icon: Globe, label: 'ESG' },
+      { to: '/resilience', icon: Activity, label: 'Resilience' },
+      { to: '/digital-twin', icon: Waypoints, label: 'Digital twin' },
+    ],
+  },
+  {
     label: 'Administration',
     items: [
-      { to: '/integrations', icon: Plug, label: 'Integrations', roles: ['ADMIN'] },
       { to: '/teams', icon: Users, label: 'Teams' },
       { to: '/users', icon: Shield, label: 'Users', roles: ['ADMIN', 'MANAGER'] },
       { to: '/audit', icon: FileSearch, label: 'Audit log', roles: ['ADMIN', 'MANAGER'] },
+      { to: '/billing', icon: CreditCard, label: 'Billing', roles: ['ADMIN'] },
       { to: '/profile', icon: UserCircle, label: 'My profile' },
       { to: '/settings', icon: Settings, label: 'Settings' },
     ],

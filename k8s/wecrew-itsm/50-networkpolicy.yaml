@@ -1,0 +1,105 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  labels:
+    app.kubernetes.io/part-of: linkedeye
+  name: allow-api-and-backup-to-postgres
+  namespace: wecrew-itsm
+spec:
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: linkedeye-api
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: linkedeye-db-backup
+    ports:
+    - port: 5432
+      protocol: TCP
+  podSelector:
+    matchLabels:
+      app: postgres
+  policyTypes:
+  - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  labels:
+    app.kubernetes.io/part-of: linkedeye
+  name: allow-api-to-redis
+  namespace: wecrew-itsm
+spec:
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: linkedeye-api
+    ports:
+    - port: 6379
+      protocol: TCP
+  podSelector:
+    matchLabels:
+      app: redis
+  policyTypes:
+  - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  labels:
+    app.kubernetes.io/part-of: linkedeye
+  name: allow-ingress-and-frontend-to-api
+  namespace: wecrew-itsm
+spec:
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: ingress-nginx
+    - podSelector:
+        matchLabels:
+          app: linkedeye-frontend
+    ports:
+    - port: 5000
+      protocol: TCP
+  podSelector:
+    matchLabels:
+      app: linkedeye-api
+  policyTypes:
+  - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  labels:
+    app.kubernetes.io/part-of: linkedeye
+  name: allow-ingress-to-frontend
+  namespace: wecrew-itsm
+spec:
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: ingress-nginx
+    ports:
+    - port: 80
+      protocol: TCP
+  podSelector:
+    matchLabels:
+      app: linkedeye-frontend
+  policyTypes:
+  - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  labels:
+    app.kubernetes.io/part-of: linkedeye
+  name: default-deny-ingress
+  namespace: wecrew-itsm
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
 import {
   Server,
@@ -10,14 +10,15 @@ import {
   Network,
   Container,
   Monitor,
-  Grid3X3,
-  List,
   Search,
-  Filter,
-  Loader2,
+  Plus,
+  X,
+  EyeOff,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useAssets } from '../../hooks/useAssets';
 import { useAuthStore } from '../../stores/authStore';
+import { Page, Toolbar } from '../ui/PageChrome';
 
 // ── Types ──
 
@@ -46,9 +47,21 @@ interface Asset {
   description: string;
 }
 
-// ── Helpers ──
+// ── Vocabulary ──
 
-const typeIcons: Record<AssetType, React.ComponentType<{ className?: string }>> = {
+const TYPE_ORDER: AssetType[] = [
+  'SERVER',
+  'KUBERNETES_CLUSTER',
+  'CONTAINER',
+  'VM',
+  'DATABASE',
+  'APPLICATION',
+  'NETWORK',
+  'LOAD_BALANCER',
+  'STORAGE',
+];
+
+const typeIcons: Record<AssetType, LucideIcon> = {
   SERVER: Server,
   KUBERNETES_CLUSTER: Container,
   DATABASE: Database,
@@ -60,389 +73,441 @@ const typeIcons: Record<AssetType, React.ComponentType<{ className?: string }>> 
   LOAD_BALANCER: Cpu,
 };
 
-const typeColors: Record<AssetType, string> = {
-  SERVER: 'bg-[color:var(--argus-signal-dim)] text-signal border-[color:var(--argus-signal)]/25',
-  KUBERNETES_CLUSTER: 'bg-violet-50 text-violet border-violet-200',
-  DATABASE: 'bg-amber-50 text-amber border-amber-200',
-  APPLICATION: 'bg-emerald-50 text-emerald border-emerald-200',
-  NETWORK: 'bg-[color:var(--argus-signal-dim)] text-signal border-[color:var(--argus-signal)]/25',
-  STORAGE: 'bg-amber-50 text-amber border-amber-200',
-  CONTAINER: 'bg-violet-50 text-violet border-violet-200',
-  VM: 'bg-[color:var(--argus-signal-dim)] text-signal border-[color:var(--argus-signal)]/25',
-  LOAD_BALANCER: 'bg-red-50 text-crimson border-red-200',
+const typeLabel: Record<AssetType, string> = {
+  SERVER: 'Servers',
+  KUBERNETES_CLUSTER: 'Clusters',
+  DATABASE: 'Databases',
+  APPLICATION: 'Applications',
+  NETWORK: 'Network',
+  STORAGE: 'Storage',
+  CONTAINER: 'Containers',
+  VM: 'Virtual machines',
+  LOAD_BALANCER: 'Load balancers',
 };
 
-const statusColors: Record<AssetStatus, string> = {
-  LIVE: 'bg-emerald-50 text-emerald border-emerald-200',
-  MAINTENANCE: 'bg-amber-50 text-amber border-amber-200',
-  DECOMMISSIONED: 'bg-stone-100 text-stone-500 border-stone-200',
-  PLANNED: 'bg-violet-50 text-violet border-violet-200',
+const statusLabel: Record<AssetStatus, string> = {
+  LIVE: 'Live',
+  MAINTENANCE: 'Maintenance',
+  DECOMMISSIONED: 'Retired',
+  PLANNED: 'Planned',
 };
 
-const statusDotColors: Record<AssetStatus, string> = {
-  LIVE: 'bg-emerald',
-  MAINTENANCE: 'bg-amber',
-  DECOMMISSIONED: 'bg-gray-500',
-  PLANNED: 'bg-violet',
+const statusTone: Record<AssetStatus, 'ok' | 'warn' | 'neutral' | 'alert'> = {
+  LIVE: 'ok',
+  MAINTENANCE: 'warn',
+  DECOMMISSIONED: 'neutral',
+  PLANNED: 'alert',
 };
-
-// ── Subcomponents ──
-
-function TypeBadge({ type }: { type: AssetType }) {
-  return (
-    <span
-      className={clsx(
-        'inline-flex items-center px-2 py-0.5 text-[10px] font-mono font-medium rounded-md border',
-        typeColors[type]
-      )}
-    >
-      {type.replace(/_/g, ' ')}
-    </span>
-  );
-}
 
 function StatusBadge({ status }: { status: AssetStatus }) {
-  return (
-    <span
-      className={clsx(
-        'inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-mono font-medium rounded-md border',
-        statusColors[status]
-      )}
-    >
-      <span className={clsx('w-1.5 h-1.5 rounded-full', statusDotColors[status])} />
-      {status}
-    </span>
-  );
+  return <span className={clsx('cx-pill', `cx-pill--${statusTone[status]}`)}>{statusLabel[status]}</span>;
 }
 
-function MonitoringDot({ enabled }: { enabled: boolean }) {
-  if (enabled) {
+// ── Estate map ──
+
+/**
+ * A census of the estate: one cell per configuration item, banded by type.
+ * Status is the fill, monitoring is the outline — an unmonitored CI raises no
+ * alerts and appears on no dashboard, so its absence from the rest of the
+ * product is the one thing this view has to make visible.
+ */
+function EstateMap({
+  assets,
+  loading,
+  onSelect,
+}: {
+  assets: Asset[];
+  loading?: boolean;
+  onSelect: (id: string) => void;
+}) {
+  const bands = useMemo(() => {
+    const grouped = new Map<AssetType, Asset[]>();
+    for (const a of assets) {
+      const list = grouped.get(a.type);
+      if (list) list.push(a);
+      else grouped.set(a.type, [a]);
+    }
+    return TYPE_ORDER.filter((t) => grouped.has(t)).map((type) => {
+      const items = (grouped.get(type) || []).slice().sort((a, b) => a.name.localeCompare(b.name));
+      return { type, items, blind: items.filter((a) => !a.monitoringEnabled).length };
+    });
+  }, [assets]);
+
+  const blindTotal = assets.filter((a) => !a.monitoringEnabled).length;
+
+  if (loading && assets.length === 0) {
     return (
-      <span className="flex items-center gap-1.5">
-        <span className="relative flex h-2 w-2">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald opacity-75" />
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald" />
-        </span>
-        <span className="text-[10px] text-emerald font-mono">Active</span>
-      </span>
+      <div className="cx-estate">
+        <div className="cx-estate__head">
+          <span className="cx-listhead__count">
+            <span className="cx-listhead__count-value">Reading the estate</span>
+          </span>
+        </div>
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="cx-estate__band animate-pulse">
+            <span className="h-3 w-24 rounded bg-[color:var(--argus-elevated)]" />
+            <span className="cx-estate__cells">
+              {Array.from({ length: 12 + (i % 3) * 4 }).map((_, j) => (
+                <span key={j} className="cx-estate__cell pointer-events-none opacity-40" />
+              ))}
+            </span>
+            <span className="cx-estate__count">—</span>
+          </div>
+        ))}
+      </div>
     );
   }
+
+  if (assets.length === 0) {
+    return (
+      <div className="cx-estate">
+        <div className="cx-estate__head">
+          <span className="cx-listhead__count">
+            <span className="cx-listhead__count-value">No configuration items yet</span>
+            <span className="cx-listhead__count-meta">the map fills as the CMDB does</span>
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <span className="flex items-center gap-1.5">
-      <span className="relative flex h-2 w-2">
-        <span className="relative inline-flex rounded-full h-2 w-2 bg-gray-600" />
-      </span>
-      <span className="text-[10px] text-stone-400 font-mono">Disabled</span>
-    </span>
+    <div className="cx-estate">
+      <div className="cx-estate__head">
+        <span className="cx-listhead__count">
+          <span className="cx-listhead__count-value">
+            {assets.length} configuration item{assets.length === 1 ? '' : 's'}
+          </span>
+          <span className="cx-listhead__count-meta">across {bands.length} type{bands.length === 1 ? '' : 's'}</span>
+        </span>
+        <span className="cx-window__legend">
+          <span className="cx-window__key"><span className="cx-estate__cell cx-estate__cell--live pointer-events-none" /> Live</span>
+          <span className="cx-window__key"><span className="cx-estate__cell cx-estate__cell--maintenance pointer-events-none" /> Maintenance</span>
+          <span className="cx-window__key"><span className="cx-estate__cell cx-estate__cell--planned pointer-events-none" /> Planned</span>
+          <span className="cx-window__key"><span className="cx-estate__cell cx-estate__cell--decommissioned pointer-events-none" /> Retired</span>
+          <span className="cx-window__key">
+            <span className="cx-estate__cell cx-estate__cell--live cx-estate__cell--blind pointer-events-none" /> Unmonitored
+          </span>
+        </span>
+      </div>
+
+      {bands.map((band) => {
+        const Icon = typeIcons[band.type] || Server;
+        return (
+          <div key={band.type} className="cx-estate__band">
+            <span className="cx-estate__type">
+              <Icon size={13} strokeWidth={1.75} className="text-graphite shrink-0" />
+              <span className="truncate">{typeLabel[band.type]}</span>
+            </span>
+
+            <span className="cx-estate__cells">
+              {band.items.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => onSelect(a.id)}
+                  title={`${a.name} · ${statusLabel[a.status]}${a.monitoringEnabled ? '' : ' · not monitored'}`}
+                  aria-label={`${a.name}, ${statusLabel[a.status]}${a.monitoringEnabled ? '' : ', not monitored'}`}
+                  className={clsx(
+                    'cx-estate__cell',
+                    `cx-estate__cell--${a.status.toLowerCase()}`,
+                    !a.monitoringEnabled && 'cx-estate__cell--blind'
+                  )}
+                />
+              ))}
+            </span>
+
+            <span className="cx-estate__count">
+              {band.items.length}
+              {band.blind > 0 && <span className="text-coral"> · {band.blind} unmonitored</span>}
+            </span>
+          </div>
+        );
+      })}
+
+      {blindTotal > 0 && (
+        <div className="cx-estate__band">
+          <span className="cx-estate__type text-coral">
+            <EyeOff size={13} strokeWidth={1.75} className="shrink-0" />
+            Blind spots
+          </span>
+          <p className="text-[12px] text-muted md:col-span-2">
+            {blindTotal} item{blindTotal === 1 ? ' has' : 's have'} monitoring switched off. Nothing here
+            raises an alert, so an outage on {blindTotal === 1 ? 'it' : 'them'} reaches you by phone call
+            rather than by page.
+          </p>
+        </div>
+      )}
+    </div>
   );
 }
 
-// ── Main Component ──
+// ── Page ──
 
 export default function AssetList() {
   const navigate = useNavigate();
   const organization = useAuthStore((s) => s.organization);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState<AssetType | 'ALL'>('ALL');
-  const [statusFilter, setStatusFilter] = useState<AssetStatus | 'ALL'>('ALL');
-  const [monitoringFilter, setMonitoringFilter] = useState<'ALL' | 'ON' | 'OFF'>('ALL');
 
-  // Build filters for backend query
+  const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState<AssetType | ''>('');
+  const [statusFilter, setStatusFilter] = useState<AssetStatus | ''>('');
+  const [monitoringFilter, setMonitoringFilter] = useState<'' | 'ON' | 'OFF'>('');
+
+  const hasFilters = Boolean(searchQuery || typeFilter || statusFilter || monitoringFilter);
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setTypeFilter('');
+    setStatusFilter('');
+    setMonitoringFilter('');
+  };
+
   const queryFilters = useMemo(() => {
     const f: Record<string, string> = {};
-    if (typeFilter !== 'ALL') f.type = typeFilter;
-    if (statusFilter !== 'ALL') f.status = statusFilter;
-    if (monitoringFilter !== 'ALL') f.monitoringEnabled = monitoringFilter === 'ON' ? 'true' : 'false';
+    if (typeFilter) f.type = typeFilter;
+    if (statusFilter) f.status = statusFilter;
+    if (monitoringFilter) f.monitoringEnabled = monitoringFilter === 'ON' ? 'true' : 'false';
     if (searchQuery.trim()) f.search = searchQuery.trim();
     return f;
   }, [typeFilter, statusFilter, monitoringFilter, searchQuery]);
 
-  // API hook
   const { data: assetsResponse, isLoading } = useAssets(queryFilters);
 
-  // Extract assets array from backend response shape: { success, data, pagination }
+  // The estate map is a census of everything, not of the current filter — a map
+  // that shrinks as you search stops being a map.
+  const { data: estateResponse, isLoading: estateLoading } = useAssets({ limit: 500 });
+
   const assets: Asset[] = assetsResponse?.data ?? [];
-
-  // Total count from pagination if available, otherwise use current array length
   const totalCount = assetsResponse?.pagination?.total ?? assets.length;
+  const estate: Asset[] = useMemo(() => estateResponse?.data ?? [], [estateResponse]);
 
-  const handleNavigate = (id: string) => {
-    navigate(`/assets/${id}`);
-  };
+  const stats = useMemo(() => {
+    const live = estate.filter((a) => a.status === 'LIVE').length;
+    const maintenance = estate.filter((a) => a.status === 'MAINTENANCE').length;
+    const blind = estate.filter((a) => !a.monitoringEnabled).length;
+    const sites = new Set(estate.map((a) => a.datacenter).filter(Boolean)).size;
+    return { total: estate.length, live, maintenance, blind, sites };
+  }, [estate]);
+
+  const kpis = [
+    { label: 'Items', value: stats.total, sub: 'under management' },
+    { label: 'Live', value: stats.live, sub: 'serving traffic' },
+    { label: 'Maintenance', value: stats.maintenance, sub: 'alerts suppressed', tone: stats.maintenance > 0 ? 'warn' : undefined },
+    { label: 'Unmonitored', value: stats.blind, sub: 'raise no alerts', tone: stats.blind > 0 ? 'danger' : undefined },
+    { label: 'Datacenters', value: stats.sites, sub: 'distinct sites' },
+  ];
 
   return (
-    <div className="animate-fade-in space-y-0">
-      {/* ── HERO BANNER ── */}
-      <div className="relative rounded-2xl overflow-hidden bg-obsidian text-ink border border-[color:var(--argus-border)]">
-        <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'radial-gradient(circle, rgba(255,255,255,1) 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
-        <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4" />
-        <div className="relative px-6 py-5">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="flex items-center gap-2.5 mb-1.5">
-                <div className="w-8 h-8 rounded-lg bg-[color:var(--argus-elevated)] flex items-center justify-center">
-                  <Server size={16} className="text-emerald-400" />
-                </div>
-                <h1 className="font-display text-2xl font-bold text-ink tracking-tight">Assets / CMDB</h1>
-                <span className="px-2 py-0.5 rounded text-[9px] font-bold font-mono uppercase bg-violet-500/20 text-violet-400 border border-violet-500/30">
-                  {organization?.environment || 'DEV'}
-                </span>
-                <span className="text-[10px] font-mono text-signal bg-[color:var(--argus-signal-dim)]/10 px-2 py-0.5 rounded border border-indigo-500/20">{assets.length} shown</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm ml-[42px]">
-                <span className="text-slate-400">Configuration Management Database &middot; <span className="font-mono text-slate-300">{totalCount}</span> items</span>
-                <span className="text-slate-600">|</span>
-                <a href={window.location.origin} target="_blank" rel="noopener noreferrer" className="font-mono text-xs text-signal hover:text-signal transition-colors">
-                  {window.location.host}
-                </a>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <button onClick={() => navigate('/assets/create')} className="flex items-center gap-2 px-4 py-2 btn-primary disabled:opacity-50 disabled:cursor-not-allowed">
-                <Server size={15} /> New Asset
-              </button>
-              <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-[color:var(--argus-elevated)] border border-[color:var(--argus-border)]">
-                <button onClick={() => setViewMode('grid')} className={clsx('p-2 rounded-md transition-all duration-200', viewMode === 'grid' ? 'bg-emerald-500 text-white shadow-sm' : 'text-slate-400 hover:text-ink')} title="Grid view">
-                  <Grid3X3 className="w-4 h-4" />
-                </button>
-                <button onClick={() => setViewMode('list')} className={clsx('p-2 rounded-md transition-all duration-200', viewMode === 'list' ? 'bg-emerald-500 text-white shadow-sm' : 'text-slate-400 hover:text-ink')} title="List view">
-                  <List className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
+    <Page>
+      {/* ── Hero ── */}
+      <div className="cx-hero">
+        <div className="flex items-start justify-between gap-6 flex-wrap">
+          <div className="min-w-0">
+            <span className="cx-eyebrow">Operate · configuration management</span>
+            <h1 className="cx-hero__title">Assets</h1>
+            <p className="cx-hero__deck">
+              The configuration items this organisation runs, what state each one is in, and which of
+              them monitoring cannot see. Incidents and alerts elsewhere in WeCrew attach to the records
+              held here.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {organization?.environment && (
+              <span className="cx-hero__btn cx-hero__btn--ghost pointer-events-none font-mono !text-[11px] uppercase tracking-widest">
+                {organization.environment}
+              </span>
+            )}
+            <button type="button" onClick={() => navigate('/assets/create')} className="cx-hero__btn">
+              <Plus size={14} strokeWidth={1.75} />
+              Add an item
+            </button>
           </div>
         </div>
+
+        <dl className="cx-hero__kpis cx-hero__kpis--5 mt-6">
+          {kpis.map((kpi) => (
+            <div key={kpi.label} className={clsx('cx-hero__kpi', kpi.tone && `cx-hero__kpi--${kpi.tone}`)}>
+              <dt className="cx-hero__kpi-label">{kpi.label}</dt>
+              <dd>
+                <div className="cx-hero__kpi-value">{kpi.value}</div>
+                <div className="cx-hero__kpi-sub">{kpi.sub}</div>
+              </dd>
+            </div>
+          ))}
+        </dl>
       </div>
-      <div className="h-0.5 bg-gradient-to-r from-transparent via-emerald-500/60 to-transparent" />
 
-      {/* ── FILTER BAR ── */}
-      <div className="-mt-3 relative z-10 bg-white/90 backdrop-blur-xl rounded-xl border border-stone-200 shadow-sm p-3 mb-4">
-        <div className="flex flex-wrap items-center gap-2.5">
-          <div className="flex items-center gap-1.5 text-stone-400">
-            <Filter size={13} />
-            <span className="text-[10px] font-semibold uppercase tracking-widest">Filters</span>
-          </div>
+      <nav className="cx-crumb" aria-label="Breadcrumb">
+        <Link to="/dashboard">Operations</Link>
+        <span aria-hidden>/</span>
+        <span className="cx-crumb__current">Assets</span>
+      </nav>
 
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value as AssetType | 'ALL')}
-            className={`filter-select ${typeFilter !== 'ALL' ? 'filter-select--active' : ''}`}
-          >
-            <option value="ALL">All Types</option>
-            <option value="SERVER">Server</option>
-            <option value="KUBERNETES_CLUSTER">Kubernetes Cluster</option>
-            <option value="DATABASE">Database</option>
-            <option value="APPLICATION">Application</option>
-            <option value="NETWORK">Network</option>
-            <option value="STORAGE">Storage</option>
-            <option value="CONTAINER">Container</option>
-            <option value="VM">VM</option>
-            <option value="LOAD_BALANCER">Load Balancer</option>
-          </select>
-
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as AssetStatus | 'ALL')}
-            className={`filter-select ${statusFilter !== 'ALL' ? 'filter-select--active' : ''}`}
-          >
-            <option value="ALL">All Statuses</option>
-            <option value="LIVE">Live</option>
-            <option value="MAINTENANCE">Maintenance</option>
-            <option value="DECOMMISSIONED">Decommissioned</option>
-            <option value="PLANNED">Planned</option>
-          </select>
-
-          <select
-            value={monitoringFilter}
-            onChange={(e) => setMonitoringFilter(e.target.value as 'ALL' | 'ON' | 'OFF')}
-            className={`filter-select ${monitoringFilter !== 'ALL' ? 'filter-select--active' : ''}`}
-          >
-            <option value="ALL">All Monitoring</option>
-            <option value="ON">Monitoring On</option>
-            <option value="OFF">Monitoring Off</option>
-          </select>
-
-          <div className="w-px h-7 bg-stone-200/60 hidden sm:block" />
-
-          <div className="relative flex-1 min-w-[200px]">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-            <input
-              type="text"
-              placeholder="Search by name, IP, datacenter..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 bg-stone-50/80 border border-stone-200/80 rounded-lg text-sm text-stone-900 placeholder-stone-400 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all"
-            />
-          </div>
+      {/* ── Signature: the estate map ── */}
+      <div className="cx-sectionhead">
+        <div>
+          <h2 className="cx-sectionhead__title">Estate map</h2>
+          <p className="cx-sectionhead__deck">
+            One square per item, banded by type. The fill is its state; a coral outline means monitoring
+            is switched off. Select a square to open the item.
+          </p>
         </div>
       </div>
 
-      {/* Loading State */}
-      {isLoading && (
-        <div className="glass-card p-12 text-center">
-          <Loader2 className="w-8 h-8 text-signal mx-auto mb-3 animate-spin" />
-          <p className="text-stone-500 font-medium">Loading assets...</p>
+      <EstateMap assets={estate} loading={estateLoading} onSelect={(id) => navigate(`/assets/${id}`)} />
+
+      {/* ── Inventory ── */}
+      <div className="cx-sectionhead">
+        <div>
+          <h2 className="cx-sectionhead__title">Inventory</h2>
+          <p className="cx-sectionhead__deck">Every record, with its address and where it lives.</p>
         </div>
-      )}
+      </div>
 
-      {/* Empty State */}
-      {!isLoading && assets.length === 0 && (
-        <div className="glass-card p-12 text-center">
-          <Server className="w-12 h-12 text-stone-300 mx-auto mb-3" />
-          <p className="text-stone-500 font-medium">No assets match your filters</p>
-          <p className="text-stone-300 text-sm mt-1">Adjust filters or search criteria</p>
+      <Toolbar>
+        <div className="cx-listhead__count">
+          <span className="cx-listhead__count-value">
+            {isLoading ? '—' : `${totalCount} item${totalCount === 1 ? '' : 's'}`}
+          </span>
+          <span className="cx-listhead__count-meta">
+            {hasFilters ? 'filtered' : 'unfiltered'}
+          </span>
         </div>
-      )}
 
-      {/* Grid View */}
-      {!isLoading && viewMode === 'grid' && assets.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {assets.map((asset) => {
-            const Icon = typeIcons[asset.type] || Server;
-            return (
-              <div
-                key={asset.id}
-                onClick={() => handleNavigate(asset.id)}
-                className="glass-card-hover p-5 cursor-pointer transition-all duration-300 hover:scale-[1.02] group"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={clsx(
-                        'p-2.5 rounded-xl',
-                        typeColors[asset.type]?.split(' ')[0]
-                      )}
-                    >
-                      <Icon
-                        className={clsx(
-                          'w-5 h-5',
-                          typeColors[asset.type]?.split(' ')[1]
-                        )}
-                      />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-display font-bold text-stone-900 group-hover:text-signal transition-colors">
-                        {asset.name}
-                      </h3>
-                      <p className="text-[11px] text-stone-400 font-mono mt-0.5">{asset.id}</p>
-                    </div>
-                  </div>
-                  <MonitoringDot enabled={asset.monitoringEnabled} />
-                </div>
+        <div className="w-px h-5 bg-[color:var(--argus-border)] hidden sm:block" />
 
-                <div className="flex items-center gap-2 mb-3 flex-wrap">
-                  <TypeBadge type={asset.type} />
-                  <StatusBadge status={asset.status} />
-                </div>
-
-                <div className="space-y-1.5 text-xs text-stone-500">
-                  <div className="flex items-center justify-between">
-                    <span className="text-stone-300">IP</span>
-                    <span className="font-mono">{asset.ipAddress}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-stone-300">Location</span>
-                    <span className="font-mono">{asset.location}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-stone-300">Datacenter</span>
-                    <span className="font-mono">{asset.datacenter}</span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+        <div className="relative flex-1 min-w-[200px] max-w-md">
+          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-dim" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by name, address or site..."
+            className="input-field pl-8 py-1.5 text-[13px]"
+          />
         </div>
-      )}
 
-      {/* List View */}
-      {!isLoading && viewMode === 'list' && assets.length > 0 && (
-        <div className="glass-card overflow-hidden border-stone-200">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-stone-200">
-                  <th className="text-left text-[10px] font-mono font-medium text-stone-400 uppercase tracking-wider px-4 py-3">
-                    Name
-                  </th>
-                  <th className="text-left text-[10px] font-mono font-medium text-stone-400 uppercase tracking-wider px-4 py-3">
-                    Type
-                  </th>
-                  <th className="text-left text-[10px] font-mono font-medium text-stone-400 uppercase tracking-wider px-4 py-3">
-                    Status
-                  </th>
-                  <th className="text-left text-[10px] font-mono font-medium text-stone-400 uppercase tracking-wider px-4 py-3">
-                    IP
-                  </th>
-                  <th className="text-left text-[10px] font-mono font-medium text-stone-400 uppercase tracking-wider px-4 py-3">
-                    Location
-                  </th>
-                  <th className="text-left text-[10px] font-mono font-medium text-stone-400 uppercase tracking-wider px-4 py-3">
-                    Monitoring
-                  </th>
-                  <th className="text-left text-[10px] font-mono font-medium text-stone-400 uppercase tracking-wider px-4 py-3">
-                    Actions
-                  </th>
+        <div className="w-px h-5 bg-[color:var(--argus-border)] hidden sm:block" />
+
+        <select
+          aria-label="Filter by type"
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value as AssetType | '')}
+          className={clsx('filter-select', typeFilter && 'filter-select--active')}
+        >
+          <option value="">All types</option>
+          {TYPE_ORDER.map((t) => <option key={t} value={t}>{typeLabel[t]}</option>)}
+        </select>
+
+        <select
+          aria-label="Filter by state"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as AssetStatus | '')}
+          className={clsx('filter-select', statusFilter && 'filter-select--active')}
+        >
+          <option value="">All states</option>
+          {(Object.keys(statusLabel) as AssetStatus[]).map((s) => (
+            <option key={s} value={s}>{statusLabel[s]}</option>
+          ))}
+        </select>
+
+        <select
+          aria-label="Filter by monitoring"
+          value={monitoringFilter}
+          onChange={(e) => setMonitoringFilter(e.target.value as '' | 'ON' | 'OFF')}
+          className={clsx('filter-select', monitoringFilter && 'filter-select--active')}
+        >
+          <option value="">Monitored or not</option>
+          <option value="ON">Monitoring on</option>
+          <option value="OFF">Monitoring off</option>
+        </select>
+
+        {hasFilters && (
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="flex items-center gap-1 text-[11px] text-dim hover:text-coral transition-colors ml-auto"
+          >
+            <X size={11} />
+            Clear filters
+          </button>
+        )}
+      </Toolbar>
+
+      <div className="cx-table-wrap">
+        <div className="overflow-x-auto">
+          <table className="cx-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Type</th>
+                <th>State</th>
+                <th>Address</th>
+                <th>Site</th>
+                <th>Monitoring</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                Array.from({ length: 6 }).map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    {Array.from({ length: 6 }).map((_, j) => (
+                      <td key={j}><div className="h-3.5 rounded bg-[color:var(--argus-elevated)] w-3/4" /></td>
+                    ))}
+                  </tr>
+                ))
+              ) : assets.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-14 text-center">
+                    <p className="text-sm text-ink font-medium">No items match these filters</p>
+                    <p className="text-xs text-muted mt-1">
+                      {hasFilters ? 'Clear the filters to see the whole estate.' : 'Add an item to start the CMDB.'}
+                    </p>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-stone-100">
-                {assets.map((asset) => {
+              ) : (
+                assets.map((asset) => {
                   const Icon = typeIcons[asset.type] || Server;
                   return (
-                    <tr
-                      key={asset.id}
-                      className="hover:bg-stone-50 transition-colors cursor-pointer"
-                      onClick={() => handleNavigate(asset.id)}
-                    >
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2.5">
-                          <Icon
-                            className={clsx('w-4 h-4', typeColors[asset.type]?.split(' ')[1])}
-                          />
-                          <div>
-                            <p className="text-sm font-medium text-stone-900">{asset.name}</p>
-                            <p className="text-[10px] text-stone-300 font-mono">{asset.id}</p>
-                          </div>
-                        </div>
+                    <tr key={asset.id} onClick={() => navigate(`/assets/${asset.id}`)} className="cursor-pointer">
+                      <td>
+                        <span className="flex items-center gap-2.5 min-w-0">
+                          <Icon size={15} strokeWidth={1.75} className="text-graphite shrink-0" />
+                          <span className="min-w-0">
+                            <span className="block truncate text-ink font-medium">{asset.name}</span>
+                            {asset.description && (
+                              <span className="block truncate text-[11px] text-dim">{asset.description}</span>
+                            )}
+                          </span>
+                        </span>
                       </td>
-                      <td className="px-4 py-3">
-                        <TypeBadge type={asset.type} />
+                      <td className="whitespace-nowrap text-[12px] text-muted">
+                        {typeLabel[asset.type] || asset.type}
                       </td>
-                      <td className="px-4 py-3">
-                        <StatusBadge status={asset.status} />
+                      <td><StatusBadge status={asset.status} /></td>
+                      <td className="font-mono text-[12px] text-muted whitespace-nowrap">{asset.ipAddress || '—'}</td>
+                      <td className="whitespace-nowrap text-[12px] text-muted">
+                        {asset.location || '—'}
+                        {asset.datacenter && <span className="block text-[11px] text-dim">{asset.datacenter}</span>}
                       </td>
-                      <td className="px-4 py-3">
-                        <span className="text-xs font-mono text-stone-500">{asset.ipAddress}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div>
-                          <span className="text-xs text-stone-500">{asset.location}</span>
-                          <p className="text-[10px] text-stone-300">{asset.datacenter}</p>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <MonitoringDot enabled={asset.monitoringEnabled} />
-                      </td>
-                      <td className="px-4 py-3">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleNavigate(asset.id);
-                          }}
-                          className="btn-ghost px-2.5 py-1 text-xs"
-                        >
-                          View
-                        </button>
+                      <td className="whitespace-nowrap">
+                        {asset.monitoringEnabled ? (
+                          <span className="text-[12px] text-muted">On</span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 text-[12px] text-coral">
+                            <EyeOff size={13} strokeWidth={1.75} />
+                            Off
+                          </span>
+                        )}
                       </td>
                     </tr>
                   );
-                })}
-              </tbody>
-            </table>
-          </div>
+                })
+              )}
+            </tbody>
+          </table>
         </div>
-      )}
-    </div>
+      </div>
+    </Page>
   );
 }

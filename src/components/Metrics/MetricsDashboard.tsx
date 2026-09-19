@@ -3,12 +3,14 @@ import { useQuery } from '@tanstack/react-query';
 import api from '../../lib/api';
 import { useAuthStore } from '../../stores/authStore';
 import { useGrafanaDashboards, useInfrastructureMetrics } from '../../hooks/useAIAgent';
+import { Link } from 'react-router-dom';
 import {
   Cpu, MemoryStick, HardDrive, Network, Server, Container,
-  RefreshCw, Clock, ExternalLink, Loader2, AlertTriangle,
-  CheckCircle2, XCircle, ArrowUpDown, Database, Activity,
+  RefreshCw, ExternalLink, Loader2, AlertTriangle,
+  CheckCircle2, XCircle, ArrowUpDown, Database,
   Gauge, Layers, MonitorDot, Unplug, Cable, RotateCcw,
 } from 'lucide-react';
+import { Page, Segmented, EnterpriseHero, EnterprisePosture } from '../ui/PageChrome';
 
 // ── Types ──
 interface GrafanaPanel { id: number; title: string; type: string; gridPos: { x: number; y: number; w: number; h: number } }
@@ -189,10 +191,8 @@ export default function MetricsDashboard() {
   const orgs: { id: string; name: string; environment: string }[] = orgsData?.data || [];
   const selectedOrg = selectedOrgId ? orgs.find((o) => o.id === selectedOrgId) : null;
   const heroOrgName = selectedOrg?.name || organization?.name || null;
-  const heroEnv = selectedOrg?.environment || organization?.environment || 'DEV';
 
   const m = infra.data?.data;
-  const noDataForOrg: boolean = m?.noDataForOrg || false;
   const orgServerIp: string | null = m?.orgServerIp || null;
   const dashboards: GrafanaDashboard[] = grafana.data?.data?.dashboards || [];
   const grafanaUrl = (grafana.data?.data?.grafanaUrl || '').replace(/\/+$/, '');
@@ -209,12 +209,14 @@ export default function MetricsDashboard() {
 
   if (infra.isLoading && !m) {
     return (
-      <div className="flex items-center justify-center h-full min-h-[400px]">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-8 h-8 text-[color:var(--argus-signal)] animate-spin" />
-          <span className="text-sm text-stone-500 font-mono">Loading infrastructure metrics...</span>
+      <Page>
+        <div className="flex items-center justify-center h-full min-h-[400px]">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="w-8 h-8 text-signal animate-spin" />
+            <span className="text-sm text-muted font-mono">Loading infrastructure metrics…</span>
+          </div>
         </div>
-      </div>
+      </Page>
     );
   }
 
@@ -228,69 +230,57 @@ export default function MetricsDashboard() {
   const alerts = m?.alerts || [];
 
   return (
-    <div className="space-y-4">
-      {/* ── HERO BANNER ── */}
-      <div className="relative rounded-2xl overflow-hidden bg-obsidian text-ink border border-[color:var(--argus-border)] mb-1">
-        <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'radial-gradient(circle, rgba(255,255,255,1) 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
-        <div className="absolute top-0 right-0 w-80 h-80 bg-[color:var(--argus-signal-dim)]/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4" />
-        <div className="relative px-6 py-5">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="flex items-center gap-2.5 mb-1.5">
-                <div className="w-8 h-8 rounded-lg bg-[color:var(--argus-elevated)] flex items-center justify-center">
-                  <Activity size={16} className="text-signal" />
-                </div>
-                <h1 className="font-display text-2xl font-bold text-ink tracking-tight">
-                  {heroOrgName ? `${heroOrgName} — Infrastructure Metrics` : 'Infrastructure Metrics'}
-                </h1>
-                <span className={`px-2 py-0.5 rounded text-[9px] font-bold font-mono uppercase border ${
-                  heroEnv === 'PROD' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
-                  heroEnv === 'DR'   ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
-                  heroEnv === 'UAT'  ? 'bg-sky-500/20 text-sky-400 border-sky-500/30' :
-                                       'bg-violet-500/20 text-violet-400 border-violet-500/30'
-                }`}>{heroEnv}</span>
-              </div>
-              <div className="flex items-center gap-3 ml-[42px] mt-0.5 flex-wrap">
-                <p className="text-muted text-sm">Real-time Prometheus metrics across CPU, virtualization, storage & Grafana panels</p>
-                {orgServerIp && (
-                  <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[color:var(--argus-signal-dim)]/10 border border-indigo-500/20 text-signal text-[11px] font-mono">
-                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 inline-block" />
-                    {orgServerIp}
-                  </span>
-                )}
-                {noDataForOrg && (
-                  <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[11px] font-semibold">
-                    No server IP configured for this org
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 bg-[color:var(--argus-elevated)] rounded-lg p-0.5 border border-[color:var(--argus-border)]">
-                <Clock className="w-3.5 h-3.5 text-muted ml-2" />
-                {TIME_RANGES.map((tr) => (
-                  <button key={tr.value} onClick={() => { setTimeRange(tr.value); setRefreshKey((k) => k + 1); }}
-                    className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${timeRange === tr.value ? 'bg-[color:var(--argus-signal-dim)]/20 text-signal' : 'text-muted hover:text-ink'}`}
-                  >{tr.label}</button>
-                ))}
-              </div>
-              <button onClick={handleRefresh} className="p-1.5 rounded-lg border border-[color:var(--argus-border)] text-muted hover:text-signal hover:border-indigo-500/30 transition-all bg-[color:var(--argus-elevated)]" title="Refresh">
-                <RefreshCw className={`w-4 h-4 ${infra.isFetching ? 'animate-spin' : ''}`} />
+    <Page>
+      <EnterpriseHero
+        plane="observe"
+        domain="telemetry"
+        title="Metrics"
+        deck={
+          heroOrgName
+            ? `Org-scoped Prometheus and Grafana evidence for ${heroOrgName}${orgServerIp ? ` · ${orgServerIp}` : ''}.`
+            : `Org-scoped Prometheus CPU, memory, disk and Grafana panels${orgServerIp ? ` · ${orgServerIp}` : ''}.`
+        }
+        orgName={heroOrgName}
+        env={orgServerIp}
+        actions={
+          <>
+            {TIME_RANGES.map((tr) => (
+              <button
+                key={tr.value}
+                type="button"
+                onClick={() => { setTimeRange(tr.value); setRefreshKey((k) => k + 1); }}
+                className={timeRange === tr.value ? 'cx-hero__btn' : 'cx-hero__btn cx-hero__btn--ghost'}
+              >
+                {tr.label}
               </button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="h-0.5 bg-gradient-to-r from-transparent via-coral opacity-60 to-transparent -mt-1 mb-3" />
+            ))}
+            <button type="button" onClick={handleRefresh} className="cx-hero__btn cx-hero__btn--ghost" title="Refresh">
+              <RefreshCw className={`w-4 h-4 ${infra.isFetching ? 'animate-spin' : ''}`} />
+            </button>
+          </>
+        }
+        kpiCols={5}
+        kpis={[
+          { label: 'CPU', value: `${cpu.avgUsagePct}%`, sub: `${cpu.totalCores} cores`, tone: cpu.avgUsagePct > 85 ? 'danger' : cpu.avgUsagePct > 70 ? 'warn' : undefined },
+          { label: 'Memory', value: `${mem.usedPct}%`, sub: `${mem.usedGB} / ${mem.totalGB} GB`, tone: mem.usedPct > 85 ? 'danger' : mem.usedPct > 70 ? 'warn' : undefined },
+          { label: 'Disk', value: `${disk.avgUsedPct}%`, sub: `${disk.perNode.length} mounts` },
+          { label: 'Network RX', value: net.totalRx, sub: `TX ${net.totalTx}` },
+          { label: 'Alerts', value: alerts.length, sub: 'firing', tone: alerts.length > 0 ? 'danger' : undefined },
+        ]}
+      />
+      <EnterprisePosture chips={['Org-scoped telemetry', 'Evidence-first panels', 'Audit export ready']} />
 
-      {/* Tabs */}
-      <div className="flex items-center gap-1 border-b border-stone-200 overflow-x-auto">
-        {TABS.map((tab) => (
-          <button key={tab} onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-all -mb-px whitespace-nowrap ${activeTab === tab ? 'border-coral text-[color:var(--argus-coral)]' : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'}`}
-          >{tab}</button>
-        ))}
-      </div>
+      <nav className="cx-crumb" aria-label="Breadcrumb">
+        <Link to="/dashboard">Operations</Link>
+        <span aria-hidden>/</span>
+        <span className="cx-crumb__current">Metrics</span>
+      </nav>
+
+      <Segmented
+        options={TABS.map((tab) => ({ value: tab, label: tab }))}
+        value={activeTab}
+        onChange={(v) => setActiveTab(v as Tab)}
+      />
 
       {/* ═══ OVERVIEW TAB ═══ */}
       {activeTab === 'Overview' && (
@@ -744,13 +734,13 @@ export default function MetricsDashboard() {
               )}
             </>
           ) : (
-            <div className="flex flex-col items-center justify-center py-16 text-stone-400">
+            <div className="flex flex-col items-center justify-center py-16 text-dim">
               <Loader2 className={`w-6 h-6 mb-2 ${grafana.isLoading ? 'animate-spin' : ''}`} />
-              <p className="text-sm">{grafana.isLoading ? 'Loading Grafana dashboards...' : 'No Grafana dashboards found'}</p>
+              <p className="text-sm">{grafana.isLoading ? 'Loading Grafana dashboards…' : 'No Grafana dashboards found'}</p>
             </div>
           )}
         </div>
       )}
-    </div>
+    </Page>
   );
 }

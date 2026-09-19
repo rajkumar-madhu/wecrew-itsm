@@ -14,7 +14,7 @@
 
 - Backend repo is `/root/projects/argus-itsm/backend`; frontend repo is `/root/projects/argus-itsm-frontend`. **Tasks 1–7 and 10 are backend; tasks 8–9 are frontend.**
 - Backend is **CommonJS JavaScript** (`require`/`module.exports`). No TypeScript, no ESM.
-- Backend file header style: a `// ═══` banner comment naming the module.
+- Backend file header style: a `// ═══` banner comment naming the module. **Branding: "WeCrew ITSM" only.** Never write "LinkedEye" or "Santhira" into any new or edited file, header, log line, string or comment — even though existing files contain them. Copy the banner *shape* from neighbours, not their product name.
 - All money is **paise** (integers). Starter = `3000000` paise = ₹30,000. Currency `INR` only.
 - Trial length is **20 days**. Trial seat cap **10**, Starter seat cap **10**.
 - **Billable seat** = a `User` with `status: 'ACTIVE'` and `role != 'VIEWER'`.
@@ -24,6 +24,11 @@
 - Prisma client comes from `require('../config/database')` as `{ prisma }`.
 - Frontend: use `cx-*` classes and `src/components/ui/PageChrome.tsx` primitives only. **Never** add `stone-*` or `text-white/60`-style utilities — they grow the legacy compatibility shim in `index.css`.
 - Frontend verification is `npm run build` (typechecks) + `npm run lint`. There is no frontend test runner.
+- **Backend verification is `npx jest` ONLY.** `npm run lint` cannot pass in the backend: `eslint` is
+  installed but there is no config file and no `eslintConfig` key, so `eslint src/` errors out on
+  any invocation. This is pre-existing and repo-wide — do not treat it as a regression, do not try
+  to fix it inside a billing task, and do not gate a task on it. (Frontend lint works fine; tasks 8
+  and 9 keep it.)
 - **Never commit secrets.** `RAZORPAY_KEY_SECRET` and `RAZORPAY_WEBHOOK_SECRET` live only in the backend `.env`.
 
 ## Decision recorded during planning
@@ -1963,7 +1968,7 @@ export default function BillingPage() {
                   {current
                     ? <GhostButton disabled>Current plan</GhostButton>
                     : p.amount == null
-                      ? <GhostButton onClick={() => { window.location.href = 'mailto:sales@wecrew.in?subject=Argus%20ITSM%20Enterprise'; }}>
+                      ? <GhostButton onClick={() => { window.location.href = 'mailto:info@wecrew.in?subject=Argus%20ITSM%20Enterprise'; }}>
                           Contact sales
                         </GhostButton>
                       : <PrimaryButton disabled={busy === p.tier} onClick={() => startCheckout(p.tier)}>
@@ -1993,7 +1998,7 @@ export default function BillingPage() {
 
 Two things to confirm before writing this file:
 - Verify the `cx-card` class exists in `index.css`. If the migrated pages use a different card class, use theirs — check `IncidentList.tsx` for the current convention.
-- `sales@wecrew.in` in the Enterprise button is a **placeholder I invented**. Replace it with the real sales address, or swap the `mailto:` for a link to the marketing site's contact form.
+- The Enterprise button uses **`info@wecrew.in`** (confirmed by the user, 2026-08-13). Published phone `9363072077` — use it only if the design calls for a visible contact line; the button itself is `mailto:info@wecrew.in`. Use no other address.
 
 - [ ] **Step 3: Add the route in `src/App.tsx`**
 
@@ -2154,7 +2159,7 @@ These are **not code** and block go-live:
 
 1. **Enable Subscriptions** on the Razorpay account (not on by default).
 2. **Create the Starter plan** in the Razorpay dashboard: yearly, ₹30,000, then put its `plan_...` id in `RAZORPAY_STARTER_PLAN_ID` and re-run `node scripts/seed-plans.js`.
-3. **Register the webhook** at `https://<host>/api/v1/webhooks/razorpay` with events `subscription.activated`, `subscription.charged`, `subscription.pending`, `subscription.halted`, `subscription.cancelled`, `subscription.completed`; copy the signing secret into `RAZORPAY_WEBHOOK_SECRET`.
-4. **Expose the host** — add a `HostSNI(...)` rule to the host Traefik config and an nginx `Ingress` in-cluster, per `/root/CLAUDE.md`.
+3. **Register the webhook** at `https://incident.api.wecrew.in/api/v1/webhooks/razorpay` (API host; its ingress routes `/` straight to `linkedeye-api`) with events `subscription.activated`, `subscription.charged`, `subscription.pending`, `subscription.halted`, `subscription.cancelled`, `subscription.completed`; copy the signing secret into `RAZORPAY_WEBHOOK_SECRET`.
+4. **Expose the host** — `incident.wecrew.in` / `incident.api.wecrew.in` are already in `k8s/wecrew-itsm/90-ingress.yaml`, and `FRONTEND_URL=https://incident.wecrew.in` (reminder-email billing links) is in `10-config.yaml`; nothing new to expose unless another host is used.
 5. **Rotate the test keys** before switching to live keys; they were shared in a chat transcript.
 6. **Confirm GST treatment** — decide whether ₹30,000 is tax-inclusive before creating the live plan, since the plan amount cannot be edited afterwards.

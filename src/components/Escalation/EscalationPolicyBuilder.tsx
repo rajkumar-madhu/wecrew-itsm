@@ -1,20 +1,24 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, Save, ChevronRight, Mail, MessageSquare, Phone, Zap, Bell, CheckCircle, AlertCircle, Loader2, Users, Clock, Shield } from 'lucide-react';
+import {
+  Plus, Trash2, Save, Mail, MessageSquare, Phone, Zap, Bell,
+  CheckCircle, AlertCircle, Loader2, Users, Clock, Shield,
+} from 'lucide-react';
 import { clsx } from 'clsx';
 import api from '../../lib/api';
+import { Page, Toolbar, Panel, GhostButton } from '../ui/PageChrome';
 
-// ── Types ─────────────────────────────────────────────────────────────────────
 interface Rule { level: number; delayMinutes: number; notifyType: string; notifyTargets: string; }
 interface Policy { id: string; name: string; description?: string; isActive: boolean; rules: Rule[]; }
 interface Team { id: string; name: string; organizationId?: string; }
 
 const NOTIFY_TYPES = [
-  { value: 'SMS_NOTIFY',   label: 'SMS',       icon: MessageSquare, color: '#10B981', bg: 'rgba(16,185,129,0.12)',  border: 'rgba(16,185,129,0.3)' },
-  { value: 'VOICE_NOTIFY', label: 'Voice Call', icon: Phone,        color: '#6366F1', bg: 'rgba(99,102,241,0.12)',  border: 'rgba(99,102,241,0.3)' },
-  { value: 'EMAIL_NOTIFY', label: 'Email',      icon: Mail,         color: '#F59E0B', bg: 'rgba(245,158,11,0.12)',  border: 'rgba(245,158,11,0.3)' },
-  { value: 'SLACK_NOTIFY', label: 'Slack',      icon: Zap,          color: '#8B5CF6', bg: 'rgba(139,92,246,0.12)', border: 'rgba(139,92,246,0.3)' },
-  { value: 'ALL',          label: 'All Channels',icon: Bell,        color: '#EF4444', bg: 'rgba(239,68,68,0.12)',   border: 'rgba(239,68,68,0.3)' },
+  { value: 'SMS_NOTIFY',   label: 'SMS',          icon: MessageSquare, color: '#0f7a55', bg: 'rgba(15,122,85,0.10)',  border: 'rgba(15,122,85,0.22)' },
+  { value: 'VOICE_NOTIFY', label: 'Voice',        icon: Phone,         color: '#2b4cff', bg: 'rgba(43,76,255,0.10)',  border: 'rgba(43,76,255,0.22)' },
+  { value: 'EMAIL_NOTIFY', label: 'Email',        icon: Mail,          color: '#d97706', bg: 'rgba(217,119,6,0.10)',  border: 'rgba(217,119,6,0.22)' },
+  { value: 'SLACK_NOTIFY', label: 'Slack',        icon: Zap,           color: '#ff5b2e', bg: 'rgba(255,91,46,0.10)',  border: 'rgba(255,91,46,0.22)' },
+  { value: 'ALL',          label: 'All channels', icon: Bell,          color: '#dc2626', bg: 'rgba(220,38,38,0.10)',  border: 'rgba(220,38,38,0.22)' },
 ];
 
 const emptyRule = (): Rule => ({ level: 1, delayMinutes: 5, notifyType: 'SMS_NOTIFY', notifyTargets: '' });
@@ -27,89 +31,93 @@ function RuleCard({
 
   return (
     <div className="relative">
-      {/* Connector line + delay label */}
       {index > 0 && (
         <div className="flex flex-col items-center mb-0 -mt-1">
-          <div className="flex items-center gap-2">
-            <div className="w-px h-4 bg-stone-200" />
-          </div>
-          <div className="flex items-center gap-2 py-1.5 px-3 rounded-full text-[10px] font-mono font-bold"
-            style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', color: 'var(--argus-signal)' }}>
+          <div className="w-px h-4 bg-[color:var(--argus-border)]" />
+          <div
+            className="flex items-center gap-2 py-1.5 px-3 rounded-full text-[10px] font-mono font-bold bg-signal-dim text-signal"
+            style={{ border: '1px solid color-mix(in srgb, var(--argus-signal) 25%, transparent)' }}
+          >
             <Clock className="w-3 h-3" />
             Wait {rule.delayMinutes} min if no response
           </div>
-          <div className="w-px h-4 bg-stone-200" />
-          <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-stone-300 -mt-0.5" />
+          <div className="w-px h-4 bg-[color:var(--argus-border)]" />
+          <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-[color:var(--argus-border)] -mt-0.5" />
         </div>
       )}
 
-      {/* Stage card */}
-      <div className="rounded-xl border" style={{ background: '#FFFFFF', borderColor: '#E7E5E4' }}>
-        <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: '#E7E5E4' }}>
+      <div className="rounded-xl border border-steel bg-[color:var(--argus-surface)]">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-steel">
           <div className="flex items-center gap-2.5">
-            <div className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black"
-              style={{ background: nt.bg, border: `1px solid ${nt.border}`, color: nt.color }}>
+            <div
+              className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black"
+              style={{ background: nt.bg, border: `1px solid ${nt.border}`, color: nt.color }}
+            >
               {index + 1}
             </div>
-            <span className="text-sm font-semibold text-stone-900">Level {index + 1}</span>
-            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold"
-              style={{ background: nt.bg, border: `1px solid ${nt.border}`, color: nt.color }}>
+            <span className="text-sm font-semibold text-ink">Level {index + 1}</span>
+            <div
+              className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold"
+              style={{ background: nt.bg, border: `1px solid ${nt.border}`, color: nt.color }}
+            >
               <Icon className="w-3 h-3" />
               {nt.label}
             </div>
           </div>
           {total > 1 && (
-            <button onClick={onRemove} className="w-6 h-6 rounded-lg flex items-center justify-center text-[#EF4444] hover:bg-red-500/10 transition-colors">
+            <button
+              type="button"
+              onClick={onRemove}
+              className="w-6 h-6 rounded-lg flex items-center justify-center text-crimson hover:bg-crimson-dim transition-colors"
+            >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
 
         <div className="p-4 space-y-4">
-          {/* Delay */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1.5">
-                {index === 0 ? 'Trigger After (min)' : 'Escalate After (min)'}
+              <label className="block text-[10px] font-bold text-muted uppercase tracking-wider mb-1.5">
+                {index === 0 ? 'Trigger after (min)' : 'Escalate after (min)'}
               </label>
               <div className="relative">
                 <input
-                  type="number" min={0} max={480}
+                  type="number"
+                  min={0}
+                  max={480}
                   value={rule.delayMinutes}
                   onChange={e => onChange({ ...rule, delayMinutes: parseInt(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 rounded-lg text-sm font-mono text-stone-900"
-                  style={{ background: '#FAFAF9', border: '1px solid #E7E5E4' }}
+                  className="input-field font-mono pr-10"
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-stone-400">min</span>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-dim">min</span>
               </div>
             </div>
-
-            {/* Notify type */}
             <div>
-              <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1.5">Notification Channel</label>
+              <label className="block text-[10px] font-bold text-muted uppercase tracking-wider mb-1.5">
+                Notification channel
+              </label>
               <select
                 value={rule.notifyType}
                 onChange={e => onChange({ ...rule, notifyType: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg text-sm text-stone-900 appearance-none"
-                style={{ background: '#FAFAF9', border: '1px solid #E7E5E4' }}
+                className="filter-select w-full"
               >
                 {NOTIFY_TYPES.map(n => <option key={n.value} value={n.value}>{n.label}</option>)}
               </select>
             </div>
           </div>
 
-          {/* Targets */}
           <div>
-            <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1.5">
-              Contact Targets <span className="text-stone-400 normal-case">(phone numbers, emails, or user IDs — comma-separated)</span>
+            <label className="block text-[10px] font-bold text-muted uppercase tracking-wider mb-1.5">
+              Contact targets{' '}
+              <span className="text-dim normal-case">(phone numbers, emails, or user IDs — comma-separated)</span>
             </label>
             <input
               type="text"
               value={rule.notifyTargets}
               onChange={e => onChange({ ...rule, notifyTargets: e.target.value })}
               placeholder="+91-9876543210, engineer@acme.com, user-uuid"
-              className="w-full px-3 py-2 rounded-lg text-sm text-stone-900 placeholder-stone-400"
-              style={{ background: '#FAFAF9', border: '1px solid #E7E5E4' }}
+              className="input-field"
             />
           </div>
         </div>
@@ -118,7 +126,6 @@ function RuleCard({
   );
 }
 
-// ── Policy Form ───────────────────────────────────────────────────────────────
 function PolicyForm({ teamId, policy, onSaved, onCancel }: {
   teamId: string; policy?: Policy | null; onSaved: () => void; onCancel: () => void;
 }) {
@@ -153,76 +160,82 @@ function PolicyForm({ teamId, policy, onSaved, onCancel }: {
 
   return (
     <div className="space-y-5">
-      {/* Policy name + description */}
       <div className="space-y-3">
         <div>
-          <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1.5">Policy Name *</label>
+          <label className="block text-[10px] font-bold text-muted uppercase tracking-wider mb-1.5">
+            Policy name *
+          </label>
           <input
-            value={name} onChange={e => setName(e.target.value)}
+            value={name}
+            onChange={e => setName(e.target.value)}
             placeholder="e.g. P1 Critical Escalation"
-            className="w-full px-3 py-2.5 rounded-lg text-sm text-stone-900 placeholder-stone-400"
-            style={{ background: '#FAFAF9', border: '1px solid #E7E5E4' }}
+            className="input-field"
           />
         </div>
         <div>
-          <label className="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1.5">Description <span className="text-stone-400 normal-case">(optional)</span></label>
+          <label className="block text-[10px] font-bold text-muted uppercase tracking-wider mb-1.5">
+            Description <span className="text-dim normal-case">(optional)</span>
+          </label>
           <input
-            value={desc} onChange={e => setDesc(e.target.value)}
+            value={desc}
+            onChange={e => setDesc(e.target.value)}
             placeholder="When does this policy activate?"
-            className="w-full px-3 py-2.5 rounded-lg text-sm text-stone-900 placeholder-stone-400"
-            style={{ background: '#FAFAF9', border: '1px solid #E7E5E4' }}
+            className="input-field"
           />
         </div>
       </div>
 
-      {/* Escalation levels */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">Escalation Levels</span>
-          <span className="text-[10px] text-stone-400">{rules.length} level{rules.length !== 1 ? 's' : ''}</span>
+          <span className="text-[10px] font-bold text-muted uppercase tracking-wider">Escalation levels</span>
+          <span className="text-[10px] text-dim">{rules.length} level{rules.length !== 1 ? 's' : ''}</span>
         </div>
 
         <div className="space-y-0">
           {rules.map((rule, i) => (
-            <RuleCard key={i} rule={rule} index={i} total={rules.length}
-              onChange={r => updateRule(i, r)} onRemove={() => removeRule(i)} />
+            <RuleCard
+              key={i}
+              rule={rule}
+              index={i}
+              total={rules.length}
+              onChange={r => updateRule(i, r)}
+              onRemove={() => removeRule(i)}
+            />
           ))}
         </div>
 
         <button
+          type="button"
           onClick={addRule}
-          className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all"
-          style={{ background: 'rgba(99,102,241,0.08)', border: '1px dashed rgba(99,102,241,0.4)', color: 'var(--argus-signal)' }}
+          className="cx-btn cx-btn--ghost mt-4 w-full"
+          style={{ borderStyle: 'dashed' }}
         >
           <Plus className="w-4 h-4" />
-          Add Escalation Level
+          Add escalation level
         </button>
       </div>
 
-      {/* Feedback */}
       {toast && (
-        <div className={clsx('flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm', toast.ok
-          ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
-          : 'bg-red-50 border border-red-200 text-red-700'
+        <div className={clsx(
+          'flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm',
+          toast.ok ? 'bg-emerald-dim text-emerald' : 'bg-crimson-dim text-crimson',
         )}>
           {toast.ok ? <CheckCircle className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
           {toast.msg}
         </div>
       )}
 
-      {/* Actions */}
       <div className="flex items-center gap-3 pt-2">
         <button
+          type="button"
           onClick={() => save.mutate()}
           disabled={!name.trim() || save.isPending}
-          className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-50"
-          style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)', color: 'var(--argus-ink)' }}
+          className="cx-btn cx-btn--primary flex-1 disabled:opacity-50"
         >
           {save.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          {isEdit ? 'Update Policy' : 'Save Policy'}
+          {isEdit ? 'Update policy' : 'Save policy'}
         </button>
-        <button onClick={onCancel} className="px-4 py-2.5 rounded-xl text-sm text-stone-500 hover:text-stone-700 transition-colors"
-          style={{ background: '#FAFAF9', border: '1px solid #E7E5E4' }}>
+        <button type="button" onClick={onCancel} className="cx-btn cx-btn--ghost">
           Cancel
         </button>
       </div>
@@ -230,7 +243,6 @@ function PolicyForm({ teamId, policy, onSaved, onCancel }: {
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function EscalationPolicyBuilder() {
   const qc = useQueryClient();
   const [selectedTeam, setSelectedTeam] = useState<string>('');
@@ -255,193 +267,177 @@ export default function EscalationPolicyBuilder() {
   });
 
   const activeTeam = teams.find(t => t.id === selectedTeam);
-
   const activePolicies = policies.filter(p => p.isActive).length;
   const totalLevels = policies.reduce((sum, p) => sum + p.rules.length, 0);
 
+  const kpis = [
+    { label: 'Policies', value: selectedTeam ? policies.length : '—', sub: selectedTeam ? 'for this team' : 'pick a team' },
+    { label: 'Active', value: selectedTeam ? activePolicies : '—', sub: 'currently in force' },
+    { label: 'Teams', value: teams.length, sub: 'that can hold a policy' },
+    { label: 'Levels', value: selectedTeam ? totalLevels : '—', sub: 'across all policies' },
+  ];
+
   return (
-    <div className="animate-fade-in space-y-0">
-      {/* ── HERO BANNER ── */}
-      <div className="relative rounded-2xl overflow-hidden bg-white shadow-card border border-stone-200">
-        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle, #94A3B8 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
-
-        <div className="relative px-6 pt-6 pb-5">
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
-                <Shield size={18} className="text-ink" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-display font-bold text-stone-900 tracking-tight">Escalation Policies</h1>
-                <p className="text-sm text-stone-500 mt-0.5">Define multi-level escalation chains — who gets notified, how, and when</p>
-              </div>
-            </div>
+    <Page>
+      <div className="cx-hero">
+        <div className="flex items-start justify-between gap-6 flex-wrap">
+          <div className="min-w-0">
+            <span className="cx-eyebrow">Respond · escalation</span>
+            <h1 className="cx-hero__title">Escalation</h1>
+            <p className="cx-hero__deck">
+              Who gets notified, how, and how long to wait before the next person. An empty chain
+              is the one failure this page exists to catch.
+            </p>
           </div>
-
-          {/* Hero Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {[
-              { icon: Shield, label: 'Total Policies', value: policies.length, accent: 'text-violet-600', bg: 'bg-violet-500/10' },
-              { icon: CheckCircle, label: 'Active', value: activePolicies, accent: 'text-emerald-600', bg: 'bg-emerald-500/10' },
-              { icon: Users, label: 'Teams', value: teams.length, accent: 'text-amber-600', bg: 'bg-amber-500/10' },
-              { icon: Zap, label: 'Total Levels', value: totalLevels, accent: 'text-sky-600', bg: 'bg-sky-500/10' },
-            ].map((s, i) => (
-              <div key={s.label} className="bg-stone-50 rounded-xl border border-stone-200 p-4 animate-fade-in" style={{ animationDelay: `${i * 80}ms` }}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[10px] font-medium text-stone-400 uppercase tracking-wide mb-1">{s.label}</p>
-                    <p className="font-display text-2xl font-extrabold text-stone-900">{s.value}</p>
-                  </div>
-                  <div className={clsx('w-10 h-10 rounded-xl flex items-center justify-center', s.bg)}>
-                    <s.icon size={18} className={s.accent} />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <Link to="/oncall" className="cx-hero__btn cx-hero__btn--ghost">
+            On-call rota
+          </Link>
         </div>
-        <div className="h-[2px] bg-gradient-to-r from-transparent via-violet-500/30 to-transparent" />
+        <dl className="cx-hero__kpis mt-6">
+          {kpis.map((kpi) => (
+            <div key={kpi.label} className="cx-hero__kpi">
+              <dt className="cx-hero__kpi-label">{kpi.label}</dt>
+              <dd>
+                <div className="cx-hero__kpi-value">{kpi.value}</div>
+                <div className="cx-hero__kpi-sub">{kpi.sub}</div>
+              </dd>
+            </div>
+          ))}
+        </dl>
       </div>
 
-      {/* ── Team Selector ── */}
-      <div className="-mt-3 relative z-10 bg-white/90 backdrop-blur-xl rounded-xl border border-stone-200 shadow-sm p-3 mb-4">
-        <div className="flex items-center gap-3">
-          <Users size={14} className="text-stone-400" />
-          <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Team</span>
-          <select
-            value={selectedTeam}
-            onChange={e => { setSelectedTeam(e.target.value); setEditPolicy('new'); }}
-            className="flex-1 max-w-xs px-3 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-sm text-stone-700 focus:outline-none focus:ring-2 focus:ring-violet-200 focus:border-violet-400"
+      <nav className="cx-crumb" aria-label="Breadcrumb">
+        <Link to="/dashboard">Operations</Link>
+        <span aria-hidden>/</span>
+        <Link to="/oncall">On-call</Link>
+        <span aria-hidden>/</span>
+        <span className="cx-crumb__current">Escalation</span>
+      </nav>
+
+      <Toolbar>
+        <div className="flex items-center gap-2">
+          <Users size={14} className="text-dim" />
+          <span className="text-[10px] font-bold text-dim uppercase tracking-widest">Team</span>
+        </div>
+        <select
+          value={selectedTeam}
+          onChange={e => { setSelectedTeam(e.target.value); setEditPolicy('new'); }}
+          className={clsx('filter-select min-w-[220px]', selectedTeam && 'filter-select--active')}
+        >
+          <option value="">— choose a team —</option>
+          {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
+        {loadingPolicies && <Loader2 size={14} className="animate-spin text-dim" />}
+      </Toolbar>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <div className="lg:col-span-4">
+          <Panel
+            title="Policies"
+            actions={selectedTeam ? (
+              <GhostButton active={editPolicy === 'new'} onClick={() => setEditPolicy('new')}>
+                <Plus size={12} />
+                New
+              </GhostButton>
+            ) : undefined}
           >
-            <option value="">— choose a team —</option>
-            {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </select>
-          {loadingPolicies && <Loader2 size={14} className="animate-spin text-stone-400" />}
-        </div>
-      </div>
-
-      {/* ── 2-COLUMN LAYOUT ── */}
-      <div className="grid grid-cols-12 gap-5">
-
-        {/* LEFT: Policy List (col-span-4) */}
-        <div className="col-span-4 space-y-4">
-          <div className="bg-white rounded-xl border border-stone-200 shadow-sm overflow-hidden">
-            <div className="px-4 py-3 border-b border-stone-100 flex items-center justify-between">
-              <span className="text-[13px] font-bold text-stone-900 flex items-center gap-2">
-                <Shield size={14} className="text-violet-500" />
-                Policies
-              </span>
-              {selectedTeam && (
-                <button
-                  onClick={() => setEditPolicy('new')}
-                  className="flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-lg transition-colors bg-violet-50 text-violet-600 border border-violet-200 hover:bg-violet-100"
-                >
-                  <Plus size={10} />
-                  New
-                </button>
-              )}
-            </div>
-            <div className="px-4 py-3">
-              {!selectedTeam ? (
-                <div className="py-10 text-center">
-                  <Users size={28} className="mx-auto mb-2 text-stone-300" />
-                  <p className="text-sm text-stone-400">Select a team above</p>
-                </div>
-              ) : loadingPolicies ? (
-                <div className="flex items-center justify-center py-10">
-                  <Loader2 className="w-5 h-5 animate-spin text-stone-400" />
-                </div>
-              ) : policies.length === 0 ? (
-                <div className="py-10 text-center">
-                  <Shield size={28} className="mx-auto mb-2 text-stone-300" />
-                  <p className="text-sm text-stone-400">No policies yet</p>
-                  <p className="text-[10px] text-stone-300 mt-0.5">Create one to enable escalation</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {policies.map(p => {
-                    const isSelected = editPolicy && typeof editPolicy === 'object' && editPolicy.id === p.id;
-                    return (
-                      <button
-                        key={p.id}
-                        onClick={() => setEditPolicy(p)}
-                        className={clsx(
-                          'w-full text-left rounded-xl px-4 py-3 transition-all border',
-                          isSelected
-                            ? 'bg-violet-50 border-violet-200'
-                            : 'bg-stone-50 border-stone-100 hover:bg-stone-100'
-                        )}
-                      >
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm font-semibold text-stone-900 truncate">{p.name}</span>
-                          <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                            {p.isActive && (
-                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 border border-emerald-200">ACTIVE</span>
-                            )}
-                            <button
-                              onClick={e => { e.stopPropagation(); if (confirm(`Delete "${p.name}"?`)) deletePolicy.mutate(p.id); }}
-                              className="p-1 rounded text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+            {!selectedTeam ? (
+              <div className="py-10 text-center">
+                <Users size={28} className="mx-auto mb-2 text-graphite" strokeWidth={1.75} />
+                <p className="text-sm text-dim">Select a team above</p>
+              </div>
+            ) : loadingPolicies ? (
+              <div className="flex items-center justify-center py-10">
+                <Loader2 className="w-5 h-5 animate-spin text-dim" />
+              </div>
+            ) : policies.length === 0 ? (
+              <div className="py-10 text-center">
+                <Shield size={28} className="mx-auto mb-2 text-graphite" strokeWidth={1.75} />
+                <p className="text-sm text-dim">No policies yet</p>
+                <p className="text-[10px] text-graphite mt-0.5">Create one to enable escalation</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {policies.map(p => {
+                  const isSelected = editPolicy && typeof editPolicy === 'object' && editPolicy.id === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setEditPolicy(p)}
+                      className={clsx(
+                        'w-full text-left rounded-xl px-4 py-3 transition-all border',
+                        isSelected
+                          ? 'bg-signal-dim border-signal'
+                          : 'bg-[color:var(--argus-elevated)] border-steel hover:bg-[color:var(--argus-surface)]',
+                      )}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-semibold text-ink truncate">{p.name}</span>
+                        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                          {p.isActive && <span className="cx-pill cx-pill--ok">Active</span>}
+                          <button
+                            type="button"
+                            onClick={e => { e.stopPropagation(); if (confirm(`Delete "${p.name}"?`)) deletePolicy.mutate(p.id); }}
+                            className="p-1 rounded text-dim hover:text-crimson hover:bg-crimson-dim transition-colors"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-dim font-mono mb-2">
+                        {p.rules.length} level{p.rules.length !== 1 ? 's' : ''}
+                      </p>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {p.rules.map((r, i) => {
+                          const nt = NOTIFY_TYPES.find(n => n.value === r.notifyType);
+                          const Icon = nt?.icon || Bell;
+                          return (
+                            <div
+                              key={i}
+                              className="flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-full font-medium"
+                              style={{ background: nt?.bg, color: nt?.color, border: `1px solid ${nt?.border}` }}
                             >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          </div>
-                        </div>
-                        <p className="text-[10px] text-stone-400 font-mono mb-2">{p.rules.length} level{p.rules.length !== 1 ? 's' : ''}</p>
-                        <div className="flex items-center gap-1 flex-wrap">
-                          {p.rules.map((r, i) => {
-                            const nt = NOTIFY_TYPES.find(n => n.value === r.notifyType);
-                            const Icon = nt?.icon || Bell;
-                            return (
-                              <div key={i} className="flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-full font-medium"
-                                style={{ background: nt?.bg, color: nt?.color, border: `1px solid ${nt?.border}` }}>
-                                <Icon className="w-2.5 h-2.5" />
-                                L{r.level} {r.delayMinutes}m
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
+                              <Icon className="w-2.5 h-2.5" />
+                              L{r.level} {r.delayMinutes}m
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </Panel>
         </div>
 
-        {/* RIGHT: Policy Form (col-span-8) */}
-        <div className="col-span-8">
-          <div className="bg-white rounded-xl border border-stone-200 shadow-sm overflow-hidden">
-            <div className="px-4 py-3 border-b border-stone-100 flex items-center justify-between">
-              <span className="text-[13px] font-bold text-stone-900 flex items-center gap-2">
-                <Zap size={14} className="text-violet-500" />
-                {editPolicy === 'new' ? 'New Policy' : typeof editPolicy === 'object' ? editPolicy?.name : 'Policy Editor'}
-              </span>
-              {selectedTeam && activeTeam && (
-                <span className="text-[10px] text-stone-400 font-mono">{activeTeam.name}</span>
-              )}
-            </div>
-            <div className="px-5 py-5">
-              {!selectedTeam ? (
-                <div className="flex flex-col items-center justify-center h-64 text-center">
-                  <Users size={28} className="text-stone-300 mb-2" />
-                  <p className="text-sm text-stone-400">Select a team to manage its escalation policies</p>
-                </div>
-              ) : (
-                (editPolicy === 'new' || typeof editPolicy === 'object') && (
-                  <PolicyForm
-                    key={typeof editPolicy === 'object' ? editPolicy?.id : 'new'}
-                    teamId={selectedTeam}
-                    policy={typeof editPolicy === 'object' ? editPolicy : null}
-                    onSaved={() => setEditPolicy('new')}
-                    onCancel={() => setEditPolicy('new')}
-                  />
-                )
-              )}
-            </div>
-          </div>
+        <div className="lg:col-span-8">
+          <Panel
+            title={editPolicy === 'new' ? 'New policy' : typeof editPolicy === 'object' ? editPolicy?.name : 'Policy editor'}
+            titleExtra={selectedTeam && activeTeam ? (
+              <span className="text-[10px] text-dim font-mono ml-2">{activeTeam.name}</span>
+            ) : undefined}
+          >
+            {!selectedTeam ? (
+              <div className="flex flex-col items-center justify-center h-64 text-center">
+                <Users size={28} className="text-graphite mb-2" strokeWidth={1.75} />
+                <p className="text-sm text-dim">Select a team to manage its escalation policies</p>
+              </div>
+            ) : (
+              (editPolicy === 'new' || typeof editPolicy === 'object') && (
+                <PolicyForm
+                  key={typeof editPolicy === 'object' ? editPolicy?.id : 'new'}
+                  teamId={selectedTeam}
+                  policy={typeof editPolicy === 'object' ? editPolicy : null}
+                  onSaved={() => setEditPolicy('new')}
+                  onCancel={() => setEditPolicy('new')}
+                />
+              )
+            )}
+          </Panel>
         </div>
       </div>
-    </div>
+    </Page>
   );
 }

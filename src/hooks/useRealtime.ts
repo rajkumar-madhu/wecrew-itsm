@@ -72,6 +72,11 @@ export function useRealtime() {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     });
 
+    // Billing events
+    s.on('subscription:updated', () => {
+      queryClient.invalidateQueries({ queryKey: ['billing'] });
+    });
+
     return () => {
       s.off('incident:created');
       s.off('incident:updated');
@@ -85,6 +90,7 @@ export function useRealtime() {
       s.off('asset:updated');
       s.off('voice:call-completed');
       s.off('notification:new');
+      s.off('subscription:updated');
     };
   }, [socket, queryClient]);
 }

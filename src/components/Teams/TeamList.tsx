@@ -1,31 +1,30 @@
 import type React from 'react';
 import { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { clsx } from 'clsx';
 import {
-  Users, Shield, UserPlus, Mail, Hash, ChevronDown, ChevronUp,
-  AlertTriangle, Clock, Loader2, Search, Building2, Phone,
+  Users, Shield, Mail, Hash, ChevronDown, ChevronUp,
+  AlertTriangle, Clock, Loader2, Search,
   Plus, X, Wrench, Database, Network, Headphones, Code,
-  ShieldCheck, BarChart3, Activity, Globe, Zap, Briefcase,
-  MoreHorizontal, Pencil, Trash2, UserMinus, Crown,
-  MessageSquare, Bell,
+  ShieldCheck, Activity, Globe, Zap, Briefcase, Crown,
+  MessageSquare,
 } from 'lucide-react';
 import { useTeams, useCreateTeam } from '../../hooks/useTeams';
 import { useAuthStore } from '../../stores/authStore';
-import { useQuery } from '@tanstack/react-query';
-import api from '../../lib/api';
+import { Page, Toolbar, GhostButton } from '../ui/PageChrome';
 
 // ── Team type definitions with icons and colors ──
 const TEAM_TYPES: Record<string, { icon: any; label: string; hex: string; bg: string; border: string }> = {
-  DEVOPS:    { icon: Code,         label: 'DevOps',           hex: '#A5B4FC', bg: 'rgba(99,102,241,0.15)',  border: 'rgba(99,102,241,0.3)' },
-  NETWORK:   { icon: Network,      label: 'Network',          hex: '#38BDF8', bg: 'rgba(14,165,233,0.15)',  border: 'rgba(14,165,233,0.3)' },
-  DATABASE:  { icon: Database,     label: 'Database',         hex: '#6EE7B7', bg: 'rgba(5,150,105,0.15)',   border: 'rgba(5,150,105,0.3)' },
-  SUPPORT:   { icon: Headphones,   label: 'Support',          hex: '#FCD34D', bg: 'rgba(217,119,6,0.15)',   border: 'rgba(217,119,6,0.3)' },
-  SECURITY:  { icon: ShieldCheck,  label: 'Security',         hex: '#FCA5A5', bg: 'rgba(220,38,38,0.15)',   border: 'rgba(220,38,38,0.3)' },
-  INFRA:     { icon: Wrench,       label: 'Infrastructure',   hex: '#C4B5FD', bg: 'rgba(124,58,237,0.15)',  border: 'rgba(124,58,237,0.3)' },
-  PLATFORM:  { icon: Globe,        label: 'Platform',         hex: '#5EEAD4', bg: 'rgba(20,184,166,0.15)',  border: 'rgba(20,184,166,0.3)' },
-  SRE:       { icon: Activity,     label: 'SRE',              hex: '#F9A8D4', bg: 'rgba(236,72,153,0.15)',  border: 'rgba(236,72,153,0.3)' },
-  MANAGEMENT:{ icon: Briefcase,    label: 'Management',       hex: '#94A3B8', bg: 'rgba(100,116,139,0.15)', border: 'rgba(100,116,139,0.3)' },
-  OTHER:     { icon: Users,        label: 'General',          hex: '#A5B4FC', bg: 'rgba(99,102,241,0.15)',  border: 'rgba(99,102,241,0.3)' },
+  DEVOPS:     { icon: Code,         label: 'DevOps',         hex: '#2b4cff', bg: 'rgba(43,76,255,0.10)',  border: 'rgba(43,76,255,0.22)' },
+  NETWORK:    { icon: Network,      label: 'Network',        hex: '#0e7490', bg: 'rgba(14,116,144,0.10)', border: 'rgba(14,116,144,0.22)' },
+  DATABASE:   { icon: Database,     label: 'Database',       hex: '#0f7a55', bg: 'rgba(15,122,85,0.10)',  border: 'rgba(15,122,85,0.22)' },
+  SUPPORT:    { icon: Headphones,   label: 'Support',        hex: '#d97706', bg: 'rgba(217,119,6,0.10)',  border: 'rgba(217,119,6,0.22)' },
+  SECURITY:   { icon: ShieldCheck,  label: 'Security',       hex: '#dc2626', bg: 'rgba(220,38,38,0.10)',  border: 'rgba(220,38,38,0.22)' },
+  INFRA:      { icon: Wrench,       label: 'Infrastructure', hex: '#5c5a56', bg: 'rgba(14,17,22,0.06)',   border: 'rgba(14,17,22,0.12)' },
+  PLATFORM:   { icon: Globe,        label: 'Platform',       hex: '#2b4cff', bg: 'rgba(43,76,255,0.10)',  border: 'rgba(43,76,255,0.22)' },
+  SRE:        { icon: Activity,     label: 'SRE',            hex: '#ff5b2e', bg: 'rgba(255,91,46,0.10)',  border: 'rgba(255,91,46,0.22)' },
+  MANAGEMENT: { icon: Briefcase,    label: 'Management',     hex: '#5c5a56', bg: 'rgba(14,17,22,0.06)',   border: 'rgba(14,17,22,0.12)' },
+  OTHER:      { icon: Users,        label: 'General',        hex: '#5c5a56', bg: 'rgba(14,17,22,0.06)',   border: 'rgba(14,17,22,0.12)' },
 };
 
 function detectTeamType(name: string): string {
@@ -53,10 +52,10 @@ function getFullName(user: any): string {
   return `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown';
 }
 
-const roleDarkStyles: Record<string, React.CSSProperties> = {
-  LEAD:     { background: 'rgba(217,119,6,0.15)',  color: 'var(--argus-amber)', border: '1px solid rgba(217,119,6,0.3)' },
-  MEMBER:   { background: 'rgba(99,102,241,0.15)', color: 'var(--argus-signal)', border: '1px solid rgba(99,102,241,0.3)' },
-  OBSERVER: { background: 'rgba(100,116,139,0.15)',color: 'var(--argus-muted)', border: '1px solid rgba(100,116,139,0.3)' },
+const roleStyles: Record<string, React.CSSProperties> = {
+  LEAD:     { background: 'var(--argus-amber-dim)', color: 'var(--argus-amber)', border: '1px solid color-mix(in srgb, var(--argus-amber) 25%, transparent)' },
+  MEMBER:   { background: 'var(--argus-signal-dim)', color: 'var(--argus-signal)', border: '1px solid color-mix(in srgb, var(--argus-signal) 25%, transparent)' },
+  OBSERVER: { background: 'var(--argus-elevated)', color: 'var(--argus-muted)', border: '1px solid var(--argus-border)' },
 };
 
 const avatarGradients = [
@@ -99,22 +98,20 @@ function CreateTeamModal({ open, onClose, onCreated }: { open: boolean; onClose:
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-      <div className="relative rounded-2xl shadow-2xl w-full max-w-lg p-0 animate-slide-in" style={{ background: '#0C0A18', border: '1px solid rgba(139,92,246,0.25)' }} onClick={e => e.stopPropagation()}>
-        {/* Modal header */}
-        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--argus-border)' }}>
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#6366F1] to-[#8B5CF6] flex items-center justify-center">
-              <Users className="w-4 h-4 text-ink" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold" style={{ color: 'var(--argus-ink)' }}>Create New Team</h2>
-              <p className="text-xs" style={{ color: 'var(--argus-muted)' }}>Add a team to your organization</p>
-            </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0" style={{ background: 'var(--argus-overlay)' }} />
+      <div
+        className="relative w-full max-w-lg animate-fade-in"
+        style={{ background: 'var(--argus-surface)', border: '1px solid var(--argus-border)', borderRadius: 'var(--cx-radius)', boxShadow: 'var(--argus-shadow-card)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid var(--argus-border)' }}>
+          <div>
+            <p className="cx-eyebrow">Administration</p>
+            <h2 className="cx-sectionhead__title" style={{ fontSize: '1.25rem' }}>Create a team</h2>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--argus-muted)' }}>
-            <X className="w-5 h-5" />
+          <button type="button" onClick={onClose} className="p-1.5 rounded text-muted hover:text-ink hover:bg-[color:var(--argus-elevated)]" aria-label="Close">
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -182,17 +179,16 @@ function CreateTeamModal({ open, onClose, onCreated }: { open: boolean; onClose:
             </div>
           </div>
 
-          <div className="flex items-center gap-3 pt-3" style={{ borderTop: '1px solid var(--argus-border)' }}>
+          <div className="flex items-center gap-2 pt-3" style={{ borderTop: '1px solid var(--argus-border)' }}>
             <button
               type="submit"
               disabled={!name.trim() || createTeam.isPending}
-              className="flex items-center gap-2 flex-1 justify-center px-4 py-2 rounded-xl text-sm font-semibold text-ink disabled:opacity-50 transition-all"
-              style={{ background: 'linear-gradient(90deg, #8B5CF6, #6366F1)' }}
+              className="cx-btn cx-btn--primary flex-1 disabled:opacity-50"
             >
               {createTeam.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-              {createTeam.isPending ? 'Creating...' : 'Create Team'}
+              {createTeam.isPending ? 'Creating…' : 'Create team'}
             </button>
-            <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium transition-all" style={{ color: 'var(--argus-muted)', border: '1px solid var(--argus-border)' }}>Cancel</button>
+            <button type="button" onClick={onClose} className="cx-btn cx-btn--ghost">Cancel</button>
           </div>
         </form>
       </div>
@@ -231,12 +227,18 @@ function TeamCard({ team, expanded, onToggle }: { team: any; expanded: boolean; 
   const roleOrder: Record<string, number> = { LEAD: 0, MEMBER: 1, OBSERVER: 2 };
   members.sort((a: any, b: any) => (roleOrder[a.role] ?? 9) - (roleOrder[b.role] ?? 9));
 
-  const workloadColor = totalWorkload > 10 ? '#FCA5A5' : totalWorkload > 5 ? '#FCD34D' : '#6EE7B7';
+  const workloadColor = totalWorkload > 10 ? 'var(--argus-crimson)' : totalWorkload > 5 ? 'var(--argus-amber)' : 'var(--argus-emerald)';
 
   return (
-    <div className="rounded-xl transition-all duration-200" style={{ background: 'var(--argus-elevated)', border: expanded ? `1px solid ${def.border}` : '1px solid rgba(255,255,255,0.08)' }}
-      onMouseEnter={e => { if (!expanded) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; }}
-      onMouseLeave={e => { if (!expanded) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}>
+    <div
+      className="transition-colors"
+      style={{
+        background: 'var(--argus-surface)',
+        border: expanded ? `1px solid ${def.border}` : '1px solid var(--argus-border)',
+        borderRadius: 'var(--cx-radius)',
+        boxShadow: 'var(--argus-shadow-card)',
+      }}
+    >
       {/* Card header */}
       <div className="flex items-center justify-between p-5 cursor-pointer" onClick={onToggle}>
         <div className="flex items-center gap-4 min-w-0 flex-1">
@@ -323,23 +325,21 @@ function TeamCard({ team, expanded, onToggle }: { team: any; expanded: boolean; 
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
                 {members.map((member: any) => (
-                  <div key={member.id} className="flex items-center gap-3 p-3 rounded-xl transition-all" style={{ background: 'var(--argus-elevated)', border: '1px solid var(--argus-border)' }}
-                    onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)')}
-                    onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)')}>
+                  <div key={member.id} className="flex items-center gap-3 p-3 rounded" style={{ background: 'var(--argus-elevated)', border: '1px solid var(--argus-border)' }}>
                     <div className="relative shrink-0">
                       <div className={clsx('w-9 h-9 rounded-full bg-gradient-to-br flex items-center justify-center text-[11px] font-bold text-white', member.gradClass)}>
                         {member.avatar}
                       </div>
                       {member.role === 'LEAD' && (
-                        <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center" style={{ background: '#D97706', border: '2px solid #0C0A18' }}>
-                          <Crown className="w-2 h-2 text-ink" />
+                        <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center" style={{ background: 'var(--argus-amber)', border: '2px solid var(--argus-surface)' }}>
+                          <Crown className="w-2 h-2 text-white" />
                         </div>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate" style={{ color: 'var(--argus-ink)' }}>{member.name}</p>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={roleDarkStyles[member.role] || roleDarkStyles.MEMBER}>
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={roleStyles[member.role] || roleStyles.MEMBER}>
                           {member.role}
                         </span>
                         {member.jobTitle && <span className="text-[10px] truncate" style={{ color: 'var(--argus-muted)' }}>{member.jobTitle}</span>}
@@ -366,14 +366,6 @@ export default function TeamList() {
   const { data: teamsData, isLoading, isError, refetch } = useTeams();
   const user = useAuthStore(s => s.user);
   const canManage = user?.role === 'ADMIN' || user?.role === 'MANAGER';
-
-  // Fetch orgs for admin view
-  const { data: orgsData } = useQuery({
-    queryKey: ['organizations'],
-    queryFn: async () => { const { data } = await api.get('/organizations'); return data; },
-    staleTime: 60000,
-    enabled: user?.role === 'ADMIN',
-  });
 
   const teams = teamsData?.data || [];
 
@@ -413,148 +405,113 @@ export default function TeamList() {
     return counts;
   }, [enrichedTeams]);
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64" style={{ background: 'var(--argus-surface)', minHeight: '100vh' }}>
-        <Loader2 className="w-8 h-8 animate-spin" style={{ color: '#8B5CF6' }} />
-        <span className="ml-3 text-sm" style={{ color: 'var(--argus-muted)' }}>Loading teams...</span>
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64" style={{ background: 'var(--argus-surface)', minHeight: '100vh', color: 'var(--argus-crimson)' }}>
-        <AlertTriangle className="w-10 h-10 mb-3" />
-        <p className="text-lg font-semibold">Failed to load teams</p>
-        <p className="text-sm mt-1" style={{ color: 'var(--argus-muted)' }}>Please check your connection and try again.</p>
-      </div>
-    );
-  }
+  const kpis = [
+    { label: 'Teams', value: isLoading ? '—' : teams.length, sub: `${activeTeams} active` },
+    { label: 'Members', value: isLoading ? '—' : totalMembers, sub: 'holding a seat' },
+    { label: 'Open work', value: isLoading ? '—' : totalWorkload, sub: 'incidents, changes, problems', tone: totalWorkload > 10 ? 'warn' : undefined },
+  ];
 
   return (
-    <div className="animate-fade-in space-y-0" style={{ background: 'var(--argus-surface)', minHeight: '100vh', padding: '1.5rem' }}>
-      {/* ── HERO BANNER ── */}
-      <div className="relative rounded-2xl overflow-hidden mb-5" style={{ background: 'var(--argus-surface)', border: '1px solid rgba(139,92,246,0.15)' }}>
-        {/* 3px accent line at top */}
-        <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ background: 'linear-gradient(90deg, transparent, #8B5CF6, #6366F1, transparent)' }} />
-        {/* Grid texture */}
-        <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'radial-gradient(circle, rgba(255,255,255,1) 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
-        {/* Glow orbs */}
-        <div className="absolute top-0 right-0 w-80 h-80 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4" style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.15) 0%, transparent 70%)' }} />
-        <div className="absolute bottom-0 left-0 w-60 h-60 rounded-full blur-3xl translate-y-1/3 -translate-x-1/4" style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.10) 0%, transparent 70%)' }} />
-        <div className="relative px-6 py-5">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="flex items-center gap-2.5 mb-1.5">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'var(--argus-elevated)' }}>
-                  <Users size={16} style={{ color: '#A78BFA' }} />
-                </div>
-                <h1 className="font-display text-2xl font-bold tracking-tight" style={{ color: 'var(--argus-ink)' }}>Teams</h1>
-                <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded" style={{ color: '#A78BFA', background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.2)' }}>RBAC</span>
-              </div>
-              <p className="text-sm ml-[42px]" style={{ color: 'var(--argus-muted)' }}>Manage teams, members, and on-call assignments across your organization</p>
-            </div>
-            {canManage && (
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-ink transition-all duration-200 hover:scale-[1.02]"
-                style={{ background: 'linear-gradient(90deg, #8B5CF6, #6366F1)' }}
-              >
-                <Plus className="w-4 h-4" /> Create Team
-              </button>
-            )}
+    <Page>
+      <div className="cx-hero">
+        <div className="flex items-start justify-between gap-6 flex-wrap">
+          <div className="min-w-0">
+            <span className="cx-eyebrow">Govern · people</span>
+            <h1 className="cx-hero__title">Teams</h1>
+            <p className="cx-hero__deck">
+              Who belongs where, who leads, and how much open work sits on each group. On-call and
+              escalation elsewhere in WeCrew attach to the teams held here.
+            </p>
           </div>
-
-          {/* Stats row */}
-          <div className="flex items-center gap-4 mt-4 ml-[42px]">
-            {[
-              { label: 'Teams', value: teams.length, sub: `${activeTeams} active` },
-              { label: 'Members', value: totalMembers, sub: 'across all teams' },
-              { label: 'Workload', value: totalWorkload, sub: 'open items' },
-            ].map(s => (
-              <div key={s.label} className="flex items-center gap-3 px-4 py-2.5 rounded-xl" style={{ background: 'var(--argus-elevated)', border: '1px solid var(--argus-border)' }}>
-                <div>
-                  <p className="text-xl font-bold font-display" style={{ color: 'var(--argus-ink)' }}>{s.value}</p>
-                  <p className="text-[10px]" style={{ color: 'var(--argus-muted)' }}>{s.label}</p>
-                </div>
-                <span className="text-[9px] font-mono" style={{ color: 'var(--argus-muted)' }}>{s.sub}</span>
-              </div>
-            ))}
-          </div>
+          {canManage && (
+            <button type="button" onClick={() => setShowCreateModal(true)} className="cx-hero__btn">
+              <Plus size={14} strokeWidth={1.75} />
+              Create a team
+            </button>
+          )}
         </div>
+        <dl className="cx-hero__kpis mt-6">
+          {kpis.map((kpi) => (
+            <div key={kpi.label} className={clsx('cx-hero__kpi', kpi.tone && `cx-hero__kpi--${kpi.tone}`)}>
+              <dt className="cx-hero__kpi-label">{kpi.label}</dt>
+              <dd>
+                <div className="cx-hero__kpi-value">{kpi.value}</div>
+                <div className="cx-hero__kpi-sub">{kpi.sub}</div>
+              </dd>
+            </div>
+          ))}
+        </dl>
       </div>
-      <div className="h-0.5 -mt-5 mb-4" style={{ background: 'linear-gradient(90deg, transparent, rgba(139,92,246,0.6), transparent)' }} />
 
-      {/* ── Filter bar ── */}
-      <div className="flex items-center gap-3 mb-4 flex-wrap p-3 rounded-xl" style={{ background: 'var(--argus-elevated)', border: '1px solid var(--argus-border)', backdropFilter: 'blur(8px)' }}>
-        {/* Search */}
-        <div className="relative min-w-[240px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: 'var(--argus-dim)' }} />
+      <nav className="cx-crumb" aria-label="Breadcrumb">
+        <Link to="/dashboard">Operations</Link>
+        <span aria-hidden>/</span>
+        <span className="cx-crumb__current">Teams</span>
+      </nav>
+
+      <Toolbar>
+        <div className="cx-listhead__count">
+          <span className="cx-listhead__count-value">
+            {isLoading ? '—' : `${filtered.length} team${filtered.length === 1 ? '' : 's'}`}
+          </span>
+          <span className="cx-listhead__count-meta">{typeFilter === 'ALL' ? 'all types' : TEAM_TYPES[typeFilter]?.label}</span>
+        </div>
+
+        <div className="w-px h-5 bg-[color:var(--argus-border)] hidden sm:block" />
+
+        <div className="relative flex-1 min-w-[200px] max-w-md">
+          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-dim" />
           <input
             type="text"
-            placeholder="Search teams or members..."
             value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 rounded-lg text-sm focus:outline-none transition-all"
-            style={{ background: 'var(--argus-elevated)', border: '1px solid var(--argus-border)', color: 'var(--argus-ink)' }}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search teams or members..."
+            className="input-field pl-8 py-1.5 text-[13px]"
           />
         </div>
 
-        <div className="h-5 w-px" style={{ background: 'var(--argus-elevated)' }} />
+        <div className="w-px h-5 bg-[color:var(--argus-border)] hidden sm:block" />
 
-        {/* Type filter pills */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <button
-            onClick={() => setTypeFilter('ALL')}
-            className="px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
-            style={typeFilter === 'ALL'
-              ? { background: 'rgba(139,92,246,0.2)', color: 'var(--argus-signal)', border: '1px solid rgba(139,92,246,0.4)' }
-              : { background: 'var(--argus-elevated)', color: 'var(--argus-muted)', border: '1px solid var(--argus-border)' }}
-          >
-            All <span className="text-[10px] opacity-60 ml-1">{teams.length}</span>
-          </button>
+        <div className="flex items-center gap-1 flex-wrap">
+          <GhostButton active={typeFilter === 'ALL'} onClick={() => setTypeFilter('ALL')}>
+            All
+          </GhostButton>
           {Object.entries(TEAM_TYPES).filter(([k]) => k !== 'OTHER' && (typeCounts[k] || 0) > 0).map(([key, def]) => {
             const Icon = def.icon;
-            const isActive = typeFilter === key;
             return (
-              <button
-                key={key}
-                onClick={() => setTypeFilter(key)}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
-                style={isActive
-                  ? { background: def.bg, color: def.hex, border: `1px solid ${def.border}` }
-                  : { background: 'var(--argus-elevated)', color: 'var(--argus-muted)', border: '1px solid var(--argus-border)' }}
-              >
-                <Icon className="w-3 h-3" /> {def.label} <span className="text-[10px] opacity-60">{typeCounts[key] || 0}</span>
-              </button>
+              <GhostButton key={key} active={typeFilter === key} onClick={() => setTypeFilter(key)}>
+                <Icon className="w-3.5 h-3.5" /> {def.label}
+              </GhostButton>
             );
           })}
         </div>
+      </Toolbar>
 
-        <span className="text-xs ml-auto font-mono" style={{ color: 'var(--argus-muted)' }}>{filtered.length} team{filtered.length !== 1 ? 's' : ''}</span>
-      </div>
-
-      {/* ── Team cards ── */}
-      {filtered.length === 0 ? (
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16 text-muted">
+          <Loader2 className="w-5 h-5 animate-spin mr-2" />
+          Reading teams…
+        </div>
+      ) : isError ? (
         <div className="text-center py-16">
-          <Users className="w-12 h-12 mx-auto mb-3" style={{ color: 'var(--argus-dim)' }} />
-          <p className="text-lg font-semibold" style={{ color: 'var(--argus-muted)' }}>No teams found</p>
-          <p className="text-sm mt-1" style={{ color: 'var(--argus-muted)' }}>
-            {searchQuery || typeFilter !== 'ALL' ? 'Try adjusting your filters' : 'Create your first team to get started'}
+          <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-crimson" strokeWidth={1.75} />
+          <p className="text-sm text-ink font-medium">Teams did not load</p>
+          <p className="text-xs text-muted mt-1">Reload the page to try again.</p>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-16">
+          <p className="text-sm text-ink font-medium">No teams match these filters</p>
+          <p className="text-xs text-muted mt-1">
+            {searchQuery || typeFilter !== 'ALL' ? 'Clear the filters to see every team.' : 'Create a team to get started.'}
           </p>
           {canManage && !searchQuery && typeFilter === 'ALL' && (
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-ink"
-              style={{ background: 'linear-gradient(90deg, #8B5CF6, #6366F1)' }}
-            >
-              <Plus className="w-4 h-4" /> Create Team
+            <button type="button" onClick={() => setShowCreateModal(true)} className="cx-btn cx-btn--primary mt-4">
+              <Plus size={14} /> Create a team
             </button>
           )}
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {filtered.map((team: any) => (
             <TeamCard
               key={team.id}
@@ -566,12 +523,11 @@ export default function TeamList() {
         </div>
       )}
 
-      {/* Create Team Modal */}
       <CreateTeamModal
         open={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onCreated={() => refetch()}
       />
-    </div>
+    </Page>
   );
 }

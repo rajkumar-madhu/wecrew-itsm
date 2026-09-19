@@ -1,0 +1,90 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  finalizers:
+  - kubernetes.io/pvc-protection
+  labels:
+    app.kubernetes.io/component: storage
+    app.kubernetes.io/name: linkedeye-db-backups
+    app.kubernetes.io/part-of: linkedeye
+  name: linkedeye-db-backups
+  namespace: wecrew-itsm
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: local-path
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  labels:
+    app.kubernetes.io/component: cronjob
+    app.kubernetes.io/name: linkedeye-db-backup
+    app.kubernetes.io/part-of: linkedeye
+  name: linkedeye-db-backup
+  namespace: wecrew-itsm
+spec:
+  concurrencyPolicy: Forbid
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    metadata: {}
+    spec:
+      activeDeadlineSeconds: 600
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/component: cronjob
+            app.kubernetes.io/name: linkedeye-db-backup
+        spec:
+          containers:
+          - args:
+            - "set -euo pipefail\n# Prisma URLs carry ?schema=public \u2014 strip\
+              \ for libpq/pg_dump\nDB_URL=\"${DATABASE_URL%%\\?*}\"\necho \"Waiting\
+              \ for postgres...\"\nfor i in $(seq 1 30); do\n  if pg_isready -d \"\
+              $DB_URL\" >/dev/null 2>&1; then\n    break\n  fi\n  sleep 2\ndone\n\
+              pg_isready -d \"$DB_URL\"\nTIMESTAMP=$(date +%Y%m%d_%H%M%S)\nBACKUP_FILE=\"\
+              /backups/linkedeye_${TIMESTAMP}.sql.gz\"\necho \"Starting backup: ${BACKUP_FILE}\"\
+              \npg_dump \"${DB_URL}\" | gzip > \"${BACKUP_FILE}\"\necho \"Backup complete:\
+              \ $(du -h \"${BACKUP_FILE}\" | cut -f1)\"\nls -t /backups/linkedeye_*.sql.gz\
+              \ | tail -n +31 | xargs -r rm\necho \"Cleanup complete. Remaining: $(ls\
+              \ /backups/linkedeye_*.sql.gz | wc -l)\"\n"
+            command:
+            - /bin/sh
+            - -c
+            env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  key: DATABASE_URL
+                  name: linkedeye-secrets
+            image: postgres:16-alpine
+            imagePullPolicy: IfNotPresent
+            name: db-backup
+            resources:
+              limits:
+                cpu: 500m
+                memory: 512Mi
+              requests:
+                cpu: 100m
+                memory: 128Mi
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: File
+            volumeMounts:
+            - mountPath: /backups
+              name: backup-storage
+          dnsPolicy: ClusterFirst
+          restartPolicy: Never
+          schedulerName: default-scheduler
+          securityContext: {}
+          terminationGracePeriodSeconds: 30
+          volumes:
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: linkedeye-db-backups
+  schedule: 30 20 * * *
+  successfulJobsHistoryLimit: 5
+  suspend: false

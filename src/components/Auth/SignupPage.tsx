@@ -1,78 +1,58 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import {
-  Eye, EyeOff, Shield, Zap, ArrowRight,
-  Server, Bell, Brain, Lock, ChevronRight,
-  CheckCircle2, Globe, User, Mail, KeyRound,
-} from 'lucide-react';
+import { Eye, EyeOff, ArrowRight, AlertTriangle, Shield, Lock } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 
-// ══════════════════════════════════════════════════════════════
-// Feature bullet for left panel (shared with LoginPage design)
-// ══════════════════════════════════════════════════════════════
-
-function Feature({ icon: Icon, title, desc, color }: {
-  icon: React.ElementType; title: string; desc: string; color: string;
-}) {
-  return (
-    <div className="flex items-start gap-3 group">
-      <div className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center ${color} transition-transform group-hover:scale-110`}>
-        <Icon size={16} className="text-ink" />
-      </div>
-      <div>
-        <p className="text-[13px] font-semibold text-ink/90">{title}</p>
-        <p className="text-[11px] text-ink/40 leading-relaxed mt-0.5">{desc}</p>
-      </div>
-    </div>
-  );
-}
-
-// ══════════════════════════════════════════════════════════════
-// Password strength indicator
-// ══════════════════════════════════════════════════════════════
+export const SIGNUP_UI_BUILD = 'itsm-signup-v2';
 
 function PasswordStrength({ password }: { password: string }) {
   const checks = [
     { label: '8+ characters', pass: password.length >= 8 },
-    { label: 'Uppercase letter', pass: /[A-Z]/.test(password) },
+    { label: 'Uppercase', pass: /[A-Z]/.test(password) },
     { label: 'Number', pass: /\d/.test(password) },
-    { label: 'Special character', pass: /[!@#$%^&*(),.?":{}|<>]/.test(password) },
+    { label: 'Special', pass: /[^A-Za-z0-9]/.test(password) },
   ];
-  const score = checks.filter(c => c.pass).length;
+  const score = checks.filter((c) => c.pass).length;
   if (!password) return null;
+
+  const tone =
+    score <= 1 ? 'var(--argus-crimson)' : score <= 2 ? 'var(--argus-amber)' : score <= 3 ? 'var(--argus-signal)' : 'var(--argus-emerald)';
+  const label = score <= 1 ? 'Weak' : score <= 2 ? 'Fair' : score <= 3 ? 'Good' : 'Strong';
 
   return (
     <div className="mt-2 space-y-1.5">
       <div className="flex gap-1">
-        {[1, 2, 3, 4].map(i => (
+        {[1, 2, 3, 4].map((i) => (
           <div
             key={i}
-            className={`h-1 flex-1 rounded-full transition-colors ${
-              i <= score
-                ? score <= 1 ? 'bg-red-400' : score <= 2 ? 'bg-amber-400' : score <= 3 ? 'bg-indigo-400' : 'bg-emerald-500'
-                : 'bg-stone-200'
-            }`}
+            className="h-1 flex-1 rounded-full"
+            style={{
+              background: i <= score ? tone : 'var(--argus-border)',
+            }}
           />
         ))}
       </div>
-      <p className={`text-[10px] font-mono ${
-        score <= 1 ? 'text-red-500' : score <= 2 ? 'text-amber-500' : score <= 3 ? 'text-[color:var(--argus-signal)]' : 'text-emerald-600'
-      }`}>
-        {score <= 1 ? 'Weak' : score <= 2 ? 'Fair' : score <= 3 ? 'Good' : 'Strong'}
+      <p className="text-[10px] font-mono" style={{ color: tone }}>
+        {label}
+        <span className="text-dim">
+          {' · '}
+          {checks.filter((c) => !c.pass).map((c) => c.label).join(', ') || 'meets policy'}
+        </span>
       </p>
     </div>
   );
 }
 
-// ══════════════════════════════════════════════════════════════
-// Signup Page — Premium SaaS Split Layout
-// ══════════════════════════════════════════════════════════════
-
+/**
+ * WeCrew ITSM signup — same brand-forward split as login
+ * (dark ops rail + light desk).
+ */
 export default function SignupPage() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuthStore();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -85,26 +65,31 @@ export default function SignupPage() {
     if (isAuthenticated) navigate('/dashboard', { replace: true });
   }, [isAuthenticated, navigate]);
 
+  const fail = (message: string) => {
+    setError(message);
+    setShake(true);
+    setTimeout(() => setShake(false), 400);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    if (!firstName || !lastName || !email || !password) {
-      setError('All fields are required');
-      setShake(true);
-      setTimeout(() => setShake(false), 500);
+    const cleanEmail = email.trim().toLowerCase();
+    if (!firstName.trim() || !lastName.trim() || !cleanEmail || !password) {
+      fail('All fields are required');
+      return;
+    }
+    if (!cleanEmail.includes('@')) {
+      fail('Use your full work email address');
       return;
     }
     if (password.length < 8) {
-      setError('Password must be at least 8 characters');
-      setShake(true);
-      setTimeout(() => setShake(false), 500);
+      fail('Password must be at least 8 characters');
       return;
     }
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      setShake(true);
-      setTimeout(() => setShake(false), 500);
+      fail('Passwords do not match');
       return;
     }
 
@@ -113,311 +98,321 @@ export default function SignupPage() {
       const res = await fetch('/api/v1/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, firstName, lastName }),
+        body: JSON.stringify({
+          email: cleanEmail,
+          password,
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          // Names the trial organization; the API falls back to the person's name.
+          ...(companyName.trim() ? { companyName: companyName.trim() } : {}),
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Signup failed');
 
-      // Auto-login: set tokens in auth store
       const { setUser, setTokens } = useAuthStore.getState();
       setTokens(data.data.accessToken, data.data.refreshToken);
       setUser(data.data.user);
+      // Signup creates the org + trial; store it exactly as login() does.
+      useAuthStore.setState({
+        organization: data.data.organization || null,
+        selectedOrgId: data.data.user?.organizationId || null,
+      });
 
       navigate('/dashboard');
-    } catch (err: any) {
-      setError(err?.message || 'Something went wrong. Please try again.');
-      setShake(true);
-      setTimeout(() => setShake(false), 500);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
+      fail(message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div
+      className="min-h-screen min-h-[100dvh] flex"
+      style={{ background: 'linear-gradient(165deg, #efeae0 0%, #f4f1ea 42%, #fffcf7 100%)' }}
+      data-signup-build={SIGNUP_UI_BUILD}
+    >
+      <aside
+        className="hidden lg:flex lg:w-[46%] xl:w-[44%] flex-col justify-between text-white relative overflow-hidden"
+        style={{ background: '#0a0c10' }}
+      >
+        <div
+          className="absolute left-0 top-0 bottom-0 w-[5px]"
+          style={{ background: 'var(--argus-coral)' }}
+          aria-hidden
+        />
+        <div
+          className="absolute inset-0 opacity-[0.07]"
+          style={{
+            backgroundImage: 'radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)',
+            backgroundSize: '22px 22px',
+          }}
+        />
+        <div
+          className="absolute -right-24 top-1/4 w-[420px] h-[420px] rounded-full opacity-30 blur-3xl pointer-events-none"
+          style={{ background: 'color-mix(in srgb, var(--argus-coral) 35%, transparent)' }}
+          aria-hidden
+        />
 
-      {/* ══════════════════════════════════════════════════════════
-          LEFT PANEL — Dark branded showcase
-          ══════════════════════════════════════════════════════════ */}
-      <div className="hidden lg:flex lg:w-[48%] xl:w-[52%] relative bg-obsidian text-ink border border-[color:var(--argus-border)] overflow-hidden flex-col">
-        {/* Dot grid texture */}
-        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle, rgba(255,255,255,1) 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
+        <div className="relative px-12 xl:px-16 pt-12 pb-8 flex flex-col h-full">
+          <Link to="/" className="flex items-center gap-3 w-fit">
+            <div
+              className="w-11 h-11 rounded-sm flex items-center justify-center text-sm font-bold tracking-wide"
+              style={{ background: 'var(--argus-coral)', color: '#fff' }}
+            >
+              WC
+            </div>
+            <div>
+              <p className="font-display text-[18px] font-semibold tracking-[-0.03em] leading-none">WeCrew</p>
+              <p className="text-[11px] font-mono uppercase tracking-[0.14em] text-white/40 mt-1">ITSM</p>
+            </div>
+          </Link>
 
-        {/* Ambient glows */}
-        <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] bg-signal/[0.08] rounded-full blur-[120px]" />
-        <div className="absolute bottom-[-15%] left-[-10%] w-[400px] h-[400px] bg-violet-500/[0.06] rounded-full blur-[100px]" />
-        <div className="absolute top-[40%] left-[30%] w-[200px] h-[200px] bg-emerald-500/[0.04] rounded-full blur-[80px]" />
+          <div className="flex-1 flex flex-col justify-center py-16">
+            <p className="text-[11px] font-mono uppercase tracking-[0.18em] mb-4" style={{ color: 'var(--argus-coral)' }}>
+              Request access
+            </p>
+            <h1 className="font-display text-[2.65rem] xl:text-[3.1rem] font-semibold leading-[1.05] tracking-[-0.04em] max-w-md">
+              Join the desk
+            </h1>
+            <p className="mt-5 text-[15px] text-white/60 leading-relaxed max-w-sm">
+              One workspace for incidents, changes, CMDB and on-call — on infrastructure you control.
+            </p>
 
-        {/* Content */}
-        <div className="relative flex-1 flex flex-col justify-between px-10 xl:px-14 py-10">
+            <div className="mt-12 grid gap-3 max-w-sm">
+              {[
+                { k: '01', t: 'Incidents, problems, changes' },
+                { k: '02', t: 'CMDB + SLA on the same record' },
+                { k: '03', t: 'Approval before anything runs' },
+              ].map((row) => (
+                <div
+                  key={row.k}
+                  className="flex items-center gap-3 border-t border-white/10 pt-3 text-[13px] text-white/75"
+                >
+                  <span className="font-mono text-[11px]" style={{ color: 'var(--argus-coral)' }}>{row.k}</span>
+                  {row.t}
+                </div>
+              ))}
+            </div>
+          </div>
 
-          {/* Top — Logo */}
-          <div className="flex items-center gap-3">
-            <Link to="/" className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[color:var(--argus-signal)] to-[color:var(--argus-signal-bright)] flex items-center justify-center shadow-lg shadow-indigo-500/25">
-                <Eye size={18} className="text-ink" strokeWidth={2.5} />
+          <p className="relative text-[11px] text-white/30 font-mono">
+            WeCrew · {SIGNUP_UI_BUILD}
+          </p>
+        </div>
+      </aside>
+
+      <main className="auth-light-panel flex-1 flex items-center justify-center px-5 sm:px-8 py-10">
+        <div className={`w-full max-w-[420px] ${shake ? 'animate-[shake_0.4s_ease-in-out]' : ''}`}>
+          <div className="lg:hidden flex items-center gap-2.5 mb-8">
+            <Link to="/" className="flex items-center gap-2.5">
+              <div
+                className="w-9 h-9 rounded-sm flex items-center justify-center text-xs font-bold"
+                style={{ background: 'var(--argus-coral)', color: '#fff' }}
+              >
+                WC
               </div>
               <div>
-                <span className="font-display font-bold text-[17px] text-ink tracking-tight">WeCrew</span>
+                <p className="font-semibold text-ink text-sm">WeCrew</p>
+                <p className="text-[11px] font-mono text-muted uppercase tracking-wider">ITSM</p>
               </div>
             </Link>
           </div>
 
-          {/* Center — Hero + Features */}
-          <div className="space-y-8 max-w-md">
-            <div>
-              <h2 className="font-display text-[32px] xl:text-[36px] font-bold text-ink leading-[1.15] tracking-tight">
-                Start Monitoring
-                <br />
-                <span className="bg-gradient-to-r from-indigo-400 via-violet-400 to-indigo-300 bg-clip-text text-transparent">
-                  Your Infrastructure
-                </span>
-              </h2>
-              <p className="text-[14px] text-ink/40 mt-3 leading-relaxed max-w-sm">
-                Create your free account and experience AI-powered IT service management in minutes.
-              </p>
-            </div>
-
-            {/* Feature bullets */}
-            <div className="space-y-4">
-              <Feature icon={Zap} title="Free to Start" desc="Full access to incident management, alerting, and basic monitoring" color="bg-[color:var(--argus-signal-dim)]/20" />
-              <Feature icon={Brain} title="AI-Powered Triage" desc="Automated incident classification and root cause analysis" color="bg-violet-500/20" />
-              <Feature icon={Globe} title="Multi-Cloud Ready" desc="Monitor Kubernetes, VMs, databases, and applications in one pane" color="bg-emerald-500/20" />
-              <Feature icon={Bell} title="Smart Notifications" desc="PagerDuty, Slack, SMS, and Voice — never miss a critical alert" color="bg-amber-500/20" />
-            </div>
-          </div>
-
-          {/* Bottom — Trust badges */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-4 pt-2">
-              <div className="flex items-center gap-1.5 text-[10px] text-ink/25 font-mono">
-                <Lock size={9} /> SOC 2 Type II
-              </div>
-              <div className="w-px h-3 bg-white/10" />
-              <div className="flex items-center gap-1.5 text-[10px] text-ink/25 font-mono">
-                <Shield size={9} /> ISO 27001
-              </div>
-              <div className="w-px h-3 bg-white/10" />
-              <div className="flex items-center gap-1.5 text-[10px] text-ink/25 font-mono">
-                <CheckCircle2 size={9} /> ITIL v4 Certified
-              </div>
-            </div>
-
-            <p className="text-[10px] text-ink/15 font-mono">
-              FinSpot Technology Solutions Private Limited
+          <div
+            className="rounded-lg border px-6 py-7 sm:px-8 sm:py-8"
+            style={{
+              background: 'var(--argus-surface)',
+              borderColor: 'var(--argus-border)',
+              boxShadow: '0 1px 0 rgba(14,17,22,0.04), 0 18px 40px rgba(14,17,22,0.06)',
+            }}
+          >
+            <p
+              className="text-[10px] font-mono uppercase tracking-[0.16em] mb-3"
+              style={{ color: 'var(--argus-coral)' }}
+            >
+              New account
             </p>
-          </div>
-        </div>
+            <h2 className="font-display text-[1.65rem] font-semibold text-ink tracking-[-0.03em]">
+              Create your workspace
+            </h2>
+            <p className="text-[13px] text-muted mt-1.5 mb-6">
+              Use your work email. You will land on the Command Centre after this.
+            </p>
 
-        {/* Diagonal accent stripe */}
-        <div className="absolute right-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-[color:var(--argus-signal)]/0 via-violet-500/40 to-indigo-500/0" />
-      </div>
-
-      {/* ══════════════════════════════════════════════════════════
-          RIGHT PANEL — Clean white signup form
-          ══════════════════════════════════════════════════════════ */}
-      <div className="flex-1 flex items-center justify-center bg-white relative px-6 py-10">
-        {/* Subtle background texture */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(99,102,241,0.03)_0%,_transparent_60%)]" />
-
-        <div className={`relative w-full max-w-[400px] ${shake ? 'animate-[shake_0.5s_ease-in-out]' : ''}`}>
-
-          {/* Mobile logo (hidden on lg+) */}
-          <div className="lg:hidden text-center mb-8">
-            <div className="inline-flex items-center gap-3 mb-3">
-              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[color:var(--argus-signal)] to-[color:var(--argus-signal-bright)] flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                <Eye size={20} className="text-ink" strokeWidth={2.5} />
+            {error && (
+              <div
+                className="mb-4 flex items-start gap-2 px-3 py-2.5 rounded-md border"
+                style={{
+                  background: 'var(--argus-crimson-dim)',
+                  borderColor: 'color-mix(in srgb, var(--argus-crimson) 28%, transparent)',
+                }}
+                role="alert"
+              >
+                <AlertTriangle size={15} className="shrink-0 mt-0.5" style={{ color: 'var(--argus-crimson)' }} />
+                <p className="text-[12px]" style={{ color: 'var(--argus-crimson)' }}>{error}</p>
               </div>
-            </div>
-            <h1 className="font-display text-2xl font-bold text-stone-900 tracking-tight">WeCrew</h1>
-            <p className="text-xs text-stone-400 mt-0.5">Enterprise ITSM Platform</p>
-          </div>
+            )}
 
-          {/* Form header */}
-          <div className="mb-6">
-            <h2 className="font-display text-[22px] font-bold text-stone-900 tracking-tight">Create your account</h2>
-            <p className="text-[13px] text-stone-400 mt-1">Get started with WeCrew in under a minute</p>
-          </div>
-
-          {/* Error banner */}
-          {error && (
-            <div className="mb-4 flex items-start gap-2.5 px-3.5 py-3 rounded-xl bg-red-50 border border-red-200">
-              <div className="shrink-0 w-5 h-5 rounded-full bg-red-100 flex items-center justify-center mt-0.5">
-                <span className="block w-1.5 h-1.5 rounded-full bg-red-500" />
-              </div>
-              <p className="text-[12px] text-red-700 leading-relaxed">{error}</p>
-            </div>
-          )}
-
-          {/* SSO Button */}
-          <button className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 hover:border-stone-300 transition-all text-[13px] font-medium text-stone-700 shadow-sm mb-4 group">
-            <div className="w-5 h-5 rounded-md bg-gradient-to-br from-[color:var(--argus-signal)] to-[color:var(--argus-signal-bright)] flex items-center justify-center">
-              <Zap size={11} className="text-ink" />
-            </div>
-            Sign up with Keycloak SSO
-            <ChevronRight size={13} className="text-stone-300 group-hover:text-stone-500 group-hover:translate-x-0.5 transition-all ml-auto" />
-          </button>
-
-          {/* Divider */}
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex-1 h-px bg-stone-200" />
-            <span className="text-[10px] font-mono text-stone-300 uppercase tracking-wider">or sign up with email</span>
-            <div className="flex-1 h-px bg-stone-200" />
-          </div>
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-3.5">
-            {/* Name row */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[11px] font-semibold text-stone-500 uppercase tracking-wider mb-1.5">First name</label>
-                <div className="relative">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="signup-first" className="block text-[12px] font-medium text-muted mb-1.5">
+                    First name
+                  </label>
                   <input
+                    id="signup-first"
                     type="text"
                     value={firstName}
                     onChange={(e) => { setFirstName(e.target.value); setError(''); }}
-                    placeholder="John"
-                    className="w-full pl-9 pr-3 py-2.5 text-[13px] bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[color:var(--argus-signal)]/20 focus:border-[color:var(--argus-signal)] transition-all placeholder:text-stone-300"
+                    placeholder="Anita"
+                    className="input-field py-2.5 text-[14px]"
                     autoFocus
+                    autoComplete="given-name"
                   />
-                  <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+                </div>
+                <div>
+                  <label htmlFor="signup-last" className="block text-[12px] font-medium text-muted mb-1.5">
+                    Last name
+                  </label>
+                  <input
+                    id="signup-last"
+                    type="text"
+                    value={lastName}
+                    onChange={(e) => { setLastName(e.target.value); setError(''); }}
+                    placeholder="Sharma"
+                    className="input-field py-2.5 text-[14px]"
+                    autoComplete="family-name"
+                  />
                 </div>
               </div>
+
               <div>
-                <label className="block text-[11px] font-semibold text-stone-500 uppercase tracking-wider mb-1.5">Last name</label>
+                <label htmlFor="signup-company" className="block text-[12px] font-medium text-muted mb-1.5">
+                  Company <span className="text-dim">(optional)</span>
+                </label>
                 <input
+                  id="signup-company"
                   type="text"
-                  value={lastName}
-                  onChange={(e) => { setLastName(e.target.value); setError(''); }}
-                  placeholder="Doe"
-                  className="w-full px-3 py-2.5 text-[13px] bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[color:var(--argus-signal)]/20 focus:border-[color:var(--argus-signal)] transition-all placeholder:text-stone-300"
+                  value={companyName}
+                  onChange={(e) => { setCompanyName(e.target.value); setError(''); }}
+                  placeholder="Acme Operations"
+                  className="input-field py-2.5 text-[14px]"
+                  autoComplete="organization"
+                  maxLength={100}
                 />
               </div>
-            </div>
 
-            {/* Email */}
-            <div>
-              <label className="block text-[11px] font-semibold text-stone-500 uppercase tracking-wider mb-1.5">Email address</label>
-              <div className="relative">
+              <div>
+                <label htmlFor="signup-email" className="block text-[12px] font-medium text-muted mb-1.5">
+                  Work email
+                </label>
                 <input
+                  id="signup-email"
                   type="email"
                   value={email}
                   onChange={(e) => { setEmail(e.target.value); setError(''); }}
-                  placeholder="you@company.com"
-                  className="w-full pl-9 pr-3 py-2.5 text-[13px] bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[color:var(--argus-signal)]/20 focus:border-[color:var(--argus-signal)] transition-all placeholder:text-stone-300"
+                  placeholder="name@company.com"
+                  className="input-field py-2.5 text-[14px]"
                   autoComplete="email"
+                  inputMode="email"
                 />
-                <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
               </div>
-            </div>
 
-            {/* Password */}
-            <div>
-              <label className="block text-[11px] font-semibold text-stone-500 uppercase tracking-wider mb-1.5">Password</label>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => { setPassword(e.target.value); setError(''); }}
-                  placeholder="Min. 8 characters"
-                  className="w-full pl-9 pr-10 py-2.5 text-[13px] bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[color:var(--argus-signal)]/20 focus:border-[color:var(--argus-signal)] transition-all placeholder:text-stone-300"
-                  autoComplete="new-password"
-                />
-                <KeyRound size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 text-stone-400 hover:text-stone-600 transition-colors"
-                  tabIndex={-1}
-                >
-                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                </button>
+              <div>
+                <label htmlFor="signup-password" className="block text-[12px] font-medium text-muted mb-1.5">
+                  Password
+                </label>
+                <div className="relative">
+                  <input
+                    id="signup-password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => { setPassword(e.target.value); setError(''); }}
+                    placeholder="At least 8 characters"
+                    className="input-field py-2.5 text-[14px] pr-10"
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-dim hover:text-muted"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                <PasswordStrength password={password} />
               </div>
-              <PasswordStrength password={password} />
-            </div>
 
-            {/* Confirm Password */}
-            <div>
-              <label className="block text-[11px] font-semibold text-stone-500 uppercase tracking-wider mb-1.5">Confirm password</label>
-              <div className="relative">
+              <div>
+                <label htmlFor="signup-confirm" className="block text-[12px] font-medium text-muted mb-1.5">
+                  Confirm password
+                </label>
                 <input
+                  id="signup-confirm"
                   type={showPassword ? 'text' : 'password'}
                   value={confirmPassword}
                   onChange={(e) => { setConfirmPassword(e.target.value); setError(''); }}
-                  placeholder="Re-enter your password"
-                  className={`w-full pl-9 pr-3 py-2.5 text-[13px] bg-stone-50 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[color:var(--argus-signal)]/20 focus:border-[color:var(--argus-signal)] transition-all placeholder:text-stone-300 ${
-                    confirmPassword && confirmPassword !== password ? 'border-red-300' : 'border-stone-200'
-                  }`}
+                  placeholder="Re-enter password"
+                  className="input-field py-2.5 text-[14px]"
                   autoComplete="new-password"
+                  aria-invalid={Boolean(confirmPassword && confirmPassword !== password)}
                 />
-                <KeyRound size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+                {confirmPassword && confirmPassword !== password && (
+                  <p className="text-[11px] mt-1.5" style={{ color: 'var(--argus-crimson)' }}>
+                    Passwords do not match
+                  </p>
+                )}
               </div>
-              {confirmPassword && confirmPassword !== password && (
-                <p className="text-[10px] text-red-500 mt-1 font-mono">Passwords don't match</p>
-              )}
-            </div>
 
-            {/* Terms */}
-            <p className="text-[11px] text-stone-400 leading-relaxed">
-              By creating an account, you agree to our{' '}
-              <span className="text-[color:var(--argus-signal)] hover:text-[color:var(--argus-signal)] cursor-pointer font-medium">Terms of Service</span>
-              {' '}and{' '}
-              <span className="text-[color:var(--argus-signal)] hover:text-[color:var(--argus-signal)] cursor-pointer font-medium">Privacy Policy</span>
-            </p>
+              <p className="text-[11px] text-muted leading-relaxed">
+                By creating an account you agree that production changes require a named approver,
+                and that every state change is written to the audit trail.
+              </p>
 
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 bg-obsidian text-ink border border-[color:var(--argus-border)] font-semibold rounded-xl hover:bg-slate text-ink active:scale-[0.99] disabled:opacity-60 transition-all flex items-center justify-center gap-2 text-[13px] shadow-lg shadow-stone-900/10"
-            >
-              {loading ? (
-                <div className="w-4 h-4 border-2 border-[color:var(--argus-border)] border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  Create Account
-                  <ArrowRight size={14} className="opacity-60" />
-                </>
-              )}
-            </button>
-          </form>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3 rounded-md text-[13px] font-semibold text-white disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
+                style={{ background: 'var(--argus-coral)' }}
+              >
+                {loading ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    Create workspace
+                    <ArrowRight size={14} />
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
 
-          {/* Footer — login link */}
-          <div className="mt-6 pt-5 border-t border-stone-100 text-center space-y-3">
-            <p className="text-[13px] text-stone-500">
+          <div className="mt-5 text-center space-y-2">
+            <p className="text-[13px] text-muted">
               Already have an account?{' '}
-              <Link to="/login" className="text-[color:var(--argus-signal)] hover:text-[color:var(--argus-signal)] font-semibold transition-colors">
+              <Link to="/login" className="font-medium hover:underline" style={{ color: 'var(--argus-coral)' }}>
                 Sign in
               </Link>
             </p>
-            <div className="flex items-center justify-center gap-3">
-              <span className="inline-flex items-center gap-1 text-[10px] text-stone-300 font-mono">
-                <Lock size={8} /> 256-bit TLS
-              </span>
-              <span className="text-stone-200">|</span>
-              <span className="inline-flex items-center gap-1 text-[10px] text-stone-300 font-mono">
-                <Shield size={8} /> RBAC
-              </span>
-              <span className="text-stone-200">|</span>
-              <span className="inline-flex items-center gap-1 text-[10px] text-stone-300 font-mono">
-                <Server size={8} /> Enterprise
-              </span>
+            <div className="flex items-center justify-center gap-3 text-[10px] text-dim font-mono">
+              <span className="inline-flex items-center gap-1"><Lock size={10} /> TLS</span>
+              <span>·</span>
+              <span className="inline-flex items-center gap-1"><Shield size={10} /> RBAC</span>
             </div>
           </div>
-
-          {/* Version footer */}
-          <p className="text-center text-[10px] text-stone-300 mt-5 font-mono">
-            WeCrew &middot; FinSpot Technology Solutions Private Limited &middot; No.55B, First Main, Electronic City Phase – 1, Bengaluru – 560 100 &middot; 9176772077
-          </p>
         </div>
-      </div>
+      </main>
 
-      {/* Shake animation keyframes */}
       <style>{`
         @keyframes shake {
           0%, 100% { transform: translateX(0); }
-          10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
-          20%, 40%, 60%, 80% { transform: translateX(4px); }
+          20%, 60% { transform: translateX(-3px); }
+          40%, 80% { transform: translateX(3px); }
         }
       `}</style>
     </div>

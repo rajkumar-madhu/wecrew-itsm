@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { MessageSquare, Send, Users, Loader2, Hash, ArrowLeft, ChevronRight } from 'lucide-react';
 import { clsx } from 'clsx';
 import api from '../../lib/api';
 import { useAuthStore } from '../../stores/authStore';
 import { useSocket, emitEvent, onEvent } from '../../lib/socket';
+import { Page } from '../ui/PageChrome';
 
 const MOBILE_BP = 768;
 
@@ -219,21 +221,25 @@ export default function TeamChat() {
   const showConversation = !isMobile || mobileShowChat;
 
   return (
-    <div className="animate-float-up h-[calc(100dvh-5.5rem)] sm:h-[calc(100vh-6.5rem)] flex flex-col gap-3 sm:gap-4">
+    <Page>
       {(!isMobile || !mobileShowChat) && (
-        <div className="flex items-end justify-between gap-4 shrink-0">
-          <div>
-            <p className="section-label mb-1 hidden sm:block">Communications</p>
-            <h1 className="page-title text-xl sm:text-2xl flex items-center gap-2">
-              <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6 text-signal-bright" />
-              Team Chat
-            </h1>
-            <p className="page-subtitle mt-1 text-sm hidden sm:block">Real-time ops chat by team channel</p>
+        <>
+          <div className="cx-hero">
+            <div className="min-w-0">
+              <span className="cx-eyebrow">Respond · communications</span>
+              <h1 className="cx-hero__title">Team chat</h1>
+              <p className="cx-hero__deck">Real-time ops chat by team channel.</p>
+            </div>
           </div>
-        </div>
+          <nav className="cx-crumb" aria-label="Breadcrumb">
+            <Link to="/dashboard">Operations</Link>
+            <span aria-hidden>/</span>
+            <span className="cx-crumb__current">Team chat</span>
+          </nav>
+        </>
       )}
 
-      <div className="glass-card flex-1 min-h-0 flex overflow-hidden">
+      <div className="cx-board flex-1 min-h-0 flex overflow-hidden bg-obsidian border border-steel rounded">
         {/* Team list */}
         <aside
           className={clsx(
@@ -443,6 +449,6 @@ export default function TeamChat() {
           </footer>
         </section>
       </div>
-    </div>
+    </Page>
   );
 }

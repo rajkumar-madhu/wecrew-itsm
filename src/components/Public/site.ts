@@ -26,7 +26,10 @@ export interface CompanyDetails {
   name: string;
   product: string;
   tagline: string;
+  /** Sales & general enquiries — also the lead-form fallback and Billing's "Contact sales". */
   email: string;
+  /** Existing-customer support. */
+  supportEmail: string;
   website: string;
   /** Optional — rendered only when non-empty. Typed `string`, not the literal
    *  '', so filling one in here does not narrow it to `never` at the use site. */
@@ -37,26 +40,96 @@ export interface CompanyDetails {
 }
 
 export const COMPANY: CompanyDetails = {
-  name: 'WeCrew Ops',
+  name: 'WeCrew',
   product: 'WeCrew ITSM',
-  tagline: 'Self-hosted IT operations for teams that have to prove what happened.',
-  email: 'le@finspot.in',
+  tagline:
+    'Enterprise multi-tenant IT service management — incidents, changes, CMDB, and observability-grade response in one platform.',
+  email: 'info@wecrew.in',
+  supportEmail: 'support@wecrew.in',
   website: 'https://wecrew.in',
-  // Optional — fill these in; blank fields are omitted from the page.
-  phone: '',
+  phone: '+91 93630 72077',
   addressLines: [],
   registration: '',
   hours: 'Monday–Friday, 09:00–18:00 IST',
 };
 
-export type NavItem = { label: string; to: string };
+/** `footerOnly`: listed in the footer but not the header (the header already has a CTA for it). */
+export type NavItem = { label: string; to: string; footerOnly?: boolean };
 
 export const NAV: NavItem[] = [
-  { label: 'ITSM', to: '/itsm' },
+  { label: 'Platform', to: '/itsm' },
   { label: 'Modules', to: '/modules' },
+  { label: 'Pricing', to: '/pricing' },
   { label: 'Security', to: '/security' },
-  { label: 'Pilot', to: '/pilot' },
+  { label: 'Docs', to: '/docs' },
+  { label: 'Pilot', to: '/pilot', footerOnly: true },
   { label: 'Contact', to: '/contact' },
+];
+
+/**
+ * Public pricing. Must match the backend's seeded Plan rows
+ * (backend scripts/seed-plans.js): amounts there are paise, here rupees.
+ * Do not add tax wording until GST treatment is decided.
+ */
+export type PricingTier = {
+  key: 'TRIAL' | 'STARTER' | 'ENTERPRISE';
+  name: string;
+  price: string;
+  period: string;
+  blurb: string;
+  features: string[];
+  cta: { label: string; to?: string; href?: string };
+  highlight?: boolean;
+};
+
+export const PRICING: PricingTier[] = [
+  {
+    key: 'TRIAL',
+    name: 'Trial',
+    price: 'Free',
+    period: '20 days',
+    blurb: 'Full product on your own incidents. No card required.',
+    features: ['Up to 10 agent seats', 'Unlimited viewers', 'Every core ITSM module', 'Read-only access to your data after it ends'],
+    cta: { label: 'Book a pilot', to: '/pilot' },
+  },
+  {
+    key: 'STARTER',
+    name: 'Starter',
+    price: '₹30,000',
+    period: 'per year',
+    blurb: 'For one team running incidents, changes and on-call in production.',
+    features: ['10 agent seats', 'Unlimited viewers', 'Incidents, changes, problems, CMDB, alerts', 'On-call, escalation and SLA policies', 'Billed yearly through Razorpay'],
+    cta: { label: 'Sign in to upgrade', to: '/login' },
+    highlight: true,
+  },
+  {
+    key: 'ENTERPRISE',
+    name: 'Enterprise',
+    price: 'Custom',
+    period: 'annual agreement',
+    blurb: 'Multi-tenant estates, custom seat counts and commercial terms.',
+    features: ['Custom agent seats', 'Multiple organizations under one control plane', 'Self-hosted in your cluster', 'Named support contact'],
+    cta: { label: 'Contact sales', href: 'mailto:info@wecrew.in?subject=WeCrew%20ITSM%20Enterprise' },
+  },
+];
+
+export const PRICING_FAQ: { q: string; a: string }[] = [
+  {
+    q: 'What counts as a seat?',
+    a: 'An active user who can create or change records — admins, managers, engineers and operators. Viewers are free and unlimited.',
+  },
+  {
+    q: 'What happens when the trial ends?',
+    a: 'Nothing is deleted. Your organization becomes read-only until you subscribe, so you can still see every incident and export what you need.',
+  },
+  {
+    q: 'Can I cancel?',
+    a: 'Yes. Cancelling stops the next renewal; you keep full access until the end of the paid year.',
+  },
+  {
+    q: 'Do you offer a pilot?',
+    a: 'Yes — a scoped pilot on your own incidents before any commitment. Book one from the Pilot page.',
+  },
 ];
 
 export type ModuleStatus = 'available' | 'contact';
@@ -78,51 +151,91 @@ export const MODULES: ModuleCard[] = [
     key: 'alertmind',
     name: 'AlertMind',
     summary:
-      'Alert correlation and noise reduction. Groups related signals into one incident so an on-call engineer reads a situation, not a stream.',
+      'Alert correlation and noise reduction across monitoring estates. Groups related signals into one incident so responders read a situation, not a stream.',
     status: 'available',
     points: [
-      'Correlates alerts across monitoring sources into a single incident',
-      'Suppresses duplicates and flapping during known maintenance windows',
-      'Routes on severity and service ownership, with escalation policies',
+      'Correlates alerts across sources into a single incident',
+      'Suppresses duplicates and flapping during maintenance windows',
+      'Routes on severity, service ownership, and escalation policy',
     ],
   },
   {
-    key: 'copilot',
-    name: 'Copilot',
+    key: 'aegis',
+    name: 'AEGIS',
     summary:
-      'AI incident intelligence in the incident record. Summarises what changed, what is affected, and what past incidents looked like.',
+      'Incident intelligence on the record — timeline summary, blast radius, similar incidents, and draft stakeholder updates with evidence attached.',
     status: 'available',
     points: [
-      'Timeline summary and likely blast radius drawn from the CMDB',
+      'Timeline summary and likely blast radius from the CMDB',
       'Similar-incident recall with the resolution that worked last time',
-      'Draft updates for status pages and stakeholder comms',
+      'Draft updates for status pages and stakeholder communications',
     ],
   },
   {
-    key: 'nexus',
-    name: 'NEXUS',
+    key: 'jobwatch',
+    name: 'JobWatch',
     summary:
-      'Cross-environment topology and dependency mapping — Kubernetes workloads, hosts, services and the links between them.',
-    status: 'contact',
+      'Scheduled-workload operations for CronJobs, batch, and critical jobs — missed, late, and failed runs with owner and SLA context.',
+    status: 'available',
     points: [
-      'Live topology from cluster and infrastructure discovery',
-      'Dependency-aware impact analysis before a change is approved',
-      'Feeds the CMDB rather than living beside it',
+      'Detect missed, late, and failed job executions',
+      'Map jobs to services, owners, and escalation paths',
+      'Feed exceptions into the same incident workflow as alerts',
     ],
   },
   {
     key: 'agentos',
     name: 'AgentOS',
     summary:
-      'Automation that proposes remediation and executes only what a human approves, with the full run recorded.',
+      'Governed automation that proposes remediation and executes only what a human approves, with the full run on the audit trail.',
     status: 'contact',
     points: [
       'Runbook steps proposed with the evidence that triggered them',
       'Approval gate before anything touches a production system',
-      'Every run written to the audit trail with actor and outcome',
+      'Every run written with actor, timestamp, and outcome',
     ],
   },
 ];
+
+/** Platform pillars — Datadog-style product depth + ServiceNow-style ITSM breadth. */
+export const PLATFORM_PILLARS = [
+  {
+    key: 'observe',
+    title: 'Observe',
+    body: 'Alerts, metrics, JobWatch events, and deployment signals land in one intake plane with correlation before anyone is paged.',
+  },
+  {
+    key: 'respond',
+    title: 'Respond',
+    body: 'Incidents, major incidents, and on-call escalation with ownership, SLA clocks, and evidence-first updates.',
+  },
+  {
+    key: 'govern',
+    title: 'Govern',
+    body: 'Changes, problems, known errors, and approvals with CAB-ready context and an audit trail you can hand over.',
+  },
+  {
+    key: 'serve',
+    title: 'Serve',
+    body: 'Request catalog, knowledge, and fulfillment so requesters and agents share one system of record.',
+  },
+] as const;
+
+/** Multi-tenant enterprise capabilities called out on the home page. */
+export const TENANCY_POINTS = [
+  {
+    title: 'Organization isolation',
+    body: 'Every ticket, asset, and audit event is scoped to an organization. Platform staff can operate across tenants; customer users — their own admins included — stay inside their estate.',
+  },
+  {
+    title: 'Role-based control',
+    body: 'ADMIN, MANAGER, ENGINEER, OPERATOR, and VIEWER roles gate queues, approvals, and restricted records — not just navigation.',
+  },
+  {
+    title: 'Shared platform, private data',
+    body: 'One control plane for platform operators; per-tenant configuration, connectors, and retention for each customer or business unit.',
+  },
+] as const;
 
 /** WeCrew ITSM capability blocks — the /itsm page. */
 export const ITSM_CAPABILITIES = [
@@ -161,19 +274,24 @@ export const ITSM_CAPABILITIES = [
 /** Security posture commitments — the /security page. */
 export const SECURITY_POSTURE = [
   {
+    key: 'multi-tenant',
+    title: 'Enterprise multi-tenant isolation',
+    body: 'Organizations are first-class. Data access is enforced with tenant context on every API call; platform admins can scope across orgs, tenant users cannot.',
+  },
+  {
     key: 'self-hosted',
-    title: 'Self-hosted on your Kubernetes',
-    body: 'WeCrew ITSM deploys into a cluster you control, as ordinary manifests. There is no multi-tenant SaaS instance holding your operational data, and no outbound dependency required for the product to function.',
+    title: 'Deploy on your Kubernetes',
+    body: 'WeCrew ITSM deploys as ordinary manifests into a cluster you control. Your operational data stays in your database, under your backup and retention policy.',
   },
   {
     key: 'data',
     title: 'Customer-controlled data',
-    body: 'Incidents, assets, logs and audit records live in your database, on your storage, under your backup and retention policy. You decide what leaves the cluster, and revoking access is a change you make, not a request you file.',
+    body: 'Incidents, assets, logs and audit records live where you run the platform. You decide what leaves the cluster, and revoking access is a change you make.',
   },
   {
     key: 'evidence',
     title: 'Evidence before action',
-    body: 'Automated and AI-assisted suggestions arrive with the signals that produced them attached. An engineer sees why something is being proposed before deciding whether it is right.',
+    body: 'Automated and AI-assisted suggestions arrive with the signals that produced them attached. An engineer sees why something is proposed before deciding.',
   },
   {
     key: 'approval',
@@ -186,3 +304,164 @@ export const SECURITY_POSTURE = [
     body: 'Every state change, approval and automated run is written with actor, timestamp and outcome. The trail is queryable in-product and exportable for review.',
   },
 ] as const;
+
+// ── Home page (/) ─────────────────────────────────────────
+
+export const HOME_HERO = {
+  eyebrow: 'WeCrew ITSM',
+  title: 'From alert to resolved incident — for every customer you run.',
+  deck:
+    'Alerts from your monitoring become incidents that already name the customer, the application, the host and the severity. On-call gets paged, SLA clocks start, and every step lands on the record.',
+} as const;
+
+/**
+ * Illustrative only — rendered with an "Example" label. Shows the fields an
+ * auto-created incident carries; not a real customer or system.
+ */
+export const HOME_EXAMPLE_INCIDENT = {
+  severity: 'CRITICAL',
+  number: 'INC0001042',
+  customer: 'Example Retail',
+  application: 'payments-api',
+  host: 'web-01',
+  ip: '10.20.0.14',
+  issue: 'HighCPU — 94% for 10 min',
+  time: '14:32 IST',
+  steps: [
+    { label: 'Routed', value: 'Payments on-call' },
+    { label: 'Paged', value: 'Voice · SMS · Email' },
+    { label: 'SLA', value: 'Response due 14:47' },
+  ],
+} as const;
+
+/** Monitoring and delivery tools the product connects to today. Text only — no third-party logos. */
+export const INTEGRATIONS = [
+  'Prometheus',
+  'Alertmanager',
+  'Grafana',
+  'Loki',
+  'Kubernetes',
+  'PagerDuty',
+  'Slack',
+  'Twilio voice & SMS',
+  'Email (SMTP)',
+  'Razorpay billing',
+] as const;
+
+export type CapabilityIcon =
+  | 'incidents' | 'oncall' | 'change' | 'cmdb' | 'observe' | 'sla' | 'ai' | 'tenancy';
+
+export type Capability = { key: CapabilityIcon; title: string; body: string; to: string; linkLabel: string };
+
+/** Home product showcase — every card links to a page or doc that exists. */
+export const CAPABILITIES: Capability[] = [
+  {
+    key: 'incidents',
+    title: 'Incidents & alerts',
+    body: 'Alertmanager and Grafana alerts open incidents automatically with severity, customer, host and IP already filled in.',
+    to: '/docs#incidents',
+    linkLabel: 'Incident guide',
+  },
+  {
+    key: 'oncall',
+    title: 'On-call & escalation',
+    body: 'Schedules and multi-level escalation policies that page by voice, SMS and email until someone acknowledges.',
+    to: '/docs#on-call',
+    linkLabel: 'On-call guide',
+  },
+  {
+    key: 'change',
+    title: 'Changes & problems',
+    body: 'Change requests with approvals, and problem records with root cause and workaround, linked to the incidents they came from.',
+    to: '/docs#changes',
+    linkLabel: 'Change guide',
+  },
+  {
+    key: 'cmdb',
+    title: 'Assets & CMDB',
+    body: 'Configuration items with owners and support groups, so an alert on an IP resolves to the right host and team.',
+    to: '/docs#cmdb',
+    linkLabel: 'CMDB guide',
+  },
+  {
+    key: 'observe',
+    title: 'Observability',
+    body: 'Kubernetes workloads, APM and logs for each customer environment, next to the incidents they raise.',
+    to: '/docs#observability',
+    linkLabel: 'Observability guide',
+  },
+  {
+    key: 'sla',
+    title: 'SLA tracking',
+    body: 'Response and resolution targets per priority, with a warning before the clock runs out and a record when it does.',
+    to: '/docs#sla',
+    linkLabel: 'SLA guide',
+  },
+  {
+    key: 'ai',
+    title: 'AI insights',
+    body: 'Incident summaries, similar past incidents and suggested next steps — evidence a person accepts or rejects.',
+    to: '/itsm',
+    linkLabel: 'Platform overview',
+  },
+  {
+    key: 'tenancy',
+    title: 'Multi-tenant MSP view',
+    body: 'Platform staff work across every customer organization; each customer, admins included, stays locked to its own.',
+    to: '/docs#organizations',
+    linkLabel: 'Organizations guide',
+  },
+];
+
+export const HOW_IT_WORKS = [
+  {
+    title: 'Connect your alert sources',
+    body: 'Point Alertmanager or Grafana at a per-organization webhook URL. The token in the URL decides which customer an alert belongs to.',
+  },
+  {
+    title: 'Incidents open themselves',
+    body: 'Critical and warning alerts become incidents with severity, customer, application, host and time — routed to the owning team.',
+  },
+  {
+    title: 'Page, resolve, prove it',
+    body: 'On-call is paged, SLA clocks run, and every acknowledgement, change and resolution is written to the audit trail.',
+  },
+] as const;
+
+/** Pilot outline shown on the home page. */
+export const PILOT_STEPS = [
+  'Day 1 — create your organization and connect one alert source with its webhook token.',
+  'Days 2–7 — run real incidents through it alongside your current desk; set up on-call and escalation.',
+  `Days 8–${PILOT_DAYS} — review SLA attainment and the audit trail together, then decide.`,
+] as const;
+
+export type FooterColumn = { title: string; links: { label: string; to: string }[] };
+
+export const FOOTER_COLUMNS: FooterColumn[] = [
+  {
+    title: 'Product',
+    links: [
+      { label: 'Platform', to: '/itsm' },
+      { label: 'Modules', to: '/modules' },
+      { label: 'Pricing', to: '/pricing' },
+      { label: 'Security', to: '/security' },
+    ],
+  },
+  {
+    title: 'Resources',
+    links: [
+      { label: 'Documentation', to: '/docs' },
+      { label: 'API reference', to: '/docs#api-overview' },
+      { label: 'Alert webhooks', to: '/docs#alert-webhooks' },
+      { label: 'Trial & billing', to: '/docs#trial-billing' },
+    ],
+  },
+  {
+    title: 'Company',
+    links: [
+      { label: 'Contact', to: '/contact' },
+      { label: 'Book a pilot', to: '/pilot' },
+      { label: 'Sign in', to: '/login' },
+    ],
+  },
+];

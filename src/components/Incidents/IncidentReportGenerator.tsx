@@ -101,7 +101,7 @@ async function downloadReport(incidentId: string, format: ReportFormat, sections
   return format === 'pdf' ? response.blob() : response.json();
 }
 
-async function downloadBulkReport(incidentIds: string[], format: ReportFormat): Promise<Blob | object> {
+export async function downloadBulkReport(incidentIds: string[], format: ReportFormat): Promise<Blob | object> {
   const url = `${API_BASE}/incidents/bulk-report`;
   const response = await fetch(url, {
     method: 'POST',
@@ -129,6 +129,8 @@ function triggerDownload(blob: Blob, filename: string) {
 function triggerJsonDownload(data: object, filename: string) {
   triggerDownload(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), filename);
 }
+
+export { triggerDownload, triggerJsonDownload };
 
 // ── Single Incident Report Generator ─────────────────────────────────────────
 

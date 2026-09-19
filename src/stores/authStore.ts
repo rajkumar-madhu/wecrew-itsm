@@ -25,6 +25,9 @@ interface User {
   timezone: string | null;
   mfaEnabled: boolean;
   organizationId: string | null;
+  // Platform staff: may switch into any organization. A self-registered org
+  // ADMIN is false — the API locks them to their own org regardless.
+  isPlatformAdmin?: boolean;
   lastLogin: string | null;
   createdAt: string | null;
   updatedAt: string | null;

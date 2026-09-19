@@ -16,6 +16,7 @@ import {
 } from 'recharts';
 import { useAssets, useAssetStats } from '../../hooks/useAssets';
 import { useAuthStore } from '../../stores/authStore';
+import { Page, EnterpriseHero, EnterprisePosture } from '../ui/PageChrome';
 
 // ── Types ──────────────────────────────────────────────────
 
@@ -319,111 +320,56 @@ export default function AssetDashboard() {
   // ── Render ─────────────────────────────────────────────
 
   return (
-    <div className="animate-fade-in space-y-0" style={{ background: 'var(--argus-surface)', minHeight: '100vh', margin: '-1.5rem', padding: '1.5rem' }}>
-      {/* ── HERO ─────────────────────────────────────────────── */}
-      <div className="relative rounded-2xl overflow-hidden" style={{ background: 'var(--argus-surface)' }}>
-        <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ background: 'var(--argus-surface)' }} />
-        <div
-          className="absolute inset-0 opacity-[0.04]"
-          style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)', backgroundSize: '32px 32px' }}
-        />
-        <div className="absolute top-0 left-1/4 w-[500px] h-[300px] rounded-full blur-[80px] -translate-y-1/2 pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(255,91,46,0.22) 0%, transparent 70%)' }} />
-        <div className="absolute bottom-0 right-0 w-64 h-64 rounded-full blur-[60px] translate-y-1/2 translate-x-1/4 pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(43,76,255,0.16) 0%, transparent 70%)' }} />
-
-        <div className="relative px-6 py-6">
-          {/* Title row */}
-          <div className="flex items-start justify-between mb-5">
-            <div>
-              <div className="flex items-center gap-1.5 text-[11px] font-mono text-slate-500 mb-2">
-                <span>CMDB</span>
-                <span className="text-slate-600">/</span>
-                <span className="text-slate-400">Assets</span>
-              </div>
-              <div className="flex items-center gap-3 mb-1.5">
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'var(--argus-coral-dim)' }}>
-                  <HardDrive size={18} style={{ color: 'var(--argus-coral)' }} />
-                </div>
-                <h1 className="font-display text-2xl font-bold text-ink tracking-tight">Asset Management</h1>
-                <span className="px-2 py-0.5 rounded text-[9px] font-bold font-mono uppercase bg-violet-500/20 text-violet-400 border border-violet-500/30">
-                  {organization?.environment || 'DEV'}
-                </span>
-              </div>
-              <p className="text-sm text-slate-400 ml-12">Configuration Management Database · CMDB Operations Center</p>
-            </div>
-            <button
-              onClick={() => navigate('/assets/create')}
-              className="flex items-center gap-2 px-4 py-2 btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Plus size={15} /> New Asset
-            </button>
-          </div>
-
-          {/* KPI cards */}
-          {statsLoading ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="h-20 bg-[color:var(--argus-elevated)] rounded-xl animate-pulse" />
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {/* Total Assets */}
-              <div className="bg-[color:var(--argus-elevated)] backdrop-blur-sm rounded-xl border border-[color:var(--argus-border)] p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Package size={13} className="text-emerald-400" />
-                  <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">Total Assets</span>
-                </div>
-                <div className="text-3xl font-display font-bold text-ink">{sd?.total ?? 0}</div>
-                <div className="text-[10px] text-slate-500 mt-1 font-mono">{sd?.byType?.length ?? 0} types tracked</div>
-              </div>
-
-              {/* Live & Monitored */}
-              <div className="bg-[color:var(--argus-elevated)] backdrop-blur-sm rounded-xl border border-[color:var(--argus-border)] p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Activity size={13} className="text-emerald-400" />
-                  <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">Live & Monitored</span>
-                </div>
-                <div className="text-3xl font-display font-bold text-ink">{sd?.liveCount ?? 0}</div>
-                <div className="text-[10px] mt-1 font-mono">
-                  <span className="text-emerald-400">{monitoringPct}%</span>
-                  <span className="text-slate-500 ml-1">monitoring active</span>
-                </div>
-              </div>
-
-              {/* EOL Warnings */}
-              <div className={clsx(
-                'backdrop-blur-sm rounded-xl border p-4',
-                (sd?.eolWarnings ?? 0) > 0
-                  ? 'bg-amber-500/[0.08] border-amber-500/20'
-                  : 'bg-[color:var(--argus-elevated)] border-[color:var(--argus-border)]'
-              )}>
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertTriangle size={13} className={(sd?.eolWarnings ?? 0) > 0 ? 'text-amber-400' : 'text-slate-400'} />
-                  <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">EOL Warnings</span>
-                </div>
-                <div className={clsx('text-3xl font-display font-bold', (sd?.eolWarnings ?? 0) > 0 ? 'text-amber-400' : 'text-ink')}>
-                  {sd?.eolWarnings ?? 0}
-                </div>
-                <div className="text-[10px] text-slate-500 mt-1 font-mono">{sd?.warrantyWarnings ?? 0} warranty expiring</div>
-              </div>
-
-              {/* Monthly Burn */}
-              <div className="bg-[color:var(--argus-elevated)] backdrop-blur-sm rounded-xl border border-[color:var(--argus-border)] p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <DollarSign size={13} className="text-emerald-400" />
-                  <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">Monthly Burn</span>
-                </div>
-                <div className="text-2xl font-display font-bold text-ink">{formatCost(sd?.costTotals?.monthlyCost)}</div>
-                <div className="text-[10px] text-slate-500 mt-1 font-mono">{formatCost(sd?.costTotals?.purchaseCost)} total value</div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-      <div className="h-0.5 bg-gradient-to-r from-transparent via-coral to-transparent opacity-60" />
+    <Page>
+      <EnterpriseHero
+        plane="govern"
+        domain="CMDB"
+        title="Assets"
+        deck={
+          organization?.name
+            ? `Org-scoped configuration items for ${organization.name} — ownership, monitoring coverage, EOL risk and cost.`
+            : 'Org-scoped configuration management — ownership, monitoring coverage, EOL risk and cost across the estate.'
+        }
+        orgName={organization?.name}
+        env={organization?.environment || 'DEV'}
+        actions={
+          <button type="button" onClick={() => navigate('/assets/create')} className="cx-hero__btn">
+            <Plus size={13} /> New asset
+          </button>
+        }
+        kpiCols={4}
+        kpis={[
+          {
+            label: 'Total',
+            value: statsLoading ? '—' : (sd?.total ?? 0),
+            sub: `${sd?.byType?.length ?? 0} types`,
+          },
+          {
+            label: 'Live',
+            value: statsLoading ? '—' : (sd?.liveCount ?? 0),
+            sub: `${monitoringPct}% monitored`,
+            tone: monitoringPct < 50 ? 'warn' : '',
+          },
+          {
+            label: 'EOL risk',
+            value: statsLoading ? '—' : (sd?.eolWarnings ?? 0),
+            sub: `${sd?.warrantyWarnings ?? 0} warranty`,
+            tone: (sd?.eolWarnings ?? 0) > 0 ? 'warn' : '',
+          },
+          {
+            label: 'Monthly burn',
+            value: statsLoading ? '—' : formatCost(sd?.costTotals?.monthlyCost),
+            sub: `${formatCost(sd?.costTotals?.purchaseCost)} total`,
+          },
+        ]}
+      />
+      <EnterprisePosture
+        label="Enterprise · CMDB"
+        chips={['Org-scoped CIs', 'Monitoring coverage', 'EOL & warranty risk']}
+      />
 
       {/* ── TAB BAR ──────────────────────────────────────────── */}
-      <div className="flex items-center gap-1 px-3 py-2 -mt-2 relative z-10 rounded-xl" style={{ background: 'var(--argus-elevated)', border: '1px solid var(--argus-border)', backdropFilter: 'blur(8px)' }}>
+      <div className="flex items-center gap-1 px-3 py-2 relative z-10 rounded border border-steel bg-obsidian">
         {(['overview', 'inventory', 'risk'] as TabId[]).map((tab) => (
           <button
             key={tab}
@@ -1041,6 +987,6 @@ export default function AssetDashboard() {
           )}
         </div>
       )}
-    </div>
+    </Page>
   );
 }

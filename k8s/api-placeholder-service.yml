@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: linkedeye-api
+  namespace: itsm-wecrew
+  labels:
+    app: linkedeye-api
+    app.kubernetes.io/part-of: linkedeye
+  annotations:
+    description: Placeholder until Argus API is deployed
+spec:
+  ports:
+    - port: 5000
+      targetPort: 5000
+      name: http

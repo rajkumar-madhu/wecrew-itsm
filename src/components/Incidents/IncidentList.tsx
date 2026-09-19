@@ -6,11 +6,15 @@ import {
   LayoutList, Kanban, CalendarClock, Flame,
   Hash, Mail, Mic, Radio, Globe, Zap, UserPlus, ArrowUpRight,
   CheckCircle2, Eye, Activity, TrendingUp,
-  ChevronsUpDown, SlidersHorizontal, PanelRight,
+  ChevronsUpDown, SlidersHorizontal, PanelRight, Loader2,
 } from 'lucide-react';
 import clsx from 'clsx';
-import { useIncidents } from '../../hooks/useIncidents';
-import { QuickReportButton } from './IncidentReportGenerator';
+import toast from 'react-hot-toast';
+import { useQuery } from '@tanstack/react-query';
+import { useIncidents, useUpdateIncident } from '../../hooks/useIncidents';
+import { useTeams } from '../../hooks/useTeams';
+import api from '../../lib/api';
+import { QuickReportButton, downloadBulkReport, triggerDownload, triggerJsonDownload } from './IncidentReportGenerator';
 import { Page, Toolbar } from '../ui/PageChrome';
 
 // =============================================================================
@@ -829,6 +833,13 @@ export default function IncidentList() {
   const navigate = useNavigate();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const tableRef = useRef<HTMLDivElement>(null);
+  const updateIncident = useUpdateIncident();
+  const { data: teamsData } = useTeams();
+  const { data: usersData } = useQuery({
+    queryKey: ['auth-users-bulk'],
+    queryFn: async () => { const { data } = await api.get('/auth/users?limit=200'); return data; },
+    staleTime: 120000,
+  });
 
   // ── Filter & UI State ──
   const [search, setSearch] = useState('');
@@ -847,6 +858,10 @@ export default function IncidentList() {
   // Kept separate from inspectId so the rail can be opened on its own (showing
   // the closest-to-breach list) the way the registry's toggle does.
   const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [showBulkAssign, setShowBulkAssign] = useState(false);
+  const [bulkTeamId, setBulkTeamId] = useState('');
+  const [bulkUserId, setBulkUserId] = useState('');
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const stateDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -1528,16 +1543,139 @@ export default function IncidentList() {
       <BulkActionBar
         count={selectedIds.size}
         onDeselectAll={() => setSelectedIds(new Set())}
-        onAssign={() => {
-          // Placeholder: would open assign modal
+        onAssign={() => setShowBulkAssign(true)}
+        onEscalate={async () => {
+          const ids = Array.from(selectedIds);
+          const eligible = incidents.filter(
+            (i) => ids.includes(i.id) && !['RESOLVED', 'CLOSED', 'ESCALATED'].includes(i.state),
+          );
+          if (eligible.length === 0) {
+            toast.error('No selected incidents can be escalated');
+            return;
+          }
+          setBulkBusy(true);
+          try {
+            await Promise.all(
+              eligible.map((i) => updateIncident.mutateAsync({ id: i.id, data: { state: 'ESCALATED' } })),
+            );
+            toast.success(`Escalated ${eligible.length} incident${eligible.length === 1 ? '' : 's'}`);
+            setSelectedIds(new Set());
+          } catch (err: any) {
+            toast.error(err?.response?.data?.error || err?.message || 'Bulk escalate failed');
+          } finally {
+            setBulkBusy(false);
+          }
         }}
-        onEscalate={() => {
-          // Placeholder: would open escalate modal
-        }}
-        onExport={() => {
-          // Placeholder: would trigger bulk export
+        onExport={async () => {
+          const ids = Array.from(selectedIds);
+          if (ids.length === 0) return;
+          setBulkBusy(true);
+          try {
+            const result = await downloadBulkReport(ids, 'pdf');
+            const dateStr = new Date().toISOString().slice(0, 10);
+            triggerDownload(result as Blob, `bulk-incident-report-${dateStr}.pdf`);
+            toast.success(`Exported ${ids.length} incident${ids.length === 1 ? '' : 's'}`);
+          } catch (err: any) {
+            try {
+              const result = await downloadBulkReport(ids, 'json');
+              const dateStr = new Date().toISOString().slice(0, 10);
+              triggerJsonDownload(result as object, `bulk-incident-report-${dateStr}.json`);
+              toast.success(`Exported ${ids.length} as JSON`);
+            } catch (err2: any) {
+              toast.error(err2?.message || err?.message || 'Bulk export failed');
+            }
+          } finally {
+            setBulkBusy(false);
+          }
         }}
       />
+
+      {showBulkAssign && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/40" onClick={() => !bulkBusy && setShowBulkAssign(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="h-1 w-full bg-gradient-to-r from-amber-500 via-orange-400 to-amber-500" />
+            <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-stone-100">
+              <h3 className="text-base font-bold text-stone-900">
+                Assign {selectedIds.size} incident{selectedIds.size === 1 ? '' : 's'}
+              </h3>
+              <button type="button" onClick={() => setShowBulkAssign(false)} className="p-1.5 rounded-lg hover:bg-stone-100" disabled={bulkBusy}>
+                <X size={16} className="text-stone-400" />
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-stone-600 mb-1">Team</label>
+                <select
+                  className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm"
+                  value={bulkTeamId}
+                  onChange={(e) => setBulkTeamId(e.target.value)}
+                >
+                  <option value="">No team change</option>
+                  {(teamsData?.data || []).map((t: any) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-stone-600 mb-1">Assignee</label>
+                <select
+                  className="w-full px-3 py-2 rounded-lg border border-stone-200 text-sm"
+                  value={bulkUserId}
+                  onChange={(e) => setBulkUserId(e.target.value)}
+                >
+                  <option value="">No assignee change</option>
+                  {(usersData?.data || []).map((u: any) => (
+                    <option key={u.id} value={u.id}>{u.firstName} {u.lastName}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  disabled={bulkBusy}
+                  onClick={() => setShowBulkAssign(false)}
+                  className="px-3 py-1.5 text-sm text-stone-500 hover:bg-stone-100 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={bulkBusy || (!bulkTeamId && !bulkUserId)}
+                  onClick={async () => {
+                    if (!bulkTeamId && !bulkUserId) {
+                      toast.error('Select a team or assignee');
+                      return;
+                    }
+                    const patch: Record<string, string> = {};
+                    if (bulkTeamId) patch.assignmentGroupId = bulkTeamId;
+                    if (bulkUserId) patch.assignedToId = bulkUserId;
+                    setBulkBusy(true);
+                    try {
+                      await Promise.all(
+                        Array.from(selectedIds).map((id) => updateIncident.mutateAsync({ id, data: patch })),
+                      );
+                      toast.success(`Assigned ${selectedIds.size} incident${selectedIds.size === 1 ? '' : 's'}`);
+                      setSelectedIds(new Set());
+                      setShowBulkAssign(false);
+                      setBulkTeamId('');
+                      setBulkUserId('');
+                    } catch (err: any) {
+                      toast.error(err?.response?.data?.error || err?.message || 'Bulk assign failed');
+                    } finally {
+                      setBulkBusy(false);
+                    }
+                  }}
+                  className="px-3 py-1.5 text-sm font-medium bg-amber-500 text-stone-950 rounded-lg hover:bg-amber-600 disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {bulkBusy && <Loader2 size={14} className="animate-spin" />}
+                  Assign
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bottom spacer when bulk bar is visible */}
       {selectedIds.size > 0 && <div className="h-16" />}

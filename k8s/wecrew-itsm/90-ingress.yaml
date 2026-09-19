@@ -1,0 +1,135 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod-dns01
+    cert-manager.io/force-renew: '1789676666'
+    nginx.ingress.kubernetes.io/proxy-body-size: 50m
+    nginx.ingress.kubernetes.io/proxy-read-timeout: '120'
+    nginx.ingress.kubernetes.io/websocket-services: linkedeye-api
+  name: linkedeye-itsm-ingress
+  namespace: wecrew-itsm
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: incident.wecrew.in
+    http:
+      paths:
+      - backend:
+          service:
+            name: linkedeye-api
+            port:
+              number: 5000
+        path: /api
+        pathType: Prefix
+      - backend:
+          service:
+            name: linkedeye-api
+            port:
+              number: 5000
+        path: /socket.io
+        pathType: Prefix
+      - backend:
+          service:
+            name: linkedeye-api
+            port:
+              number: 5000
+        path: /health
+        pathType: Prefix
+      - backend:
+          service:
+            name: linkedeye-frontend
+            port:
+              number: 80
+        path: /
+        pathType: Prefix
+  - host: incident.api.wecrew.in
+    http:
+      paths:
+      - backend:
+          service:
+            name: linkedeye-api
+            port:
+              number: 5000
+        path: /
+        pathType: Prefix
+  - host: itsm.wecrew.in
+    http:
+      paths:
+      - backend:
+          service:
+            name: linkedeye-api
+            port:
+              number: 5000
+        path: /api
+        pathType: Prefix
+      - backend:
+          service:
+            name: linkedeye-api
+            port:
+              number: 5000
+        path: /socket.io
+        pathType: Prefix
+      - backend:
+          service:
+            name: linkedeye-api
+            port:
+              number: 5000
+        path: /health
+        pathType: Prefix
+      - backend:
+          service:
+            name: linkedeye-frontend
+            port:
+              number: 80
+        path: /
+        pathType: Prefix
+  - host: itsm.api.wecrew.in
+    http:
+      paths:
+      - backend:
+          service:
+            name: linkedeye-api
+            port:
+              number: 5000
+        path: /
+        pathType: Prefix
+  - host: alert.wecrew.in
+    http:
+      paths:
+      - backend:
+          service:
+            name: linkedeye-api
+            port:
+              number: 5000
+        path: /api
+        pathType: Prefix
+      - backend:
+          service:
+            name: linkedeye-api
+            port:
+              number: 5000
+        path: /socket.io
+        pathType: Prefix
+      - backend:
+          service:
+            name: linkedeye-api
+            port:
+              number: 5000
+        path: /health
+        pathType: Prefix
+      - backend:
+          service:
+            name: linkedeye-frontend
+            port:
+              number: 80
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - incident.wecrew.in
+    - incident.api.wecrew.in
+    - itsm.wecrew.in
+    - itsm.api.wecrew.in
+    - alert.wecrew.in
+    secretName: incident-wecrew-tls

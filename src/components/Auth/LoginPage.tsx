@@ -34,7 +34,7 @@ export default function LoginPage() {
       return;
     }
     if (!cleanEmail.includes('@')) {
-      setError('Use your full email address (for example support@wecrew.in)');
+      setError('Use your full email address (for example name@company.com)');
       setShake(true);
       setTimeout(() => setShake(false), 400);
       return;
@@ -51,12 +51,6 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const fillDemo = () => {
-    setEmail('support@wecrew.in');
-    setPassword('Wecrew@2026');
-    setError('');
   };
 
   return (
@@ -137,7 +131,7 @@ export default function LoginPage() {
           </div>
 
           <p className="relative text-[11px] text-white/30 font-mono">
-            FinSpot · {LOGIN_UI_BUILD}
+            WeCrew · {LOGIN_UI_BUILD}
           </p>
         </div>
       </aside>
@@ -166,35 +160,14 @@ export default function LoginPage() {
               boxShadow: '0 1px 0 rgba(14,17,22,0.04), 0 18px 40px rgba(14,17,22,0.06)',
             }}
           >
-            <p
-              data-login-build
-              className="text-[10px] font-mono uppercase tracking-[0.16em] mb-3"
-              style={{ color: 'var(--argus-coral)' }}
-            >
-              {LOGIN_UI_BUILD}
-            </p>
+            {/* Deploy marker: kept in the DOM for release checks, never shown to customers. */}
+            <p data-login-build hidden>{LOGIN_UI_BUILD}</p>
             <h2 className="font-display text-[1.65rem] font-semibold text-ink tracking-[-0.03em]">
               Sign in to the desk
             </h2>
             <p className="text-[13px] text-muted mt-1.5 mb-6">
               Use your work email to open the service workspace.
             </p>
-
-            <button
-              type="button"
-              onClick={fillDemo}
-              className="mb-5 w-full text-left rounded-md border px-3.5 py-3 transition-colors hover:bg-[color:var(--argus-elevated)]"
-              style={{
-                borderColor: 'color-mix(in srgb, var(--argus-coral) 40%, var(--argus-border))',
-                background: 'color-mix(in srgb, var(--argus-coral) 8%, white)',
-              }}
-            >
-              <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--argus-coral)' }}>
-                Demo admin · click to fill
-              </p>
-              <p className="text-[12px] font-mono text-ink">support@wecrew.in</p>
-              <p className="text-[12px] font-mono text-muted">Wecrew@2026</p>
-            </button>
 
             {error && (
               <div
@@ -254,16 +227,25 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 rounded border-[color:var(--argus-input-border)]"
-                  style={{ accentColor: 'var(--argus-coral)' }}
-                />
-                <span className="text-[12px] text-muted">Keep me signed in</span>
-              </label>
+              <div className="flex items-center justify-between gap-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="w-4 h-4 rounded border-[color:var(--argus-input-border)]"
+                    style={{ accentColor: 'var(--argus-coral)' }}
+                  />
+                  <span className="text-[12px] text-muted">Keep me signed in</span>
+                </label>
+                <Link
+                  to="/forgot-password"
+                  className="text-[12px] font-medium hover:underline"
+                  style={{ color: 'var(--argus-coral)' }}
+                >
+                  Forgot password?
+                </Link>
+              </div>
 
               <button
                 type="submit"
@@ -286,8 +268,12 @@ export default function LoginPage() {
           <div className="mt-5 text-center space-y-2">
             <p className="text-[13px] text-muted">
               No account?{' '}
-              <Link to="/signup" className="font-medium hover:underline" style={{ color: 'var(--argus-coral)' }}>
-                Request access
+              <Link to="/pilot" className="font-medium hover:underline" style={{ color: 'var(--argus-coral)' }}>
+                Book a pilot
+              </Link>
+              {' · '}
+              <Link to="/pricing" className="font-medium hover:underline" style={{ color: 'var(--argus-coral)' }}>
+                See pricing
               </Link>
             </p>
             <div className="flex items-center justify-center gap-3 text-[10px] text-dim font-mono">

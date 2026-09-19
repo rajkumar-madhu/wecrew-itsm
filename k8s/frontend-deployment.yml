@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: linkedeye-frontend
+  namespace: itsm-wecrew
+  labels:
+    app: linkedeye-frontend
+    app.kubernetes.io/name: linkedeye-frontend
+    app.kubernetes.io/part-of: linkedeye
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: linkedeye-frontend
+  template:
+    metadata:
+      labels:
+        app: linkedeye-frontend
+    spec:
+      imagePullSecrets:
+        - name: harbor-linkedeye-pull
+      containers:
+        - name: frontend
+          image: harbor.wecrew.in/linkedeye/argus-itsm-frontend:20260919-landing-gemini
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+              name: http
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: linkedeye-frontend
+  namespace: itsm-wecrew
+  labels:
+    app: linkedeye-frontend
+spec:
+  selector:
+    app: linkedeye-frontend
+  ports:
+    - port: 80
+      targetPort: 80
+      name: http
+  type: ClusterIP

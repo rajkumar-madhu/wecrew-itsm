@@ -1,0 +1,69 @@
+# One-time schema creation for the FRESH wecrew-itsm database.
+#
+# Replaces the old API startup command (`prisma db push --accept-data-loss` on every pod start,
+# errors discarded), which could silently drop columns/tables whenever an image's schema
+# differed from the database. Here `db push` runs once, explicitly, WITHOUT --accept-data-loss:
+# on an empty database there is nothing to lose, and against a non-empty one a destructive
+# change makes the Job fail instead of deleting data.
+#
+# Do NOT run prisma/seed.js against this database: it creates 10 demo users (one ADMIN) that
+# share a password hard-coded in git. Bootstrap one admin by hand — see README.md.
+#
+# Longer term (gap-workshop Bet 1): baseline Prisma migrations and switch this Job to
+# `prisma migrate deploy`.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-db-init-to-postgres
+  namespace: wecrew-itsm
+  labels:
+    app.kubernetes.io/part-of: linkedeye
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: linkedeye-db-init
+      ports:
+        - port: 5432
+          protocol: TCP
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: linkedeye-db-init
+  namespace: wecrew-itsm
+  labels:
+    app.kubernetes.io/name: linkedeye-db-init
+    app.kubernetes.io/part-of: linkedeye
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: linkedeye-db-init
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: harbor-linkedeye-pull
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:16-alpine
+          command: ["sh", "-c", "until pg_isready -h postgres -p 5432; do sleep 2; done"]
+      containers:
+        - name: db-push
+          # Keep in lockstep with the image in 40-api.yaml.
+          image: harbor.wecrew.in/linkedeye/argus-itsm-api:20260919-wecrew-org
+          command: ["npx", "prisma", "db", "push", "--skip-generate"]
+          envFrom:
+            - secretRef:
+                name: linkedeye-secrets
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 512Mi }

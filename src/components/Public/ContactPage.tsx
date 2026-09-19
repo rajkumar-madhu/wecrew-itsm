@@ -37,10 +37,16 @@ export default function ContactPage() {
               <div className="flex gap-3">
                 <Mail size={16} strokeWidth={1.75} className="mt-0.5 shrink-0 text-coral" aria-hidden />
                 <div>
-                  <dt className="font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-dim">Email</dt>
+                  <dt className="font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-dim">Sales &amp; enquiries</dt>
                   <dd className="mt-0.5 text-[13.5px] text-ink">
                     <a href={`mailto:${COMPANY.email}`} className="hover:text-signal hover:underline">
                       {COMPANY.email}
+                    </a>
+                  </dd>
+                  <dt className="mt-3 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-dim">Support</dt>
+                  <dd className="mt-0.5 text-[13.5px] text-ink">
+                    <a href={`mailto:${COMPANY.supportEmail}`} className="hover:text-signal hover:underline">
+                      {COMPANY.supportEmail}
                     </a>
                   </dd>
                 </div>

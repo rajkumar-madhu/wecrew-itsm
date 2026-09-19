@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import type React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import {
   Search,
@@ -12,9 +12,6 @@ import {
   Filter,
   X,
   Bug,
-  Target,
-  TrendingUp,
-  CheckCircle,
   Loader2,
   AlertTriangle,
   ArrowRight,
@@ -22,13 +19,7 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { useProblems, useProblemStats } from '../../hooks/useProblems';
-import {
-  Page,
-  PageHeader,
-  KpiRow,
-  KpiCard,
-  PrimaryButton,
-} from '../ui/PageChrome';
+import { Page } from '../ui/PageChrome';
 
 type Priority = 'P1' | 'P2' | 'P3' | 'P4';
 type ProblemState = 'NEW' | 'INVESTIGATION' | 'RCA_IN_PROGRESS' | 'KNOWN_ERROR' | 'RESOLVED' | 'CLOSED';
@@ -43,6 +34,8 @@ interface Problem {
   relatedIncidents: number;
   createdAt: string;
 }
+
+interface HeroKpi { label: string; value: string | number; sub: string; tone?: string }
 
 type SortField = 'number' | 'priority' | 'state' | 'shortDescription' | 'relatedIncidents' | 'createdAt';
 type SortDir = 'asc' | 'desc';
@@ -155,6 +148,20 @@ export default function ProblemList() {
     return list;
   }, [problems, sortField, sortDir]);
 
+  // Hoisted out of JSX: an inline array literal created during render aliases the
+  // memoized counts, which makes React Compiler treat them as possibly-mutated and
+  // skip optimizing this whole component.
+  const heroKpis = useMemo<HeroKpi[]>(
+    () => [
+      { label: 'Total', value: isLoading ? '—' : totalItems, sub: 'on this page' },
+      { label: 'Open', value: isLoading ? '—' : openCount, sub: 'not yet closed' },
+      { label: 'Known errors', value: isLoading ? '—' : knownErrorCount, sub: 'in the KEDB', tone: knownErrorCount > 0 ? 'danger' : undefined },
+      { label: 'Linked incidents', value: isLoading ? '—' : totalRelated, sub: 'still attached', tone: totalRelated > 0 ? 'warn' : undefined },
+      { label: 'Resolved', value: isLoading ? '—' : resolvedCount, sub: 'this register' },
+    ],
+    [isLoading, totalItems, openCount, knownErrorCount, totalRelated, resolvedCount]
+  );
+
   const handleSort = (field: SortField) => {
     if (sortField === field) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
     else {
@@ -178,28 +185,39 @@ export default function ProblemList() {
 
   return (
     <Page>
-      <PageHeader
-        icon={Bug}
-        title="Problems"
-        subtitle={
-          <>
-            Root cause analysis & known error tracking ·{' '}
-            <span className="font-mono font-medium text-ink">{totalItems}</span> total
-          </>
-        }
-        actions={
-          <PrimaryButton onClick={() => navigate('/problems/create')}>
-            <Plus size={14} /> New problem
-          </PrimaryButton>
-        }
-      />
+      <div className="cx-hero">
+        <div className="flex items-start justify-between gap-6 flex-wrap">
+          <div className="min-w-0">
+            <span className="cx-eyebrow">Operate · problem management</span>
+            <h1 className="cx-hero__title">Problems</h1>
+            <p className="cx-hero__deck">
+              Root cause analysis and known-error tracking. Linked incidents stay attached until the
+              underlying cause is closed.
+            </p>
+          </div>
+          <button type="button" onClick={() => navigate('/problems/create')} className="cx-hero__btn">
+            <Plus size={14} strokeWidth={1.75} />
+            New problem
+          </button>
+        </div>
+        <dl className="cx-hero__kpis cx-hero__kpis--5 mt-6">
+          {heroKpis.map((kpi) => (
+            <div key={kpi.label} className={clsx('cx-hero__kpi', kpi.tone && `cx-hero__kpi--${kpi.tone}`)}>
+              <dt className="cx-hero__kpi-label">{kpi.label}</dt>
+              <dd>
+                <div className="cx-hero__kpi-value">{kpi.value}</div>
+                <div className="cx-hero__kpi-sub">{kpi.sub}</div>
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </div>
 
-      <KpiRow className="!grid-cols-2 sm:!grid-cols-4 lg:!grid-cols-4">
-        <KpiCard label="Open" value={openCount} icon={Bug} tone="info" loading={isLoading} />
-        <KpiCard label="Known errors" value={knownErrorCount} icon={Target} tone="danger" loading={isLoading} />
-        <KpiCard label="Linked incidents" value={totalRelated} icon={TrendingUp} tone="warn" loading={isLoading} />
-        <KpiCard label="Resolved" value={resolvedCount} icon={CheckCircle} tone="ok" loading={isLoading} />
-      </KpiRow>
+      <nav className="cx-crumb" aria-label="Breadcrumb">
+        <Link to="/dashboard">Operations</Link>
+        <span aria-hidden>/</span>
+        <span className="cx-crumb__current">Problems</span>
+      </nav>
 
       {/* State pipeline */}
       <div className="flex items-center gap-1 overflow-x-auto pb-1">

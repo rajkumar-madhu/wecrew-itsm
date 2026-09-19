@@ -16,6 +16,9 @@ export function useAuth() {
   const role = store.user?.role ?? '';
 
   const isAdmin    = role === 'ADMIN';
+  // Cross-organization powers (tenant management, org switching) need this,
+  // not just role ADMIN: self-registered trial owners are ADMINs of one org.
+  const isPlatformAdmin = isAdmin && store.user?.isPlatformAdmin === true;
   const isManager  = role === 'MANAGER' || isAdmin;
   const isEngineer = role === 'ENGINEER' || isManager;
 
@@ -39,6 +42,7 @@ export function useAuth() {
     ...store,
     role,
     isAdmin,
+    isPlatformAdmin,
     isManager,
     isEngineer,
     hasRole,
