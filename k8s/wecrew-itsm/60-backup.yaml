@@ -17,6 +17,13 @@ spec:
       storage: 10Gi
   storageClassName: local-path
 ---
+# ═══════════════════════════════════════════════════════════
+# Nightly dump (02:00 IST) → local PVC → off-site bucket.
+#
+# The off-site copy is what makes this a backup: the PVC lives on the same
+# node as Postgres. Until secret `db-backup-offsite` exists the job still
+# dumps locally and says loudly that there is no off-site copy.
+# ═══════════════════════════════════════════════════════════
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -29,10 +36,11 @@ metadata:
 spec:
   concurrencyPolicy: Forbid
   failedJobsHistoryLimit: 3
+  successfulJobsHistoryLimit: 5
+  schedule: 30 20 * * *
   jobTemplate:
-    metadata: {}
     spec:
-      activeDeadlineSeconds: 600
+      activeDeadlineSeconds: 1800
       backoffLimit: 2
       template:
         metadata:
@@ -40,51 +48,76 @@ spec:
             app.kubernetes.io/component: cronjob
             app.kubernetes.io/name: linkedeye-db-backup
         spec:
+          restartPolicy: Never
           containers:
-          - args:
-            - "set -euo pipefail\n# Prisma URLs carry ?schema=public \u2014 strip\
-              \ for libpq/pg_dump\nDB_URL=\"${DATABASE_URL%%\\?*}\"\necho \"Waiting\
-              \ for postgres...\"\nfor i in $(seq 1 30); do\n  if pg_isready -d \"\
-              $DB_URL\" >/dev/null 2>&1; then\n    break\n  fi\n  sleep 2\ndone\n\
-              pg_isready -d \"$DB_URL\"\nTIMESTAMP=$(date +%Y%m%d_%H%M%S)\nBACKUP_FILE=\"\
-              /backups/linkedeye_${TIMESTAMP}.sql.gz\"\necho \"Starting backup: ${BACKUP_FILE}\"\
-              \npg_dump \"${DB_URL}\" | gzip > \"${BACKUP_FILE}\"\necho \"Backup complete:\
-              \ $(du -h \"${BACKUP_FILE}\" | cut -f1)\"\nls -t /backups/linkedeye_*.sql.gz\
-              \ | tail -n +31 | xargs -r rm\necho \"Cleanup complete. Remaining: $(ls\
-              \ /backups/linkedeye_*.sql.gz | wc -l)\"\n"
-            command:
-            - /bin/sh
-            - -c
+          - name: db-backup
+            image: harbor.wecrew.in/linkedeye/argus-itsm-dbbackup:20260919b
+            imagePullPolicy: IfNotPresent
+            command: ["/usr/local/bin/backup.sh"]
             env:
             - name: DATABASE_URL
               valueFrom:
-                secretKeyRef:
-                  key: DATABASE_URL
-                  name: linkedeye-secrets
-            image: postgres:16-alpine
-            imagePullPolicy: IfNotPresent
-            name: db-backup
+                secretKeyRef: { key: DATABASE_URL, name: linkedeye-secrets }
+            envFrom:
+            - secretRef: { name: db-backup-offsite, optional: true }
             resources:
-              limits:
-                cpu: 500m
-                memory: 512Mi
-              requests:
-                cpu: 100m
-                memory: 128Mi
-            terminationMessagePath: /dev/termination-log
-            terminationMessagePolicy: File
+              requests: { cpu: 100m, memory: 128Mi }
+              limits:   { cpu: 500m, memory: 512Mi }
             volumeMounts:
-            - mountPath: /backups
-              name: backup-storage
-          dnsPolicy: ClusterFirst
-          restartPolicy: Never
-          schedulerName: default-scheduler
-          securityContext: {}
-          terminationGracePeriodSeconds: 30
+            - { mountPath: /backups, name: backup-storage }
+          imagePullSecrets:
+          - name: harbor-linkedeye-pull
           volumes:
           - name: backup-storage
             persistentVolumeClaim:
               claimName: linkedeye-db-backups
-  schedule: 30 20 * * *
-  successfulJobsHistoryLimit: 5
-  suspend: false
+---
+# ═══════════════════════════════════════════════════════════
+# Weekly restore test (Sunday 03:30 IST). An unverified backup is not a
+# backup: this restores the newest off-site object into a scratch database,
+# checks core tables, then drops it. It fails loudly if the dump is unusable.
+# ═══════════════════════════════════════════════════════════
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  labels:
+    app.kubernetes.io/component: cronjob
+    app.kubernetes.io/name: linkedeye-db-restore-test
+    app.kubernetes.io/part-of: linkedeye
+  name: linkedeye-db-restore-test
+  namespace: wecrew-itsm
+spec:
+  concurrencyPolicy: Forbid
+  failedJobsHistoryLimit: 3
+  successfulJobsHistoryLimit: 3
+  schedule: 0 22 * * 6
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 3600
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            # NetworkPolicy allow-api-and-backup-to-postgres admits only
+            # app=linkedeye-api and app.kubernetes.io/name=linkedeye-db-backup,
+            # so the restore test wears the backup name to reach the database.
+            app.kubernetes.io/component: restore-test
+            app.kubernetes.io/name: linkedeye-db-backup
+        spec:
+          restartPolicy: Never
+          containers:
+          - name: restore-test
+            image: harbor.wecrew.in/linkedeye/argus-itsm-dbbackup:20260919b
+            imagePullPolicy: IfNotPresent
+            command: ["/usr/local/bin/verify-restore.sh"]
+            env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef: { key: DATABASE_URL, name: linkedeye-secrets }
+            envFrom:
+            - secretRef: { name: db-backup-offsite, optional: true }
+            resources:
+              requests: { cpu: 100m, memory: 256Mi }
+              limits:   { cpu: 1, memory: 1Gi }
+          imagePullSecrets:
+          - name: harbor-linkedeye-pull
