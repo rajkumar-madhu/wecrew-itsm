@@ -7,10 +7,30 @@ const { emitToAll, emitToTeam, emitToUser } = require('../config/socket');
 const { success, error, generateIncidentNumber, calculateSLATargetTimes } = require('../utils/helpers');
 const logger = require('../utils/logger');
 const slackService = require('../services/slackService');
-const config = require('../config/env');
+const crypto = require('crypto');
+// config/env exports { validateEnv, config } — the old `const config = require(...)`
+// made config.slack always undefined, so Slack signatures were never checked.
+const { config } = require('../config/env');
 const { resolveInstanceToConfigItem } = require('../utils/cmdbResolver');
 const { buildIncidentFromAlert } = require('./alert.controller');
 const agentPipeline = require('../services/agentPipeline');
+const { authenticateAlertWebhook } = require('../middleware/alertWebhookAuth');
+
+// ── Slack request signing ───────────────────────────────────
+// Every Slack request must carry a valid v0 signature over the raw body
+// (captured by the urlencoded parser in server.js) and a fresh timestamp.
+function verifySlackRequest(req) {
+  const secret = config.slack && config.slack.signingSecret;
+  if (!secret) return { status: 503, error: 'Slack is not configured' };
+  const signature = req.headers['x-slack-signature'];
+  const timestamp = Number(req.headers['x-slack-request-timestamp']);
+  if (!signature || !timestamp) return { status: 401, error: 'Missing Slack signature' };
+  if (Math.abs(Date.now() / 1000 - timestamp) > 60 * 5) return { status: 401, error: 'Stale Slack request' };
+  const expected = `v0=${crypto.createHmac('sha256', secret).update(`v0:${timestamp}:${req.rawBody || ''}`).digest('hex')}`;
+  const a = Buffer.from(expected); const b = Buffer.from(String(signature));
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return { status: 401, error: 'Invalid signature' };
+  return null;
+}
 
 // ── Blocked/Offboarded Client IPs ───────────────────────────
 // Orgs that have been removed from the platform — their Prometheus/Alertmanager
@@ -29,7 +49,7 @@ let _systemUserId = null;
 async function getSystemUserId() {
   if (_systemUserId) return _systemUserId;
   const admin = await prisma.user.findFirst({
-    where: { role: 'ADMIN', isActive: true },
+    where: { role: 'ADMIN', isPlatformAdmin: true, status: 'ACTIVE' },
     select: { id: true },
     orderBy: { createdAt: 'asc' },
   });
@@ -129,6 +149,9 @@ async function alertmanagerWebhook(req, res, next) {
       return res.status(200).json({ success: true, message: 'received' }); // 200 so alertmanager stops retrying
     }
 
+    const auth = await authenticateAlertWebhook(req);
+    if (auth.error) return error(res, auth.error, 401);
+
     const { alerts: incoming, status, groupLabels } = req.body;
     if (!Array.isArray(incoming)) return error(res, 'Invalid Alertmanager payload', 400);
 
@@ -136,6 +159,12 @@ async function alertmanagerWebhook(req, res, next) {
     for (const a of incoming) {
       const alertId = a.labels?.alertname + ':' + (a.labels?.instance || a.fingerprint || Date.now());
       const existing = await prisma.alert.findUnique({ where: { alertId } });
+
+      // A token-authenticated sender may only touch its own org's alerts.
+      if (existing && auth.orgId && existing.organizationId !== auth.orgId) {
+        results.push({ alertId, action: 'skipped-foreign' });
+        continue;
+      }
 
       if (a.status === 'resolved' && existing) {
         await prisma.alert.update({ where: { id: existing.id }, data: { status: 'RESOLVED', resolvedAt: new Date() } });
@@ -145,8 +174,10 @@ async function alertmanagerWebhook(req, res, next) {
         const severity = (a.labels?.severity || 'warning').toUpperCase();
         const configItemId = await resolveInstanceToConfigItem(a.labels?.instance);
 
-        // Resolve organization from: ?orgId= param, alert labels, or instance IP
-        let organizationId = null;
+        // Resolve organization: the webhook token, else (legacy) ?orgId= param, alert labels, or instance IP
+        let organizationId = auth.orgId;
+        const instanceIp = (a.labels?.instance || '').split(':')[0];
+        if (auth.legacy) {
 
         // Priority 1: explicit ?orgId= or ?orgSlug= query parameter (same as Grafana webhook)
         const qOrgId = req.query.orgId || req.query.org_id;
@@ -161,7 +192,6 @@ async function alertmanagerWebhook(req, res, next) {
         }
 
         // Priority 2: org_slug / organization / client label in the alert
-        const instanceIp = (a.labels?.instance || '').split(':')[0];
         const orgSlug = a.labels?.org_slug || a.labels?.organization || a.labels?.client || '';
         if (!organizationId && orgSlug) {
           const org = await prisma.organization.findUnique({ where: { slug: orgSlug } });
@@ -179,6 +209,7 @@ async function alertmanagerWebhook(req, res, next) {
           const org = await prisma.organization.findFirst({ where: { serverIp: sourceIp } });
           if (org) organizationId = org.id;
         }
+        } // end legacy org resolution
 
         // ── "Ok" / recovery alert detection ──────────────────
         // Alert names like CPUOk, LoadOk, diskOk, LoginOk are recovery notifications
@@ -193,6 +224,8 @@ async function alertmanagerWebhook(req, res, next) {
             const staleWarnings = await prisma.alert.updateMany({
               where: {
                 status: 'FIRING',
+                // Never resolve another tenant's alerts that merely share a name/IP.
+                organizationId: organizationId || null,
                 AND: [
                   { name: { contains: basePattern, mode: 'insensitive' } },
                   { name: { contains: instanceIp } },
@@ -302,13 +335,18 @@ async function grafanaWebhook(req, res, next) {
       return res.status(200).json({ success: true, message: 'received' });
     }
 
+    const auth = await authenticateAlertWebhook(req);
+    if (auth.error) return error(res, auth.error, 401);
+
     const { title, state, message, ruleName, ruleUrl, evalMatches } = req.body;
 
     // Resolve org: ?orgId= param, or ?orgSlug=, or match by source IP
-    let organizationId = null;
+    let organizationId = auth.orgId;
     const qOrgId = req.query.orgId || req.query.org_id;
     const qOrgSlug = req.query.orgSlug || req.query.org_slug;
-    if (qOrgId) {
+    if (!auth.legacy) {
+      // token decided the org
+    } else if (qOrgId) {
       const org = await prisma.organization.findUnique({ where: { id: qOrgId } });
       if (org) organizationId = org.id;
     } else if (qOrgSlug) {
@@ -397,15 +435,8 @@ async function grafanaWebhook(req, res, next) {
 // POST /api/v1/webhooks/slack/commands
 async function slackSlashCommand(req, res, next) {
   try {
-    // Verify signature
-    const signature = req.headers['x-slack-signature'];
-    const timestamp = req.headers['x-slack-request-timestamp'];
-    const body = req.rawBody || '';
-
-    if (config?.slack?.signingSecret && signature && timestamp) {
-      const valid = slackService.verifySignature(config.slack.signingSecret, signature, timestamp, body);
-      if (!valid) return res.status(401).json({ error: 'Invalid signature' });
-    }
+    const bad = verifySlackRequest(req);
+    if (bad) return res.status(bad.status).json({ error: bad.error });
 
     const { command, text, response_url, user_name, channel_name } = req.body;
     logger.info(`Slack command: ${command} "${text}" from @${user_name} in #${channel_name}`);
@@ -418,8 +449,22 @@ async function slackSlashCommand(req, res, next) {
 // POST /api/v1/webhooks/slack/interactive
 async function slackInteractive(req, res, next) {
   try {
-    const payload = JSON.parse(req.body.payload || '{}');
+    const bad = verifySlackRequest(req);
+    if (bad) return res.status(bad.status).json({ error: bad.error });
+
+    let payload;
+    try { payload = JSON.parse(req.body.payload || '{}'); } catch { return res.status(400).json({ error: 'Malformed payload' }); }
     const { type, actions, user } = payload;
+
+    // A button click may only act on the org linked to the clicking workspace.
+    const link = payload.team?.id
+      ? await prisma.slackIntegration.findFirst({
+        where: { workspaceId: payload.team.id, isActive: true, organizationId: { not: null } },
+        select: { organizationId: true },
+      })
+      : null;
+    if (!link) return res.json({ text: 'This Slack workspace is not linked to a WeCrew ITSM organization.' });
+    const orgId = link.organizationId;
 
     if (type === 'block_actions' && actions?.length > 0) {
       const action = actions[0];
@@ -427,20 +472,22 @@ async function slackInteractive(req, res, next) {
 
       if (action.action_id.startsWith('ack_incident_')) {
         const incidentId = action.action_id.replace('ack_incident_', '');
-        // Acknowledge incident
-        await prisma.incident.update({
-          where: { id: incidentId },
+        // Acknowledge incident — only inside the linked org
+        const { count } = await prisma.incident.updateMany({
+          where: { id: incidentId, organizationId: orgId },
           data: { state: 'IN_PROGRESS' },
         });
+        if (!count) return res.json({ text: 'Incident not found.' });
         return res.json({ text: `Incident acknowledged by ${user?.username}` });
       }
 
       if (action.action_id.startsWith('ack_alert_')) {
         const alertId = action.action_id.replace('ack_alert_', '');
-        await prisma.alert.update({
-          where: { id: alertId },
+        const { count } = await prisma.alert.updateMany({
+          where: { id: alertId, organizationId: orgId },
           data: { status: 'ACKNOWLEDGED', acknowledgedAt: new Date() },
         });
+        if (!count) return res.json({ text: 'Alert not found.' });
         return res.json({ text: `Alert acknowledged by ${user?.username}` });
       }
     }

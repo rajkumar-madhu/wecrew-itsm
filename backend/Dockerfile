@@ -25,6 +25,8 @@ COPY --from=prisma /app/node_modules ./node_modules
 COPY --from=prisma /app/prisma ./prisma
 COPY package*.json ./
 COPY src ./src
+# Operational scripts run inside the pod (seed-plans, trial-reminders cron).
+COPY scripts ./scripts
 COPY public ./public
 
 EXPOSE 5000

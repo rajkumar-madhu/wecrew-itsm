@@ -5,11 +5,13 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate, checkPermission } = require('../middleware/auth');
+const { enforceWriteAccess } = require('../middleware/billing.middleware');
 const { validateChangeCreate, validateChangeUpdate, validateUUID, validatePagination } = require('../middleware/validator');
 const { auditLog } = require('../middleware/audit');
 const ctrl = require('../controllers/change.controller');
 
 router.use(authenticate);
+router.use(enforceWriteAccess); // 402 on writes once the org's trial or subscription lapses
 
 router.get('/', checkPermission('changes', 'read'), validatePagination, ctrl.listChanges);
 router.get('/:id', checkPermission('changes', 'read'), validateUUID, ctrl.getChange);

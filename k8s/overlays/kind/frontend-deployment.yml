@@ -28,7 +28,7 @@ spec:
         - name: harbor-linkedeye-pull
       containers:
         - name: frontend
-          image: harbor.wecrew.in/linkedeye/argus-itsm-frontend:20260807-835d794
+          image: harbor.wecrew.in/linkedeye/argus-itsm-frontend:20260816-coral
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80

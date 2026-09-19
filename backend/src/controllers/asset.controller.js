@@ -4,7 +4,29 @@
 
 const { prisma } = require('../config/database');
 const { paginate, paginationMeta, success, error } = require('../utils/helpers');
-const { getCreateOrgId } = require('../middleware/tenant');
+const { Prisma } = require('@prisma/client');
+const { getCreateOrgId, scopedWhere, inScope, stripTenantFields } = require('../middleware/tenant');
+
+// Only real columns may be written from a request body — never nested relation
+// writes (e.g. `incidents: { connect: [...] }`) or the tenant key.
+const CI_COLUMNS = new Set(Prisma.dmmf.datamodel.models.find((m) => m.name === 'ConfigurationItem').fields
+  .filter((f) => f.kind !== 'object').map((f) => f.name));
+function pickCIColumns(body) {
+  return Object.fromEntries(Object.entries(stripTenantFields(body))
+    .filter(([k]) => CI_COLUMNS.has(k) && !['createdAt', 'updatedAt'].includes(k)));
+}
+
+// ownerId / supportGroupId must point at a user / team in the CI's own org.
+// Unchanged values (a form re-sending the current owner) are not re-checked.
+async function checkCIRefs(data, organizationId, current = {}) {
+  if (data.ownerId && data.ownerId !== current.ownerId && !await prisma.user.findFirst({ where: { id: data.ownerId, organizationId }, select: { id: true } })) {
+    return 'ownerId must be a user in this organization';
+  }
+  if (data.supportGroupId && data.supportGroupId !== current.supportGroupId && !await prisma.team.findFirst({ where: { id: data.supportGroupId, organizationId }, select: { id: true } })) {
+    return 'supportGroupId must be a team in this organization';
+  }
+  return null;
+}
 
 const INCLUDE_LIST = {
   owner: { select: { id: true, firstName: true, lastName: true, email: true } },
@@ -55,8 +77,7 @@ async function listAssets(req, res, next) {
 async function getAsset(req, res, next) {
   try {
     const asset = await prisma.configurationItem.findUnique({ where: { id: req.params.id }, include: INCLUDE_DETAIL });
-    if (!asset) return error(res, 'Asset not found', 404);
-    if (req.tenantWhere?.organizationId && asset.organizationId !== req.tenantWhere.organizationId) return error(res, 'Asset not found', 404);
+    if (!inScope(req, asset)) return error(res, 'Asset not found', 404);
     return success(res, asset);
   } catch (err) { next(err); }
 }
@@ -64,10 +85,14 @@ async function getAsset(req, res, next) {
 // POST /api/v1/assets
 async function createAsset(req, res, next) {
   try {
-    const asset = await prisma.configurationItem.create({
-      data: { ...req.body, ownerId: req.body.ownerId || req.user.id, organizationId: getCreateOrgId(req) },
-      include: INCLUDE_LIST,
-    });
+    const organizationId = getCreateOrgId(req);
+    // Default the owner to the creator only when the creator belongs to that org
+    // (a platform admin creating in a customer org is not a valid owner there).
+    const defaultOwner = req.user.organizationId === organizationId ? req.user.id : undefined;
+    const data = { ...pickCIColumns(req.body), ownerId: req.body.ownerId || defaultOwner, organizationId };
+    const refError = await checkCIRefs(data, organizationId);
+    if (refError) return error(res, refError, 400);
+    const asset = await prisma.configurationItem.create({ data, include: INCLUDE_LIST });
 
     await prisma.activity.create({
       data: { action: 'CREATED', description: `CI ${asset.name} created`, userId: req.user.id, configItemId: asset.id },
@@ -81,11 +106,13 @@ async function createAsset(req, res, next) {
 async function updateAsset(req, res, next) {
   try {
     const existing = await prisma.configurationItem.findUnique({ where: { id: req.params.id } });
-    if (!existing) return error(res, 'Asset not found', 404);
-    if (req.tenantWhere?.organizationId && existing.organizationId !== req.tenantWhere.organizationId) return error(res, 'Asset not found', 404);
+    if (!inScope(req, existing)) return error(res, 'Asset not found', 404);
 
+    const data = pickCIColumns(req.body);
+    const refError = await checkCIRefs(data, existing.organizationId, existing);
+    if (refError) return error(res, refError, 400);
     const asset = await prisma.configurationItem.update({
-      where: { id: req.params.id }, data: req.body, include: INCLUDE_LIST,
+      where: { id: existing.id }, data, include: INCLUDE_LIST,
     });
 
     await prisma.activity.create({
@@ -99,7 +126,11 @@ async function updateAsset(req, res, next) {
 // DELETE /api/v1/assets/:id
 async function deleteAsset(req, res, next) {
   try {
-    await prisma.configurationItem.delete({ where: { id: req.params.id } });
+    const existing = await prisma.configurationItem.findFirst({
+      where: { ...scopedWhere(req), id: req.params.id }, select: { id: true },
+    });
+    if (!existing) return error(res, 'Asset not found', 404);
+    await prisma.configurationItem.delete({ where: { id: existing.id } });
     return success(res, { message: 'Asset deleted' });
   } catch (err) { next(err); }
 }
@@ -107,7 +138,7 @@ async function deleteAsset(req, res, next) {
 // GET /api/v1/assets/stats
 async function getAssetStats(req, res, next) {
   try {
-    const tw = req.tenantWhere || {};
+    const tw = scopedWhere(req);
     const in90days = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
 
     const [byType, byStatus, total, monitoringCount, liveCount, eolCount, warrantyCount, costAgg, topRiskAssets] =

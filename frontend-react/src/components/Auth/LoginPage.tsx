@@ -150,7 +150,7 @@ export default function LoginPage() {
             </div>
 
             <p className="text-[10px] text-white/15 font-mono">
-              FinSpot Technology Solutions Private Limited
+              WeCrew
             </p>
           </div>
         </div>
@@ -315,7 +315,7 @@ export default function LoginPage() {
 
           {/* Version footer */}
           <p className="text-center text-[10px] text-stone-300 mt-6 font-mono">
-            WeCrew &middot; FinSpot Technology Solutions Private Limited &middot; No.55B, First Main, Electronic City Phase – 1, Bengaluru – 560 100 &middot; 9176772077
+            WeCrew &middot; No.55B, First Main, Electronic City Phase – 1, Bengaluru – 560 100 &middot; 9176772077
           </p>
         </div>
       </div>

@@ -5,6 +5,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate, checkPermission } = require('../middleware/auth');
+const { enforceWriteAccess } = require('../middleware/billing.middleware');
 const { validateIncidentCreate, validateIncidentUpdate, validateUUID, validatePagination, validateWorkNote } = require('../middleware/validator');
 const { auditLog } = require('../middleware/audit');
 const ctrl = require('../controllers/incident.controller');
@@ -15,6 +16,7 @@ const reportController = require('../controllers/incident-report.controller');
 router.get('/ack', ctrl.acknowledgeFromEmail);
 
 router.use(authenticate);
+router.use(enforceWriteAccess); // 402 on writes once the org's trial or subscription lapses
 
 // ── Report routes (specific paths must come before /:id param routes) ────────
 

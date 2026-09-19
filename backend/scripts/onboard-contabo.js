@@ -10,7 +10,7 @@ const ORG = {
   slug: 'contabo-eu-le',
   environment: 'PROD',
   serverIp: '173.249.2.23',
-  fqdn: 'contabo-eu.finspot.in',
+  fqdn: 'contabo-eu.wecrew.in',
 };
 
 const SSH = {

@@ -15,9 +15,17 @@ const execAsync = promisify(exec);
 // SSH base command — reuse known_hosts and suppress host key warnings for known servers
 // Uses /tmp/.ssh_id_ed25519 (copied at boot with 0600 perms) to avoid K8s secret 0777 symlink issue
 const fs = require('fs');
+const {
+  safeHost, safeUser, safePort, safeInt, safeK8sName, safeLabel, safeDigits, safeUrlPath, safeToken,
+} = require('../utils/shellSafe');
 const SSH_KEY = fs.existsSync('/tmp/.ssh_id_ed25519') ? '/tmp/.ssh_id_ed25519' : '/home/finadmin/.ssh/id_ed25519';
 
+// Every argument is allowlisted: this string is run by exec() on the API pod.
 function sshCmd(serverIp, sshPort = 4422, sshUser = 'finadmin', connectTimeout = 8) {
+  serverIp = safeHost(serverIp);
+  sshPort = safePort(sshPort, 'sshPort');
+  sshUser = safeUser(sshUser);
+  connectTimeout = safeInt(connectTimeout, 'connectTimeout', { min: 1, max: 120 });
   return `ssh -p ${sshPort} -i ${SSH_KEY} \
     -o StrictHostKeyChecking=accept-new \
     -o ConnectTimeout=${connectTimeout} \
@@ -229,6 +237,7 @@ async function getClusterOverview(serverIp, sshPort = 4422, sshUser = 'finadmin'
 // ── Namespace Detail ─────────────────────────────────────
 
 async function getNamespacePods(serverIp, namespace = 'fs-linkedeye', sshPort = 4422, sshUser = 'finadmin') {
+  namespace = safeK8sName(namespace);
   const [podsRaw, metricsRaw] = await Promise.allSettled([
     kubectl(`get pods -n ${namespace} -o json`, serverIp, sshPort, sshUser),
     // See getClusterOverview: no `2>/dev/null || echo ""`, or the failure is invisible.
@@ -277,6 +286,7 @@ async function getNamespacePods(serverIp, namespace = 'fs-linkedeye', sshPort = 
 // ── Deployments ──────────────────────────────────────────
 
 async function getDeployments(serverIp, namespace = 'fs-linkedeye', sshPort = 4422, sshUser = 'finadmin') {
+  namespace = safeK8sName(namespace);
   const raw = await kubectl(`get deployments -n ${namespace} -o json`, serverIp, sshPort, sshUser);
   const items = JSON.parse(raw).items || [];
   return items.map(d => ({
@@ -293,6 +303,7 @@ async function getDeployments(serverIp, namespace = 'fs-linkedeye', sshPort = 44
 // ── Events (warnings) ────────────────────────────────────
 
 async function getWarningEvents(serverIp, namespace = 'fs-linkedeye', sshPort = 4422, sshUser = 'finadmin') {
+  namespace = safeK8sName(namespace);
   const raw = await kubectl(
     `get events -n ${namespace} --field-selector type=Warning -o json --sort-by=.lastTimestamp`,
     serverIp, sshPort, sshUser
@@ -312,6 +323,7 @@ async function getWarningEvents(serverIp, namespace = 'fs-linkedeye', sshPort = 
 // ── Services ─────────────────────────────────────────────
 
 async function getServices(serverIp, namespace = 'fs-linkedeye', sshPort = 4422, sshUser = 'finadmin') {
+  namespace = safeK8sName(namespace);
   const raw = await kubectl(`get svc -n ${namespace} -o json`, serverIp, sshPort, sshUser);
   const items = JSON.parse(raw).items || [];
   return items.map(s => ({
@@ -392,6 +404,7 @@ async function getClusterOverviewDirect(apiUrl, auth) {
 }
 
 async function getNamespacePodsDirect(apiUrl, namespace, auth) {
+  namespace = safeK8sName(namespace);
   const client = buildK8sApiClient(apiUrl, auth);
   const resp = await client.get(`/api/v1/namespaces/${namespace}/pods`);
   return (resp.data.items || []).map(p => {
@@ -412,6 +425,7 @@ async function getNamespacePodsDirect(apiUrl, namespace, auth) {
 }
 
 async function getDeploymentsDirect(apiUrl, namespace, auth) {
+  namespace = safeK8sName(namespace);
   const client = buildK8sApiClient(apiUrl, auth);
   const resp = await client.get(`/apis/apps/v1/namespaces/${namespace}/deployments`);
   return (resp.data.items || []).map(d => ({
@@ -426,6 +440,7 @@ async function getDeploymentsDirect(apiUrl, namespace, auth) {
 }
 
 async function getWarningEventsDirect(apiUrl, namespace, auth) {
+  namespace = safeK8sName(namespace);
   const client = buildK8sApiClient(apiUrl, auth);
   const resp = await client.get(`/api/v1/namespaces/${namespace}/events`, {
     params: { fieldSelector: 'type=Warning' },
@@ -442,6 +457,7 @@ async function getWarningEventsDirect(apiUrl, namespace, auth) {
 }
 
 async function getServicesDirect(apiUrl, namespace, auth) {
+  namespace = safeK8sName(namespace);
   const client = buildK8sApiClient(apiUrl, auth);
   const resp = await client.get(`/api/v1/namespaces/${namespace}/services`);
   return (resp.data.items || []).map(s => ({
@@ -457,6 +473,7 @@ async function getServicesDirect(apiUrl, namespace, auth) {
 // Runs all PromQL queries in a single SSH round-trip via Python3 on the remote host
 
 async function batchRemotePromQueries(serverIp, queryMap, sshPort = 4422, promPort = 30000, sshUser = 'finadmin') {
+  promPort = safePort(promPort, 'promPort');
   const pyScript = [
     'import json,urllib.request,urllib.parse,sys,base64',
     'queries=json.loads(base64.b64decode(sys.argv[1]).decode())',
@@ -494,6 +511,7 @@ async function batchRemotePromQueries(serverIp, queryMap, sshPort = 4422, promPo
 // Returns { alerts, fetchError } — fetchError is set when SSH/network fails.
 // Callers MUST check fetchError before treating empty alerts as "nothing firing".
 async function getRemoteFiringAlerts(serverIp, sshPort = 4422, promPort = 30000, sshUser = 'finadmin', timeout = 15000) {
+  promPort = safePort(promPort, 'promPort');
   const connectTimeout = timeout <= 8000 ? 4 : 8;
   const cmd = `${sshCmd(serverIp, sshPort, sshUser, connectTimeout)} "curl -sf http://localhost:${promPort}/api/v1/alerts 2>/dev/null || echo '{}'"`;
   try {
@@ -511,6 +529,9 @@ async function getRemoteFiringAlerts(serverIp, sshPort = 4422, promPort = 30000,
 
 // Fetch Grafana API endpoint via SSH (for remote orgs behind firewall)
 async function remoteGrafanaApi(serverIp, grafanaPort, apiPath, apiKey, sshPort = 4422, sshUser = 'finadmin') {
+  grafanaPort = safePort(grafanaPort, 'grafanaPort');
+  apiPath = safeUrlPath(apiPath);
+  if (apiKey) safeToken(apiKey);
   const authHeader = apiKey ? `-H 'Authorization: Bearer ${apiKey}'` : '';
   const cmd = `${sshCmd(serverIp, sshPort, sshUser)} "curl -sf ${authHeader} 'http://${serverIp}:${grafanaPort}${apiPath}' 2>/dev/null || echo '[]'"`;
   try {
@@ -526,6 +547,7 @@ async function remoteGrafanaApi(serverIp, grafanaPort, apiPath, apiKey, sshPort 
 // Like batchRemotePromQueries but uses /api/v1/query_range
 
 async function batchRemotePromRangeQueries(serverIp, queryMap, start, end, step, sshPort = 4422, promPort = 30000, sshUser = 'finadmin') {
+  promPort = safePort(promPort, 'promPort');
   const pyScript = [
     'import json,urllib.request,urllib.parse,sys,base64',
     'args=json.loads(base64.b64decode(sys.argv[1]).decode())',
@@ -567,6 +589,11 @@ async function batchRemotePromRangeQueries(serverIp, queryMap, start, end, step,
 
 async function getPodLogs(serverIp, namespace, podName, options = {}, sshPort = 4422, sshUser = 'finadmin') {
   const { container, tailLines = 200, sinceSeconds, previous } = options;
+  namespace = safeK8sName(namespace);
+  podName = safeK8sName(podName, 'pod');
+  if (container) safeK8sName(container, 'container');
+  safeInt(tailLines, 'tail', { min: 1, max: 10000 });
+  if (sinceSeconds) safeInt(sinceSeconds, 'since', { min: 1 });
   let args = `logs ${podName} -n ${namespace} --tail=${tailLines} --timestamps`;
   if (container) args += ` -c ${container}`;
   if (sinceSeconds) args += ` --since=${sinceSeconds}s`;
@@ -583,6 +610,9 @@ async function getPodLogs(serverIp, namespace, podName, options = {}, sshPort = 
 }
 
 async function getPodLogsDirect(apiUrl, namespace, podName, options = {}, auth = {}) {
+  namespace = safeK8sName(namespace);
+  podName = safeK8sName(podName, 'pod');
+  if (options.container) safeK8sName(options.container, 'container');
   const { container, tailLines = 200, sinceSeconds, previous } = options;
   const client = buildK8sApiClient(apiUrl, auth);
   const params = { tailLines, timestamps: true };
@@ -605,6 +635,12 @@ async function getPodLogsDirect(apiUrl, namespace, podName, options = {}, auth =
 
 async function queryLokiLogs(serverIp, lokiQuery, options = {}, sshPort = 4422, lokiPort = 3100, sshUser = 'finadmin') {
   const { start, end, limit = 500, direction = 'backward' } = options;
+  lokiPort = safePort(lokiPort, 'lokiPort');
+  // lokiQuery is safe: URLSearchParams percent-encodes quotes, $, backticks.
+  if (start) safeDigits(start, 'start');
+  if (end) safeDigits(end, 'end');
+  safeInt(limit, 'limit', { min: 1, max: 5000 });
+  if (!['backward', 'forward'].includes(direction)) throw Object.assign(new Error('Unsafe value for direction'), { clientMessage: 'Invalid direction.' });
   const now = Date.now() * 1_000_000; // nanoseconds
   const params = new URLSearchParams({
     query: lokiQuery,
@@ -648,6 +684,7 @@ async function queryLokiLogs(serverIp, lokiQuery, options = {}, sshPort = 4422, 
 }
 
 async function getLokiLabels(serverIp, sshPort = 4422, lokiPort = 3100, sshUser = 'finadmin') {
+  lokiPort = safePort(lokiPort, 'lokiPort');
   const cmd = `${sshCmd(serverIp, sshPort, sshUser, 5)} "curl -sf 'http://localhost:${lokiPort}/loki/api/v1/labels' 2>/dev/null || echo '{}'"`;
   try {
     const { stdout } = await execAsync(cmd, { timeout: 8000, maxBuffer: 1024 * 1024 });
@@ -660,6 +697,8 @@ async function getLokiLabels(serverIp, sshPort = 4422, lokiPort = 3100, sshUser 
 }
 
 async function getLokiLabelValues(serverIp, labelName, sshPort = 4422, lokiPort = 3100, sshUser = 'finadmin') {
+  labelName = safeLabel(labelName);
+  lokiPort = safePort(lokiPort, 'lokiPort');
   const cmd = `${sshCmd(serverIp, sshPort, sshUser, 5)} "curl -sf 'http://localhost:${lokiPort}/loki/api/v1/label/${labelName}/values' 2>/dev/null || echo '{}'"`;
   try {
     const { stdout } = await execAsync(cmd, { timeout: 8000, maxBuffer: 1024 * 1024 });

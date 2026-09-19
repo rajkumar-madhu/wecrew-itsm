@@ -24,6 +24,20 @@ let isRunning = false;
  * Main escalation loop — checks P1/P2 incidents in NEW state
  * and escalates through the team's escalation policy rules.
  */
+
+// Escalation targets are tenant-supplied ids/emails. Only page people in the
+// incident's own org, or WeCrew operator staff (the platform org), so one
+// tenant cannot call, text or email another tenant's people.
+const PLATFORM_ORG_SLUG = process.env.PLATFORM_ORG_SLUG || 'wecrew';
+function escalationTargetScope(incident) {
+  return {
+    OR: [
+      ...(incident.organizationId ? [{ organizationId: incident.organizationId }] : []),
+      { organization: { is: { slug: PLATFORM_ORG_SLUG } } },
+    ],
+  };
+}
+
 async function checkEscalations() {
   if (isRunning) return;
   isRunning = true;
@@ -98,6 +112,7 @@ async function checkEscalations() {
               ...(idTargets.length    ? [{ id:    { in: idTargets } }]    : []),
               ...(emailTargets.length ? [{ email: { in: emailTargets } }] : []),
             ],
+            AND: [escalationTargetScope(incident)],
           },
           select: { id: true, firstName: true, lastName: true, email: true, phone: true, preferredLanguage: true },
         });
@@ -117,7 +132,7 @@ async function checkEscalations() {
         });
 
         // Create activity
-        const systemUser = await prisma.user.findFirst({ where: { role: 'ADMIN' }, select: { id: true } });
+        const systemUser = await prisma.user.findFirst({ where: { role: 'ADMIN', isPlatformAdmin: true }, select: { id: true } });
         if (systemUser) {
           await prisma.activity.create({
             data: {
@@ -175,7 +190,7 @@ async function notifyEscalationTarget(incident, rule, user) {
     // Email
     if (wantsEmail && user.email) {
       const emailService = require('./emailService');
-      await notifService.sendEmail(user.email, `[Escalation] ${incident.number} — ${incident.priority}`, emailService.templates.incidentEscalated(incident));
+      await notifService.sendEmail(user.email, emailService.buildIncidentSubject(incident, 'Escalated'), emailService.templates.incidentEscalated(incident));
       channels.push('email');
     }
 
@@ -265,8 +280,8 @@ async function retryEscalation(incidentId) {
 
     // Try next target
     const nextUserId = remaining[0];
-    const nextUser = await prisma.user.findUnique({
-      where: { id: nextUserId },
+    const nextUser = await prisma.user.findFirst({
+      where: { id: nextUserId, ...escalationTargetScope(incident) },
       select: { id: true, firstName: true, lastName: true, email: true, phone: true, preferredLanguage: true },
     });
 

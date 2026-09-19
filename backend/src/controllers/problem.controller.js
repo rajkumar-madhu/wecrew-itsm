@@ -7,7 +7,31 @@ const { emitToAll } = require('../config/socket');
 const { generateProblemNumber, paginate, paginationMeta, success, error } = require('../utils/helpers');
 const { PROBLEM_TRANSITIONS } = require('../config/constants');
 const logger = require('../utils/logger');
-const { getCreateOrgId } = require('../middleware/tenant');
+const { getCreateOrgId, scopedWhere, stripTenantFields, isPlatformAdmin } = require('../middleware/tenant');
+
+// Ids in a request body must point at records in the SAME org as the problem
+// being written, or the includes return another tenant's user/team/change.
+// Platform staff may cross orgs.
+const PROBLEM_FKS = [
+  ['assignedToId', 'user'],
+  ['assignmentGroupId', 'team'],
+  ['relatedChangeId', 'change'],
+];
+async function foreignKeyError(req, orgId, body) {
+  if (isPlatformAdmin(req.user)) return null;
+  for (const [key, model] of PROBLEM_FKS) {
+    const value = body[key];
+    if (value === undefined || value === null || value === '') continue;
+    const row = await prisma[model].findFirst({ where: { id: value, organizationId: orgId }, select: { id: true } });
+    if (!row) return `${key} does not belong to this organization`;
+  }
+  return null;
+}
+
+// Load a problem only if it is inside the caller's tenant scope.
+function findScopedProblem(req) {
+  return prisma.problem.findFirst({ where: { ...scopedWhere(req), id: req.params.id }, select: { id: true } });
+}
 const { ollamaGenerate } = require('../services/aiService');
 const { ALERT_KB, getAlertKB } = require('./alert.controller');
 
@@ -77,6 +101,9 @@ async function getProblem(req, res, next) {
 async function createProblem(req, res, next) {
   try {
     const { shortDescription, description, priority, category, assignmentGroupId, assignedToId } = req.body;
+    const orgId = getCreateOrgId(req);
+    const fkError = await foreignKeyError(req, orgId, req.body);
+    if (fkError) return error(res, fkError, 400);
     const number = await generateProblemNumber();
 
     const problem = await prisma.problem.create({
@@ -84,7 +111,7 @@ async function createProblem(req, res, next) {
         number, shortDescription, description,
         priority: priority || 'P4', category,
         assignmentGroupId, assignedToId, createdById: req.user.id,
-        organizationId: getCreateOrgId(req),
+        organizationId: orgId,
       },
       include: INCLUDE_LIST,
     });
@@ -116,7 +143,10 @@ async function updateProblem(req, res, next) {
       }
     }
 
-    const data = { ...req.body };
+    // Never let the body move the problem to another org or rewrite its author.
+    const { createdById: _createdBy, ...data } = stripTenantFields(req.body);
+    const fkError = await foreignKeyError(req, existing.organizationId, data);
+    if (fkError) return error(res, fkError, 400);
     if (data.state === 'KNOWN_ERROR') data.isKnownError = true;
 
     const problem = await prisma.problem.update({ where: { id: req.params.id }, data, include: INCLUDE_LIST });
@@ -136,6 +166,7 @@ async function updateProblem(req, res, next) {
 async function updateRCA(req, res, next) {
   try {
     const { rootCause, rootCauseAnalysis, workaround, workaroundEffective, permanentFix } = req.body;
+    if (!await findScopedProblem(req)) return error(res, 'Problem not found', 404);
     const problem = await prisma.problem.update({
       where: { id: req.params.id },
       data: { rootCause, rootCauseAnalysis, workaround, workaroundEffective, permanentFix },
@@ -154,6 +185,7 @@ async function updateRCA(req, res, next) {
 async function addWorkNote(req, res, next) {
   try {
     const { content, isInternal } = req.body;
+    if (!await findScopedProblem(req)) return error(res, 'Problem not found', 404);
     const note = await prisma.workNote.create({
       data: { content, isInternal: isInternal || false, authorId: req.user.id, problemId: req.params.id },
       include: { author: { select: { id: true, firstName: true, lastName: true } } },

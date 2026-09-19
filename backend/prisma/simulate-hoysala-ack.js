@@ -7,7 +7,7 @@ const http = require('http');
 
 const p = new PrismaClient();
 const JWT_SECRET = 'linkedeye-jwt-super-secret-2026';
-const API_BASE = 'https://fs-le-dev-inc.finspot.in';
+const API_BASE = 'https://itsm.wecrew.in';
 
 async function main() {
   const inc = await p.incident.findFirst({

@@ -154,13 +154,13 @@ curl -s http://localhost:8080/metrics | grep kube_pod_info | head -3
 
 ```bash
 # Authenticate as super-admin
-TOKEN=$(curl -s -X POST https://fs-le-dev-inc.finspot.in/api/v1/auth/login \
+TOKEN=$(curl -s -X POST https://itsm.wecrew.in/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@argus.com","password":"<PASSWORD>"}' \
   | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['accessToken'])")
 
 # Create organization
-curl -X POST https://fs-le-dev-inc.finspot.in/api/v1/organizations \
+curl -X POST https://itsm.wecrew.in/api/v1/organizations \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -177,7 +177,7 @@ Save the returned `organizationId` — you will need it for all subsequent steps
 ### Step 2.2 — Create Prometheus Integration
 
 ```bash
-curl -X POST https://fs-le-dev-inc.finspot.in/api/v1/integrations \
+curl -X POST https://itsm.wecrew.in/api/v1/integrations \
   -H "Authorization: Bearer $TOKEN" \
   -H "X-Organization-Id: <ORG_ID>" \
   -H "Content-Type: application/json" \
@@ -192,7 +192,7 @@ curl -X POST https://fs-le-dev-inc.finspot.in/api/v1/integrations \
 ### Step 2.3 — Create Kubernetes Integration
 
 ```bash
-curl -X POST https://fs-le-dev-inc.finspot.in/api/v1/integrations \
+curl -X POST https://itsm.wecrew.in/api/v1/integrations \
   -H "Authorization: Bearer $TOKEN" \
   -H "X-Organization-Id: <ORG_ID>" \
   -H "Content-Type: application/json" \
@@ -207,7 +207,7 @@ curl -X POST https://fs-le-dev-inc.finspot.in/api/v1/integrations \
 ### Step 2.4 — Create Grafana Integration
 
 ```bash
-curl -X POST https://fs-le-dev-inc.finspot.in/api/v1/integrations \
+curl -X POST https://itsm.wecrew.in/api/v1/integrations \
   -H "Authorization: Bearer $TOKEN" \
   -H "X-Organization-Id: <ORG_ID>" \
   -H "Content-Type: application/json" \
@@ -238,7 +238,7 @@ route:
 receivers:
   - name: 'argus-webhook'
     webhook_configs:
-      - url: 'https://fs-le-dev-inc.finspot.in/api/v1/webhooks/alertmanager?orgSlug=<client-slug>'
+      - url: 'https://itsm.wecrew.in/api/v1/webhooks/alertmanager?orgSlug=<client-slug>'
         send_resolved: true
 
 # IMPORTANT: Add external label for org routing
@@ -251,7 +251,7 @@ The webhook controller resolves organization via: `orgSlug` query param → `org
 
 In Grafana Contact Points, create a webhook:
 - **Name:** `Argus-Incidents`
-- **URL:** `https://fs-le-dev-inc.finspot.in/api/v1/webhooks/grafana?orgId=<ORG_ID>`
+- **URL:** `https://itsm.wecrew.in/api/v1/webhooks/grafana?orgId=<ORG_ID>`
 - **Method:** POST
 
 ---
@@ -262,19 +262,19 @@ In Grafana Contact Points, create a webhook:
 
 ```bash
 # Test Prometheus integration
-curl -s https://fs-le-dev-inc.finspot.in/api/v1/integrations/test/<PROMETHEUS_INTEGRATION_ID> \
+curl -s https://itsm.wecrew.in/api/v1/integrations/test/<PROMETHEUS_INTEGRATION_ID> \
   -H "Authorization: Bearer $TOKEN" \
   -H "X-Organization-Id: <ORG_ID>"
 
 # Test K8s integration
-curl -s https://fs-le-dev-inc.finspot.in/api/v1/k8s/overview \
+curl -s https://itsm.wecrew.in/api/v1/k8s/overview \
   -H "Authorization: Bearer $TOKEN" \
   -H "X-Organization-Id: <ORG_ID>"
 ```
 
 ### Step 3.2 — Verify K8s Dashboard
 
-Navigate to `https://fs-le-dev-inc.finspot.in/k8s` in the browser. Select the new organization from the OrgSwitcher. Verify:
+Navigate to `https://itsm.wecrew.in/k8s` in the browser. Select the new organization from the OrgSwitcher. Verify:
 - Node count and status
 - Pod count and health
 - CPU/Memory metrics populated
@@ -282,7 +282,7 @@ Navigate to `https://fs-le-dev-inc.finspot.in/k8s` in the browser. Select the ne
 ### Step 3.3 — Verify Grafana Sync
 
 ```bash
-curl -s https://fs-le-dev-inc.finspot.in/api/v1/ai/grafana-dashboards \
+curl -s https://itsm.wecrew.in/api/v1/ai/grafana-dashboards \
   -H "Authorization: Bearer $TOKEN" \
   -H "X-Organization-Id: <ORG_ID>"
 ```
@@ -306,7 +306,7 @@ curl -X POST http://localhost:32566/api/v1/alerts \
 
 **Method 2 — Test via webhook directly:**
 ```bash
-curl -X POST "https://fs-le-dev-inc.finspot.in/api/v1/webhooks/alertmanager?orgSlug=<client-slug>" \
+curl -X POST "https://itsm.wecrew.in/api/v1/webhooks/alertmanager?orgSlug=<client-slug>" \
   -H "Content-Type: application/json" \
   -d '{
     "status": "firing",
@@ -330,7 +330,7 @@ Verify: Alert appears in Argus Alerts page for the new organization. If severity
 
 ```bash
 # Create org-admin user
-curl -X POST https://fs-le-dev-inc.finspot.in/api/v1/auth/register \
+curl -X POST https://itsm.wecrew.in/api/v1/auth/register \
   -H "Authorization: Bearer $TOKEN" \
   -H "X-Organization-Id: <ORG_ID>" \
   -H "Content-Type: application/json" \
@@ -480,7 +480,7 @@ route:
 receivers:
   - name: 'argus-webhook'
     webhook_configs:
-      - url: 'https://fs-le-dev-inc.finspot.in/api/v1/webhooks/alertmanager?orgSlug=<CLIENT_SLUG>'
+      - url: 'https://itsm.wecrew.in/api/v1/webhooks/alertmanager?orgSlug=<CLIENT_SLUG>'
         send_resolved: true
         http_config:
           tls_config:

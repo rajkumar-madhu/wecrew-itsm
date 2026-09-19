@@ -3,7 +3,7 @@ const p = new PrismaClient();
 
 async function main() {
   // 1. Update Rajkumar Madhu's phone
-  const raj = await p.user.findFirst({ where: { email: 'rajkumar.madhu@finspot.in' } });
+  const raj = await p.user.findFirst({ where: { email: 'rajkumar.madhu@wecrew.in' } });
   if (!raj) { console.log('Rajkumar not found'); return; }
 
   await p.user.update({ where: { id: raj.id }, data: { phone: '+919176772077' } });

@@ -6,9 +6,11 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate, authorize } = require('../middleware/auth');
+const { enforceWriteAccess } = require('../middleware/billing.middleware');
 const ctrl = require('../controllers/agentPipeline.controller');
 
 router.use(authenticate);
+router.use(enforceWriteAccess); // 402 on writes once the org's trial or subscription lapses
 
 // Status & overview
 router.get('/status', ctrl.getStatus);

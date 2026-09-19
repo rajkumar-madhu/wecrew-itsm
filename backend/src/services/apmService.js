@@ -15,12 +15,17 @@ const { exec } = require('child_process');
 const { promisify } = require('util');
 const logger = require('../utils/logger');
 const k8s = require('./k8sService');
+const { safeHost, safeUser, safePort, safeToken } = require('../utils/shellSafe');
 
 const execAsync = promisify(exec);
 
 // ── SSH helpers ─────────────────────────────────────────
 
+// Every value below lands in a string run by exec() on the API pod: allowlist, never escape.
 function sshCmd(serverIp, sshPort = 4422, sshUser = 'finadmin') {
+  serverIp = safeHost(serverIp);
+  sshPort = safePort(sshPort, 'sshPort');
+  sshUser = safeUser(sshUser);
   return `ssh -p ${sshPort} -i /home/finadmin/.ssh/id_ed25519 \
     -o StrictHostKeyChecking=accept-new \
     -o ConnectTimeout=4 \
@@ -37,17 +42,30 @@ async function remoteExec(serverIp, cmd, sshPort = 4422, sshUser = 'finadmin') {
 // ── Redis CLI helpers ───────────────────────────────────
 
 async function redisCli(serverIp, sshPort, sshUser, redisHost, redisPort, redisPass, command) {
+  redisHost = safeHost(redisHost, 'redisHost');
+  redisPort = safePort(redisPort, 'redisPort');
+  if (redisPass) safeToken(redisPass, 'redisPass');
   const auth = redisPass ? `-a '${redisPass}'` : '';
   const cmd = `redis-cli -h ${redisHost} -p ${redisPort} ${auth} --no-auth-warning ${command} 2>/dev/null`;
   return remoteExec(serverIp, cmd, sshPort, sshUser);
 }
 
+// Redis key names/patterns: no quotes, spaces, $, backticks or ; — they are
+// interpolated into the shell. Keys come back from the REMOTE Redis, so a key
+// that fails this is skipped rather than run.
+const SAFE_REDIS_KEY = /^[A-Za-z0-9:_.@/+*?\[\]-]{1,256}$/;
+
 async function redisKeys(serverIp, sshPort, sshUser, redisHost, redisPort, redisPass, pattern) {
+  if (!SAFE_REDIS_KEY.test(String(pattern))) throw new Error('Unsafe Redis key pattern');
   const raw = await redisCli(serverIp, sshPort, sshUser, redisHost, redisPort, redisPass, `keys "${pattern}"`);
   return raw ? raw.split('\n').filter(k => k && !k.startsWith('(') && !k.startsWith('Warning')) : [];
 }
 
 async function redisGet(serverIp, sshPort, sshUser, redisHost, redisPort, redisPass, key) {
+  if (!SAFE_REDIS_KEY.test(String(key)) || /[*?[\]]/.test(key)) {
+    logger.warn('[APM] skipping Redis key with unsafe characters');
+    return null;
+  }
   const raw = await redisCli(serverIp, sshPort, sshUser, redisHost, redisPort, redisPass, `get "${key}"`);
   if (!raw || raw === '(nil)' || raw.startsWith('(error)')) return null;
   try { return JSON.parse(raw); } catch { return { raw }; }

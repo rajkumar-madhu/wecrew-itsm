@@ -8,13 +8,32 @@ const { success, error } = require('../utils/helpers');
 const apm = require('../services/apmService');
 const logger = require('../utils/logger');
 
+// ── Shell-safe config values ──────────────────────────────
+// apmService interpolates these into a local `ssh … "cmd"` line run through
+// exec. Org admins can write integration config, so any value outside a
+// strict charset is dropped (falls back to the default), never escaped.
+const SAFE_HOST = /^[A-Za-z0-9][A-Za-z0-9.:-]{0,252}$/; // no leading '-' (ssh option injection)
+const SAFE_USER = /^[A-Za-z_][A-Za-z0-9_.-]{0,31}$/;
+const SAFE_TOKEN = /^[A-Za-z0-9._~@%+=:,*-]{0,128}$/;   // no quotes, spaces, $, `, ;, |, &
+
+function safeStr(re, v, fallback) {
+  return typeof v === 'string' && re.test(v) ? v : fallback;
+}
+function safePort(v, fallback) {
+  const n = parseInt(v, 10);
+  return Number.isInteger(n) && n > 0 && n < 65536 ? n : fallback;
+}
+
 // ── Resolve org's full monitoring config ──────────────────
 
 async function resolveApmConfig(orgId) {
+  // No org (a platform admin viewing all orgs, or a user without one): there
+  // is no single org's config to use. Without this, the unfiltered findFirst
+  // below returned whichever org's integration came first.
   // PROMETHEUS or KUBERNETES_CLUSTER integration → SSH + Prometheus access
-  const integration = await prisma.integration.findFirst({
+  const integration = !orgId ? null : await prisma.integration.findFirst({
     where: {
-      ...(orgId ? { organizationId: orgId } : {}),
+      organizationId: orgId,
       status: 'ACTIVE',
       type: { in: ['PROMETHEUS', 'KUBERNETES_CLUSTER'] },
     },
@@ -27,8 +46,8 @@ async function resolveApmConfig(orgId) {
   }
 
   // STACKSTORM integration → APM-specific config (subsites, processDefinitions, redis)
-  const apmInt = await prisma.integration.findFirst({
-    where: { ...(orgId ? { organizationId: orgId } : {}), type: 'STACKSTORM', status: 'ACTIVE' },
+  const apmInt = !orgId ? null : await prisma.integration.findFirst({
+    where: { organizationId: orgId, type: 'STACKSTORM', status: 'ACTIVE' },
     select: { config: true },
   });
   let apmExtra = {};
@@ -43,20 +62,21 @@ async function resolveApmConfig(orgId) {
 
   return {
     // SSH connectivity
-    serverIp: baseConfig.serverIp || org?.serverIp || null,
-    sshPort: parseInt(baseConfig.sshPort) || 4422,
-    sshUser: baseConfig.sshUser || 'finadmin',
-    promPort: parseInt(baseConfig.promPort) || 30000,
+    serverIp: safeStr(SAFE_HOST, baseConfig.serverIp || org?.serverIp, null),
+    sshPort: safePort(baseConfig.sshPort, 4422),
+    sshUser: safeStr(SAFE_USER, baseConfig.sshUser, 'finadmin'),
+    promPort: safePort(baseConfig.promPort, 30000),
     // Redis
-    redisHost: apmExtra.redisHost || baseConfig.redisHost || 'localhost',
-    redisPort: parseInt(apmExtra.redisPort || baseConfig.redisPort) || 6379,
-    redisPass: apmExtra.redisPass || baseConfig.redisPass || '',
+    redisHost: safeStr(SAFE_HOST, apmExtra.redisHost || baseConfig.redisHost, 'localhost'),
+    redisPort: safePort(apmExtra.redisPort || baseConfig.redisPort, 6379),
+    redisPass: safeStr(SAFE_TOKEN, apmExtra.redisPass || baseConfig.redisPass, ''),
     // APM
     siteName: org?.slug || 'prod',
     subsiteNames: apmExtra.subsites || baseConfig.subsites || [],
-    adpPattern: apmExtra.adpPattern || '*:ADP:*',
+    adpPattern: safeStr(SAFE_TOKEN, apmExtra.adpPattern, '*:ADP:*') || '*:ADP:*',
     processDefinitions: apmExtra.processDefinitions || {},
-    sites: apmExtra.sites || [org?.slug || 'prod'],
+    sites: (Array.isArray(apmExtra.sites) ? apmExtra.sites : [org?.slug || 'prod'])
+      .filter((x) => typeof x === 'string' && x && SAFE_TOKEN.test(x)),
     // Org metadata for frontend
     orgName: org?.name || null,
     orgSlug: org?.slug || null,

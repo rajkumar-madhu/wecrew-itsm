@@ -288,7 +288,7 @@ function MultiTenantContent() {
   "name": "Lemonn Financial",
   "slug": "lemonn-le",
   "environment": "PROD",
-  "fqdn": "lemonn.finspot.in",
+  "fqdn": "lemonn.wecrew.in",
   "serverIp": "154.210.170.126",
   "isActive": true
 }`} language="json" />
@@ -403,7 +403,7 @@ const AUTH_ENDPOINTS: Endpoint[] = [
       "name": "Lemonn Financial",
       "slug": "lemonn-le",
       "environment": "PROD",
-      "fqdn": "lemonn.finspot.in"
+      "fqdn": "lemonn.wecrew.in"
     }
   }
 }`,
@@ -442,7 +442,7 @@ const AUTH_ENDPOINTS: Endpoint[] = [
     "firstName": "Admin",
     "lastName": "User",
     "role": "ADMIN",
-    "organization": { "id": "uuid", "name": "Lemonn", "slug": "lemonn-le", "environment": "PROD", "fqdn": "lemonn.finspot.in" },
+    "organization": { "id": "uuid", "name": "Lemonn", "slug": "lemonn-le", "environment": "PROD", "fqdn": "lemonn.wecrew.in" },
     "teamMembers": [{ "team": { "id": "uuid", "name": "NOC Team" } }]
   }
 }`,
@@ -1161,7 +1161,7 @@ export default function DeveloperDocs() {
             {/* Footer */}
             <div className="mt-16 pt-8 border-t border-[#E7E5E4] pb-16 text-center">
               <p className="text-[12px] text-[#94A3B8] font-mono">
-                WeCrew ITSM API &middot; FinSpot Technology Solutions Private Limited &middot; No.55B, First Main, Electronic City Phase – 1, Bengaluru – 560 100
+                WeCrew ITSM API &middot; WeCrew &middot; No.55B, First Main, Electronic City Phase – 1, Bengaluru – 560 100
               </p>
             </div>
           </div>

@@ -24,8 +24,8 @@ async function createNotification(userId, type, title, message, link = null) {
 }
 
 // ── Email (delegates to emailService) ────────────────────
-// TEMP PAUSE: only rajkumar.madhu@finspot.in receives email alerts
-const EMAIL_ALLOWLIST = ['rajkumar.madhu@finspot.in'];
+// TEMP PAUSE: only rajkumar.madhu@wecrew.in receives email alerts
+const EMAIL_ALLOWLIST = ['rajkumar.madhu@wecrew.in'];
 
 async function sendEmail(to, subject, html) {
   if (!EMAIL_ALLOWLIST.includes((to || '').toLowerCase())) {
@@ -170,7 +170,7 @@ async function notifyIncidentStakeholders(incident, event) {
           })()
         : { hostname: '', ip: '' };
       const smsBody = [
-        `Argus ITSM Alert`,
+        `WeCrew ITSM Alert`,
         `${incident.number} | ${incident.priority} | ${event}`,
         `Org: ${incident.organization?.name || 'N/A'}`,
         hostname ? `Host: ${hostname}${ip ? ' (' + ip + ')' : ''}` : null,

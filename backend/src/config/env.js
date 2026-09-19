@@ -54,6 +54,19 @@ const config = {
     phoneNumber: process.env.TWILIO_PHONE_NUMBER,
   },
 
+  // Public self-registration creates an organization and makes the registrant
+  // its (org-scoped) ADMIN. Off unless explicitly enabled: see the tenant
+  // isolation audit before turning this on for the open internet.
+  selfServiceSignup: process.env.SELF_SERVICE_SIGNUP === 'true',
+
+  // Optional: not in REQUIRED, so environments without billing still boot.
+  razorpay: {
+    keyId: process.env.RAZORPAY_KEY_ID,
+    keySecret: process.env.RAZORPAY_KEY_SECRET,
+    webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET,
+    starterPlanId: process.env.RAZORPAY_STARTER_PLAN_ID,
+  },
+
   msg91: { apiKey: process.env.MSG91_API_KEY, senderId: process.env.MSG91_SENDER_ID },
   kaleyra: { apiKey: process.env.KALEYRA_API_KEY, senderId: process.env.KALEYRA_SENDER_ID },
 
@@ -76,6 +89,8 @@ const config = {
     flowiseUrl: process.env.FLOWISE_URL,
     anthropicApiKey: process.env.ANTHROPIC_API_KEY,
     openaiApiKey: process.env.OPENAI_API_KEY,
+    geminiApiKey: process.env.GEMINI_API_KEY,
+    geminiModel: process.env.GEMINI_MODEL || 'gemini-flash-latest',
   },
 
   serviceNow: {

@@ -22,11 +22,11 @@ const STANDARD_TEAMS = new Set(['LE Team', 'DevOps Team', 'Network Team', 'DB Te
 
 // Manager assignment by team name keyword (priority order)
 const MANAGER_KEYWORDS = [
-  { keywords: ['network', 'noc', 'security', 'infra'],   email: 'siva.kadirannagari@finspot.in' },
-  { keywords: ['dba', 'database', 'db'],                  email: 'rajkumar.ashokan@finspot.in' },
-  { keywords: ['app support', 'application', 'le '],      email: 'rajkumar.ashokan@finspot.in' },
+  { keywords: ['network', 'noc', 'security', 'infra'],   email: 'siva.kadirannagari@wecrew.in' },
+  { keywords: ['dba', 'database', 'db'],                  email: 'rajkumar.ashokan@wecrew.in' },
+  { keywords: ['app support', 'application', 'le '],      email: 'rajkumar.ashokan@wecrew.in' },
   { keywords: ['devops', 'platform', 'engineering', 'cloudops'], email: 'rajkumar.madhu@rmadhu.in' },
-  { keywords: ['management', 'client'],                   email: 'shrikant.pandit@finspot.in' },
+  { keywords: ['management', 'client'],                   email: 'shrikant.pandit@wecrew.in' },
 ];
 
 // Global teams to delete entirely (no org, no members, no purpose)
@@ -48,12 +48,12 @@ async function main() {
   // ── Load Finspot staff users ─────────────────────────────
   const allEmails = [
     'rajkumar.madhu@rmadhu.in',
-    'hoysala.bise@finspot.in',
-    'siva.kadirannagari@finspot.in',
-    'rajkumar.ashokan@finspot.in',
-    'edukondalu.p@finspot.in',
-    'devendrareddy.puppala@finspot.in',
-    'shrikant.pandit@finspot.in',
+    'hoysala.bise@wecrew.in',
+    'siva.kadirannagari@wecrew.in',
+    'rajkumar.ashokan@wecrew.in',
+    'edukondalu.p@wecrew.in',
+    'devendrareddy.puppala@wecrew.in',
+    'shrikant.pandit@wecrew.in',
   ];
   const staffUsers = await prisma.user.findMany({
     where: { email: { in: allEmails } },

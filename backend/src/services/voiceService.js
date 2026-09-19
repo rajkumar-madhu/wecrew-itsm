@@ -15,7 +15,7 @@ let _eventBus;
 function getEventBus() { if (!_eventBus) _eventBus = require('./eventEmitter'); return _eventBus; }
 
 const VOICE_SERVER = config.voiceServer || process.env.VOICE_SERVER_URL || 'http://localhost:8100';
-const PUBLIC_BASE = config.frontendUrl || process.env.PUBLIC_URL || 'https://fs-le-dev-inc.finspot.in';
+const PUBLIC_BASE = config.frontendUrl || process.env.PUBLIC_URL || 'https://itsm.wecrew.in';
 const WEBHOOK_GATHER = `${PUBLIC_BASE}/api/v1/webhooks/twilio/gather`;
 const WEBHOOK_SPEECH = `${PUBLIC_BASE}/api/v1/webhooks/twilio/speech`;
 
@@ -48,10 +48,10 @@ function sayTag(text, langCode) {
 const MESSAGE_TEMPLATES = {
   en: {
     greeting: 'Hi %s.',
-    teamIntro: 'This is Argus ITSM team calling regarding a %s issue for %s.',
+    teamIntro: 'This is WeCrew ITSM team calling regarding a %s issue for %s.',
     dtmfPrompt: 'Press 1 to acknowledge. Press 2 to escalate to Next Level.',
     noResponse: 'No response received. This incident will be auto-escalated.',
-    closing: 'Thank you %s. For any queries, please reach out to the Argus ITSM team at le@finspot.in or raise a ticket on Argus. Have a good %s.',
+    closing: 'Thank you %s. For any queries, please reach out to the WeCrew ITSM team at support@wecrew.in or raise a ticket on Argus. Have a good %s.',
     acknowledged: '%s has been acknowledged and moved to In Progress.',
     escalated: '%s has been escalated to Priority 1 Critical. The on-call manager has been notified.',
     welcome: 'Welcome to Argus IT Service Management%s. How can I help you today?',
@@ -59,9 +59,9 @@ const MESSAGE_TEMPLATES = {
     errorSpeech: 'We encountered an issue processing your input. Please try again. Thank you.',
     errorGather: 'We encountered a system error while processing your input. Your response has been logged. Our team will follow up shortly. Thank you.',
     invalidOption: 'Invalid option. Please try again.',
-    orgGreeting: 'Hello, this is Argus ITSM for %s%s. You have a notification. Press 1 to acknowledge, or press 2 to escalate.',
+    orgGreeting: 'Hello, this is WeCrew ITSM for %s%s. You have a notification. Press 1 to acknowledge, or press 2 to escalate.',
     orgNoResponse: 'No response received. Goodbye.',
-    defaultGreeting: 'Hello, this is Argus ITSM. You have a notification. Press 1 to acknowledge, or press 2 to escalate.',
+    defaultGreeting: 'Hello, this is WeCrew ITSM. You have a notification. Press 1 to acknowledge, or press 2 to escalate.',
     speechConfirm: 'Thank you. I\'ve noted your issue: %s. An incident will be created and assigned to our team. You will receive an SMS update shortly.',
     speechFail: 'I\'m sorry, I couldn\'t understand that clearly. Let me transfer you to an agent.',
     describeIssue: 'Please describe your issue after the beep.',
@@ -72,10 +72,10 @@ const MESSAGE_TEMPLATES = {
   },
   hi: {
     greeting: 'Namaste %s.',
-    teamIntro: 'Yeh Argus ITSM team hai, %s ke liye %s sambandhit issue ke baare mein call kar rahe hain.',
+    teamIntro: 'Yeh WeCrew ITSM team hai, %s ke liye %s sambandhit issue ke baare mein call kar rahe hain.',
     dtmfPrompt: 'Acknowledge karne ke liye 1 dabayen. Escalate karne ke liye 2 dabayen.',
     noResponse: 'Koi response nahi mila. Yeh incident auto-escalate hoga.',
-    closing: 'Dhanyavaad %s. Kisi bhi query ke liye Argus ITSM team se le@finspot.in par sampark karein. Shubh %s.',
+    closing: 'Dhanyavaad %s. Kisi bhi query ke liye WeCrew ITSM team se support@wecrew.in par sampark karein. Shubh %s.',
     acknowledged: '%s acknowledge ho gaya hai aur In Progress mein move ho gaya hai.',
     escalated: '%s Priority 1 Critical par escalate ho gaya hai. On-call manager ko notify kiya gaya hai.',
     errorGeneral: 'Hum ek technical samasya ka anubhav kar rahe hain. Kripya baad mein dobara prayaas karein. Dhanyavaad.',
@@ -85,10 +85,10 @@ const MESSAGE_TEMPLATES = {
   },
   ta: {
     greeting: 'Vanakkam %s.',
-    teamIntro: 'Idhu Argus ITSM team, %s-ku %s thodarbaana issue patriya azhaikkirom.',
+    teamIntro: 'Idhu WeCrew ITSM team, %s-ku %s thodarbaana issue patriya azhaikkirom.',
     dtmfPrompt: 'Acknowledge seiya 1 azhuthavum. Escalate seiya 2 azhuthavum.',
     noResponse: 'Pathil varavillai. Idhu auto-escalate aagum.',
-    closing: 'Nandri %s. Ethavadhu doubt irunthaal Argus ITSM team-ai le@finspot.in-il thodarbu kollungal. Nalla %s.',
+    closing: 'Nandri %s. Ethavadhu doubt irunthaal WeCrew ITSM team-ai support@wecrew.in-il thodarbu kollungal. Nalla %s.',
     acknowledged: '%s acknowledge aagi In Progress-ku maari vittathu.',
     escalated: '%s Priority 1 Critical-ku escalate aagi vittathu. On-call manager-ku theriyappaduthappattathu.',
     errorGeneral: 'Oru tharkaalika prachanaiyai ethir kondu irukkiraom. Thayavu seithu pinnar mupayarchiyungal. Nandri.',
@@ -96,10 +96,10 @@ const MESSAGE_TEMPLATES = {
   },
   te: {
     greeting: 'Namaskaram %s.',
-    teamIntro: 'Idi Argus ITSM team, %s kosam %s sambandhinchina issue gurinchi call chestunnamu.',
+    teamIntro: 'Idi WeCrew ITSM team, %s kosam %s sambandhinchina issue gurinchi call chestunnamu.',
     dtmfPrompt: 'Acknowledge cheyaniki 1 noppandi. Escalate cheyaniki 2 noppandi.',
     noResponse: 'Response raledu. Ee incident auto-escalate avutundi.',
-    closing: 'Dhanyavaadalu %s. Queries unte Argus ITSM team ni le@finspot.in lo contact cheyandi. Shubha %s.',
+    closing: 'Dhanyavaadalu %s. Queries unte WeCrew ITSM team ni support@wecrew.in lo contact cheyandi. Shubha %s.',
     acknowledged: '%s acknowledge aindi mariyu In Progress ki move aindi.',
     escalated: '%s Priority 1 Critical ki escalate aindi. On-call manager ki notify chesamu.',
     errorGeneral: 'Memu oka temporary samasyanu face chestunnamu. Dayachesi later try cheyandi. Dhanyavaadalu.',
@@ -107,10 +107,10 @@ const MESSAGE_TEMPLATES = {
   },
   ml: {
     greeting: 'Namaskaaram %s.',
-    teamIntro: 'Ithu Argus ITSM team aanu, %s-nte %s sambandhamaaya issue-ne kurichu vilikkunnu.',
+    teamIntro: 'Ithu WeCrew ITSM team aanu, %s-nte %s sambandhamaaya issue-ne kurichu vilikkunnu.',
     dtmfPrompt: 'Acknowledge cheyyaan 1 amarthuka. Escalate cheyyaan 2 amarthuka.',
     noResponse: 'Maruppadi onnum labhichilla. Ee incident auto-escalate cheyyum.',
-    closing: 'Nanni %s. Enthenkilum samsayam undenkil Argus ITSM team-nte le@finspot.in-il bandhappeduka. Shubha %s.',
+    closing: 'Nanni %s. Enthenkilum samsayam undenkil WeCrew ITSM team-nte support@wecrew.in-il bandhappeduka. Shubha %s.',
     acknowledged: '%s acknowledge aayi In Progress-ilekku maarunnu.',
     escalated: '%s Priority 1 Critical-ilekku escalate aayi. On-call manager-ne ariyichu.',
     errorGeneral: 'Njangal oru thaalkaalika prasnam neridukayaanu. Dayavayi pinned shramikkuka. Nanni.',
@@ -118,10 +118,10 @@ const MESSAGE_TEMPLATES = {
   },
   kn: {
     greeting: 'Namaskara %s.',
-    teamIntro: 'Idu Argus ITSM team, %s-ge %s sambandhisida issue kurithu call maaduttiddeve.',
+    teamIntro: 'Idu WeCrew ITSM team, %s-ge %s sambandhisida issue kurithu call maaduttiddeve.',
     dtmfPrompt: 'Acknowledge maadalu 1 ottiri. Escalate maadalu 2 ottiri.',
     noResponse: 'Yaavathu pratikriye barillilla. Ee incident auto-escalate aaguttade.',
-    closing: 'Dhanyavaadagalu %s. Yaavude prashne iddare Argus ITSM team annu le@finspot.in nalli samparksiri. Shubha %s.',
+    closing: 'Dhanyavaadagalu %s. Yaavude prashne iddare WeCrew ITSM team annu support@wecrew.in nalli samparksiri. Shubha %s.',
     acknowledged: '%s acknowledge aagide mattu In Progress-ge saagide.',
     escalated: '%s Priority 1 Critical-ge escalate aagide. On-call manager-ge tilidisalaagide.',
     errorGeneral: 'Naavu ondu taatkaalika samasyeyannu eduruttiddeve. Dayavittu nantara prayatnisiri. Dhanyavaadagalu.',
@@ -575,7 +575,7 @@ async function handleGather(gatherData) {
       const orgName = incident.organization?.name || '';
       resolvedOrgName = orgName;
       const incLabel = `Incident ${incNumber}${orgName ? ' for ' + orgName : ''}`;
-      const systemUser = await prisma.user.findFirst({ where: { role: 'ADMIN' }, select: { id: true } });
+      const systemUser = await prisma.user.findFirst({ where: { role: 'ADMIN', isPlatformAdmin: true }, select: { id: true } });
 
       if (Digits === '1') {
         // Acknowledge — update incident state
@@ -710,7 +710,7 @@ async function handleCallStatusUpdate(statusData) {
           select: { id: true, number: true, priority: true, state: true },
         });
         if (linkedInc && ['P1', 'P2'].includes(linkedInc.priority) && linkedInc.state === 'NEW') {
-          const systemUser = await prisma.user.findFirst({ where: { role: 'ADMIN' }, select: { id: true } });
+          const systemUser = await prisma.user.findFirst({ where: { role: 'ADMIN', isPlatformAdmin: true }, select: { id: true } });
           if (systemUser) {
             await prisma.activity.create({
               data: {
@@ -733,7 +733,7 @@ async function handleCallStatusUpdate(statusData) {
   if (CallStatus === 'completed' && CallSid) {
     try {
       const callLog = await prisma.voiceCallLog.findFirst({ where: { callSid: CallSid } });
-      const systemUser = await prisma.user.findFirst({ where: { role: 'ADMIN' }, select: { id: true } });
+      const systemUser = await prisma.user.findFirst({ where: { role: 'ADMIN', isPlatformAdmin: true }, select: { id: true } });
 
       // Only auto-create incident if the call wasn't already linked to one
       // (outbound incident calls already have linkedIncidentId set)
@@ -834,7 +834,7 @@ async function incidentAlertCall(incident, phoneNumber, lang = 'en') {
   );
 
   const callSid = resp.data?.sid;
-  const systemUser = await prisma.user.findFirst({ where: { role: 'ADMIN' }, select: { id: true } });
+  const systemUser = await prisma.user.findFirst({ where: { role: 'ADMIN', isPlatformAdmin: true }, select: { id: true } });
 
   // Create VoiceCallLog linked to incident
   await prisma.voiceCallLog.create({

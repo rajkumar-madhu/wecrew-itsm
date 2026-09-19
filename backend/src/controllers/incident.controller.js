@@ -12,7 +12,31 @@ const {
 const { INCIDENT_TRANSITIONS } = require('../config/constants');
 const logger = require('../utils/logger');
 const eventBus = require('../services/eventEmitter');
-const { getCreateOrgId } = require('../middleware/tenant');
+const { getCreateOrgId, scopedWhere, isPlatformAdmin } = require('../middleware/tenant');
+
+// Ids in a request body must point at records in the SAME org as the incident
+// being written; otherwise the includes would return another tenant's user,
+// team or CI. Platform staff may cross orgs (e.g. assign a WeCrew engineer).
+const INCIDENT_FKS = [
+  ['assignedToId', 'user'],
+  ['assignmentGroupId', 'team'],
+  ['configItemId', 'configurationItem'],
+];
+async function foreignKeyError(req, orgId, body) {
+  if (isPlatformAdmin(req.user)) return null;
+  for (const [key, model] of INCIDENT_FKS) {
+    const value = body[key];
+    if (value === undefined || value === null || value === '') continue;
+    const row = await prisma[model].findFirst({ where: { id: value, organizationId: orgId }, select: { id: true } });
+    if (!row) return `${key} does not belong to this organization`;
+  }
+  return null;
+}
+
+// Load an incident only if it is inside the caller's tenant scope.
+function findScopedIncident(req, id = req.params.id) {
+  return prisma.incident.findFirst({ where: { ...scopedWhere(req), id }, select: { id: true, organizationId: true } });
+}
 
 const INCLUDE_LIST = {
   assignedTo: { select: { id: true, firstName: true, lastName: true, email: true, phone: true, avatar: true } },
@@ -92,6 +116,10 @@ async function createIncident(req, res, next) {
   try {
     const { shortDescription, description, impact, urgency, category, subcategory, assignmentGroupId, assignedToId, configItemId, source, sourceAlertId, sourceAlertName } = req.body;
 
+    const orgId = getCreateOrgId(req);
+    const fkError = await foreignKeyError(req, orgId, req.body);
+    if (fkError) return error(res, fkError, 400);
+
     const number = await generateIncidentNumber();
     const imp = impact || 'INDIVIDUAL';
     const urg = urgency || 'LOW';
@@ -105,7 +133,7 @@ async function createIncident(req, res, next) {
         category, subcategory,
         assignmentGroupId, assignedToId, createdById: req.user.id,
         configItemId, source: source || 'MANUAL',
-        organizationId: getCreateOrgId(req),
+        organizationId: orgId,
         sourceAlertId, sourceAlertName,
         slaTargetResponse: slaTargets.slaTargetResponse,
         slaTargetResolution: slaTargets.slaTargetResolution,
@@ -159,6 +187,8 @@ async function updateIncident(req, res, next) {
     for (const key of ALLOWED_FIELDS) {
       if (req.body[key] !== undefined) data[key] = req.body[key];
     }
+    const fkError = await foreignKeyError(req, existing.organizationId, data);
+    if (fkError) return error(res, fkError, 400);
 
     // Handle resolution
     if (data.state === 'RESOLVED') {
@@ -233,6 +263,7 @@ async function deleteIncident(req, res, next) {
 async function addWorkNote(req, res, next) {
   try {
     const { content, isInternal } = req.body;
+    if (!await findScopedIncident(req)) return error(res, 'Incident not found', 404);
     const note = await prisma.workNote.create({
       data: { content, isInternal: isInternal || false, authorId: req.user.id, incidentId: req.params.id },
       include: { author: { select: { id: true, firstName: true, lastName: true } } },
@@ -248,6 +279,7 @@ async function addWorkNote(req, res, next) {
 // GET /api/v1/incidents/:id/timeline
 async function getTimeline(req, res, next) {
   try {
+    if (!await findScopedIncident(req)) return error(res, 'Incident not found', 404);
     const [activities, notes] = await prisma.$transaction([
       prisma.activity.findMany({
         where: { incidentId: req.params.id },
@@ -274,6 +306,11 @@ async function getTimeline(req, res, next) {
 async function linkChange(req, res, next) {
   try {
     const { changeId, linkType, notes } = req.body;
+    const incident = await findScopedIncident(req);
+    if (!incident) return error(res, 'Incident not found', 404);
+    // Both sides must be in the caller's scope AND in the incident's own org.
+    const change = await prisma.change.findFirst({ where: { ...scopedWhere(req), id: changeId }, select: { organizationId: true } });
+    if (!change || change.organizationId !== incident.organizationId) return error(res, 'Change not found', 404);
     const link = await prisma.incidentChange.create({
       data: { incidentId: req.params.id, changeId, linkType: linkType || 'RELATED', notes, linkedById: req.user.id },
     });
@@ -285,6 +322,10 @@ async function linkChange(req, res, next) {
 async function linkProblem(req, res, next) {
   try {
     const { problemId, linkType, notes } = req.body;
+    const incident = await findScopedIncident(req);
+    if (!incident) return error(res, 'Incident not found', 404);
+    const problem = await prisma.problem.findFirst({ where: { ...scopedWhere(req), id: problemId }, select: { organizationId: true } });
+    if (!problem || problem.organizationId !== incident.organizationId) return error(res, 'Problem not found', 404);
     const link = await prisma.incidentProblem.create({
       data: { incidentId: req.params.id, problemId, linkType: linkType || 'RELATED', notes, linkedById: req.user.id },
     });
@@ -657,7 +698,7 @@ async function getEscalationLogs(req, res, next) {
 async function acknowledgeFromEmail(req, res) {
   const jwt = require('jsonwebtoken');
   const { token } = req.query;
-  const frontendUrl = process.env.FRONTEND_URL || 'https://fs-le-dev-inc.finspot.in';
+  const frontendUrl = process.env.FRONTEND_URL || 'https://itsm.wecrew.in';
 
   function htmlPage(title, icon, color, message, incidentNumber, detail) {
     return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/>
@@ -683,7 +724,7 @@ async function acknowledgeFromEmail(req, res) {
   <p class="inc">${incidentNumber}</p>
   <p>${detail}</p>
   <a href="${frontendUrl}/incidents" class="btn">Open WeCrew ITSM →</a>
-  <p class="footer">FinSpot ITSM Tool · FinSpot Technology Solutions Pvt Ltd</p>
+  <p class="footer">WeCrew ITSM · WeCrew Technologies</p>
 </div>
 </body></html>`;
   }
@@ -730,7 +771,7 @@ async function acknowledgeFromEmail(req, res) {
     });
 
     // Activity log
-    const adminUser = await prisma.user.findFirst({ where: { role: 'ADMIN' }, select: { id: true } });
+    const adminUser = await prisma.user.findFirst({ where: { role: 'ADMIN', isPlatformAdmin: true }, select: { id: true } });
     if (adminUser) {
       await prisma.activity.create({
         data: {

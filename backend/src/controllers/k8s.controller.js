@@ -11,11 +11,29 @@ const { prisma } = require('../config/database');
 const { success, error } = require('../utils/helpers');
 const logger = require('../utils/logger');
 const k8s = require('../services/k8sService');
+const { isPlatformAdmin } = require('../middleware/tenant');
 
 // Resolve the org's K8s connection details from Integration Hub + org fallback
 // Returns { method: 'local'|'ssh'|'direct', serverIp, sshPort, sshUser, apiUrl, token, username, password, orgName }
+// or null when the caller may not reach any cluster.
 async function resolveK8sTarget(req) {
-  const orgId = req.tenantWhere?.organizationId || req.query.orgId || req.headers['x-organization-id'];
+  const platform = isPlatformAdmin(req.user);
+  // Only platform admins may pick an org by header; everyone else gets the
+  // org their tenant context was locked to (null when they have none).
+  const orgId = platform
+    ? req.tenantWhere?.organizationId || req.query.orgId || req.headers['x-organization-id']
+    : req.organizationId;
+  if (!orgId && !platform) return null;
+
+  const target = await resolveTargetForOrg(orgId);
+  // 'local' is WeCrew's own cluster via the API pod's service account. Every
+  // fallback below lands there, so an org without its own cluster — e.g. any
+  // fresh trial org — would otherwise be shown WeCrew's production workloads.
+  if (target?.method === 'local' && !platform) return null;
+  return target;
+}
+
+async function resolveTargetForOrg(orgId) {
 
   // No org selected → use the local WeCrew K8s cluster
   if (!orgId) {
@@ -48,10 +66,19 @@ async function resolveK8sTarget(req) {
           orgName: org.name,
         };
       }
-      // SSH access (default)
+      // Explicit in-cluster / local kubectl (API pod SA)
+      if (cfg.accessMethod === 'local') {
+        return { method: 'local', serverIp: 'local', sshPort: null, sshUser: null, orgName: org.name };
+      }
+      const serverIp = cfg.serverIp || org.serverIp;
+      // SSH with no host would previously become finadmin@null and look like a
+      // Loki/SSH outage. Fall back to the local cluster instead.
+      if (!serverIp) {
+        return { method: 'local', serverIp: 'local', sshPort: null, sshUser: null, orgName: org.name + ' (Local)' };
+      }
       return {
         method: 'ssh',
-        serverIp: cfg.serverIp || org.serverIp,
+        serverIp,
         sshPort: cfg.sshPort || 4422,
         sshUser: cfg.sshUser || 'finadmin',
         orgName: org.name,

@@ -3,17 +3,20 @@
 // Multi-tenant: org's PD integration config drives all calls
 // ═══════════════════════════════════════════════════════════
 
+const crypto = require('crypto');
 const { prisma } = require('../config/database');
 const { success, error } = require('../utils/helpers');
 const pd = require('../services/pagerdutyService');
 const logger = require('../utils/logger');
 
 // ── Resolve org's PagerDuty integration config ────────────
+// No org → no config. The old fallback (no org filter) handed a caller with no
+// organization — or a platform admin viewing "all" — whichever org's
+// PagerDuty API key came first.
 async function resolvePdConfig(orgId) {
-  const where = orgId ? { organizationId: orgId, type: 'PAGERDUTY', status: 'ACTIVE' }
-                      : { type: 'PAGERDUTY', status: 'ACTIVE' };
+  if (!orgId) return null;
   const integration = await prisma.integration.findFirst({
-    where,
+    where: { organizationId: orgId, type: 'PAGERDUTY', status: 'ACTIVE' },
     select: { id: true, config: true, organizationId: true },
   });
   if (!integration?.config) return null;
@@ -41,12 +44,23 @@ async function connect(req, res, next) {
   try {
     const { apiKey, routingKey, serviceId, autoSync = true, autoCreateIncidents = true } = req.body;
     if (!apiKey?.trim()) return error(res, 'apiKey is required', 400);
+    if (!req.organizationId) return error(res, 'Select an organization first', 400);
 
     // Validate key first
     const validation = await pd.validateApiKey(apiKey.trim());
     if (!validation.valid) return error(res, validation.error || 'Invalid API key', 400);
 
+    // Upsert integration
+    const existing = await prisma.integration.findFirst({
+      where: { organizationId: req.organizationId, type: 'PAGERDUTY' },
+    });
+    let previous = {};
+    try { previous = existing?.config ? JSON.parse(existing.config) : {}; } catch { /* regenerate */ }
+
     const config = JSON.stringify({
+      // Secret for this org's webhook URL (see handleWebhook). Kept across
+      // reconnects so the URL configured in PagerDuty keeps working.
+      webhookToken: previous.webhookToken || crypto.randomBytes(24).toString('hex'),
       apiKey: apiKey.trim(),
       routingKey: routingKey?.trim() || '',
       serviceId: serviceId?.trim() || '',
@@ -55,11 +69,6 @@ async function connect(req, res, next) {
       connectedAt: new Date().toISOString(),
       accountName: validation.account?.name,
       accountEmail: validation.account?.email,
-    });
-
-    // Upsert integration
-    const existing = await prisma.integration.findFirst({
-      where: { organizationId: req.organizationId || null, type: 'PAGERDUTY' },
     });
 
     let integration;
@@ -75,7 +84,7 @@ async function connect(req, res, next) {
           type: 'PAGERDUTY',
           status: 'ACTIVE',
           config,
-          organizationId: req.organizationId || null,
+          organizationId: req.organizationId,
         },
       });
     }
@@ -83,6 +92,8 @@ async function connect(req, res, next) {
     return success(res, {
       integrationId: integration.id,
       account: validation.account,
+      // Configure this URL in PagerDuty; the token identifies and authenticates the org.
+      webhookUrl: `/api/v1/pagerduty/webhook?token=${JSON.parse(config).webhookToken}`,
       message: 'PagerDuty connected successfully',
     });
   } catch (err) { next(err); }
@@ -175,8 +186,37 @@ async function getStats(req, res, next) {
 }
 
 // POST /api/v1/pagerduty/webhook — receive PD V3 webhooks
+/**
+ * Find the org whose PagerDuty integration owns this webhook token, comparing
+ * in constant time. `contains` only narrows candidates; equality is decided
+ * on the parsed config.
+ */
+async function findIntegrationByWebhookToken(token) {
+  if (typeof token !== 'string' || !/^[a-f0-9]{48}$/.test(token)) return null;
+  const candidates = await prisma.integration.findMany({
+    where: { type: 'PAGERDUTY', status: 'ACTIVE', config: { contains: token } },
+    select: { id: true, config: true, organizationId: true },
+    take: 5,
+  });
+  const want = Buffer.from(token);
+  return candidates.find((c) => {
+    try {
+      const got = Buffer.from(String(JSON.parse(c.config).webhookToken || ''));
+      return got.length === want.length && crypto.timingSafeEqual(got, want);
+    } catch { return false; }
+  }) || null;
+}
+
 async function handleWebhook(req, res) {
   try {
+    // Unauthenticated route: the per-org token in the URL is the only proof of
+    // origin, and it also pins which org's incidents this event may touch.
+    const owner = await findIntegrationByWebhookToken(req.query.token);
+    if (!owner || !owner.organizationId) {
+      logger.warn('[PagerDuty] Webhook rejected: missing or unknown token');
+      return res.status(401).json({ received: false });
+    }
+
     const event = pd.parseWebhookEvent(req.body);
     if (!event) return res.status(200).json({ received: true });
 
@@ -189,9 +229,15 @@ async function handleWebhook(req, res) {
 
       if (eventType === 'incident.resolved' && incident.id) {
         // Find matching WeCrew incident by pagerduty incident id in labels/source
-        const linkedIncident = await prisma.incident.findFirst({
-          where: { source: 'API', title: { contains: incident.title || '' }, state: { in: ['NEW', 'IN_PROGRESS'] } },
-        });
+        // Only this org's incidents; an empty title would match everything.
+        const linkedIncident = incident.title ? await prisma.incident.findFirst({
+          where: {
+            organizationId: owner.organizationId,
+            source: 'API',
+            shortDescription: { contains: incident.title },
+            state: { in: ['NEW', 'IN_PROGRESS'] },
+          },
+        }) : null;
         if (linkedIncident) {
           await prisma.incident.update({
             where: { id: linkedIncident.id },

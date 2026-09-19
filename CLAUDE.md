@@ -273,7 +273,7 @@ K8s and Prometheus data for remote client orgs is accessed via SSH tunneling:
 
 ## Domain & Infrastructure
 
-- Production URL: https://fs-le-dev-inc.finspot.in
+- Production URL: https://itsm.wecrew.in
 - K8s namespace: `linkedeye-core`
 - 13 client orgs with SSH connectivity (see memory for full server mapping)
 - Lemonn Mumbai: 154.210.170.126:4422 (primary test org)

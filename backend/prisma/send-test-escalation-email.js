@@ -4,12 +4,12 @@
 // ═══════════════════════════════════════════════════════════
 
 process.env.JWT_SECRET          = process.env.JWT_SECRET          || 'linkedeye-jwt-super-secret-2026';
-process.env.FRONTEND_URL        = process.env.FRONTEND_URL        || 'https://fs-le-dev-inc.finspot.in';
+process.env.FRONTEND_URL        = process.env.FRONTEND_URL        || 'https://itsm.wecrew.in';
 process.env.SMTP_HOST           = process.env.SMTP_HOST           || 'smtp.office365.com';
 process.env.SMTP_PORT           = process.env.SMTP_PORT           || '587';
-process.env.SMTP_USER           = process.env.SMTP_USER           || 'eva@finspot.in';
+process.env.SMTP_USER           = process.env.SMTP_USER           || 'support@wecrew.in';
 process.env.SMTP_PASS           = process.env.SMTP_PASS           || 'nwswgmrvgqvhjbbt';
-process.env.EMAIL_FROM          = process.env.EMAIL_FROM          || 'eva@finspot.in';
+process.env.EMAIL_FROM          = process.env.EMAIL_FROM          || 'support@wecrew.in';
 process.env.JWT_REFRESH_SECRET  = process.env.JWT_REFRESH_SECRET  || 'refresh-secret';
 
 const { PrismaClient } = require('@prisma/client');
@@ -89,7 +89,7 @@ async function main() {
   });
 
   const elapsedDays = Math.floor((Date.now() - new Date(incident.createdAt)) / 86400000);
-  const to = 'rajkumar.madhu@finspot.in';
+  const to = 'rajkumar.madhu@wecrew.in';
 
   console.log(`Sending to: ${to}`);
   const info = await transporter.sendMail({
@@ -107,7 +107,7 @@ async function main() {
   // Also generate the one-click ack URL for verification
   const token = jwt.sign({ incidentId: incident.id, action: 'ack' }, process.env.JWT_SECRET, { expiresIn: '24h' });
   console.log(`\n✓ One-click acknowledge URL (24h):`);
-  console.log(`  https://fs-le-dev-inc.finspot.in/api/v1/incidents/ack?token=${token}`);
+  console.log(`  https://itsm.wecrew.in/api/v1/incidents/ack?token=${token}`);
 }
 
 main()

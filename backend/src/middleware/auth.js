@@ -5,6 +5,7 @@
 const { verifyAccessToken } = require('../utils/jwt');
 const { prisma } = require('../config/database');
 const { PERMISSIONS } = require('../config/constants');
+const { isPlatformAdmin, lockToOwnOrg } = require('./tenant');
 
 async function authenticate(req, res, next) {
   try {
@@ -15,19 +16,26 @@ async function authenticate(req, res, next) {
     const decoded = verifyAccessToken(token);
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
-      select: { id: true, email: true, firstName: true, lastName: true, role: true, status: true, organizationId: true },
+      select: { id: true, email: true, firstName: true, lastName: true, role: true, status: true, organizationId: true, isPlatformAdmin: true, passwordChangedAt: true },
     });
     if (!user || user.status !== 'ACTIVE') {
       return res.status(401).json({ success: false, error: 'User inactive or not found' });
     }
+    // A token minted before the latest password change is dead — otherwise a
+    // password reset would leave an attacker's open session alive until expiry.
+    // iat has 1s granularity, so compare in whole seconds.
+    const { passwordChangedAt, ...publicUser } = user;
+    if (passwordChangedAt && decoded.iat && decoded.iat < Math.floor(passwordChangedAt.getTime() / 1000)) {
+      return res.status(401).json({ success: false, error: 'Token expired' });
+    }
 
-    req.user = user;
+    req.user = publicUser;
 
     // ── Tenant context (inline) ──────────────────────────
-    // Super-admin (ADMIN + no org): sees all, optionally filter by header/query
-    // Org-admin (ADMIN + has org): default to own org, can switch via header/query
-    // Non-ADMIN: locked to their organization
-    if (user.role === 'ADMIN') {
+    // Platform admin + no org: sees all, optionally filter by header/query
+    // Platform admin + org: default to own org, can switch via header/query
+    // Everyone else (incl. a self-registered org ADMIN): locked to own org
+    if (isPlatformAdmin(user)) {
       const headerOrgId = req.query.orgId || req.headers['x-organization-id'];
       if (user.organizationId) {
         // Org-admin: default to own org, header can override
@@ -40,8 +48,7 @@ async function authenticate(req, res, next) {
         req.tenantWhere = headerOrgId ? { organizationId: headerOrgId } : {};
       }
     } else {
-      req.organizationId = user.organizationId || null;
-      req.tenantWhere = user.organizationId ? { organizationId: user.organizationId } : {};
+      lockToOwnOrg(req);
     }
 
     next();
@@ -79,6 +86,16 @@ function checkPermission(resource, action) {
   };
 }
 
+// Cross-organization operations (org CRUD, platform config). role === 'ADMIN'
+// is not enough since self-registered trial owners are ADMINs of their own org.
+function requirePlatformAdmin(req, res, next) {
+  if (!req.user) return res.status(401).json({ success: false, error: 'Not authenticated' });
+  if (!isPlatformAdmin(req.user)) {
+    return res.status(403).json({ success: false, error: 'Insufficient permissions' });
+  }
+  next();
+}
+
 function optionalAuth(req, res, next) {
   const header = req.headers.authorization;
   const token = header?.startsWith('Bearer ') ? header.slice(7) : req.cookies?.accessToken;
@@ -89,4 +106,4 @@ function optionalAuth(req, res, next) {
   next();
 }
 
-module.exports = { authenticate, authorize, checkPermission, optionalAuth };
+module.exports = { authenticate, authorize, checkPermission, optionalAuth, requirePlatformAdmin };

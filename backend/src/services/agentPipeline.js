@@ -479,7 +479,7 @@ async function executeRemediation(action, alert, enrichment) {
     });
     if (incident) {
       // Find system user for work notes
-      const systemUser = await prisma.user.findFirst({ where: { role: 'ADMIN' }, select: { id: true } });
+      const systemUser = await prisma.user.findFirst({ where: { role: 'ADMIN', isPlatformAdmin: true }, select: { id: true } });
       if (systemUser) {
         await prisma.workNote.create({
           data: {
@@ -582,7 +582,7 @@ async function sendPagerDutyEvent(alert, enrichment) {
         },
       },
       links: [{
-        href: `https://fs-le-dev-inc.finspot.in/alerts`,
+        href: `https://itsm.wecrew.in/alerts`,
         text: 'View in WeCrew',
       }],
     }, { timeout: 10000 });

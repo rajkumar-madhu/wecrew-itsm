@@ -980,7 +980,7 @@ export default function DashboardOverview() {
 
       {/* ── FOOTER ── */}
       <div className="text-center py-5 text-stone-400 text-[11px]">
-        WeCrew — Intelligent Operations Platform — © 2026 FinSpot Technology Solutions Private Limited &nbsp;·&nbsp; No.55B, First Main, Electronic City Phase – 1, Bengaluru – 560 100 &nbsp;·&nbsp; 9176772077
+        WeCrew — Intelligent Operations Platform — © 2026 WeCrew &nbsp;·&nbsp; No.55B, First Main, Electronic City Phase – 1, Bengaluru – 560 100 &nbsp;·&nbsp; 9176772077
         <br />
         <span className="font-mono text-[10px]">Kubernetes · React · PostgreSQL · Ollama AI · Prometheus · Grafana</span>
       </div>

@@ -9,7 +9,7 @@ const crypto = require('crypto');
 const { config } = require('../config/env');
 const logger = require('../utils/logger');
 
-const PUBLIC_BASE = process.env.PUBLIC_URL || 'https://fs-le-dev-inc.finspot.in';
+const PUBLIC_BASE = process.env.PUBLIC_URL || 'https://itsm.wecrew.in';
 
 function validateTwilioSignature(req, res, next) {
   const authToken = config.twilio.authToken;

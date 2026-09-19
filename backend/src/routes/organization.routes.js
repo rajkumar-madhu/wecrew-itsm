@@ -3,14 +3,15 @@
 // ═══════════════════════════════════════════════════════════
 
 const router = require('express').Router();
-const { authenticate, authorize } = require('../middleware/auth');
+const { authenticate, requirePlatformAdmin } = require('../middleware/auth');
 const { listOrganizations, getOrganization, createOrganization, updateOrganization } = require('../controllers/organization.controller');
 
-router.use(authenticate);
+// Organizations are platform-level: an org ADMIN must not list, read or edit other tenants.
+router.use(authenticate, requirePlatformAdmin);
 
-router.get('/', authorize('ADMIN'), listOrganizations);
-router.get('/:id', authorize('ADMIN'), getOrganization);
-router.post('/', authorize('ADMIN'), createOrganization);
-router.patch('/:id', authorize('ADMIN'), updateOrganization);
+router.get('/', listOrganizations);
+router.get('/:id', getOrganization);
+router.post('/', createOrganization);
+router.patch('/:id', updateOrganization);
 
 module.exports = router;

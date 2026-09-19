@@ -6,10 +6,10 @@ async function main() {
   // 1. Show actual user emails
   const users = await p.user.findMany({
     where: { email: { in: [
-      'rajkumar.madhu@finspot.in', 'rajkumar.madhu@rmadhu.in',
-      'hoysala.bise@finspot.in', 'siva.kadirannagari@finspot.in',
-      'rajkumar.ashokan@finspot.in', 'edukondalu.p@finspot.in',
-      'devendrareddy.puppala@finspot.in', 'shrikant.pandit@finspot.in',
+      'rajkumar.madhu@wecrew.in', 'rajkumar.madhu@rmadhu.in',
+      'hoysala.bise@wecrew.in', 'siva.kadirannagari@wecrew.in',
+      'rajkumar.ashokan@wecrew.in', 'edukondalu.p@wecrew.in',
+      'devendrareddy.puppala@wecrew.in', 'shrikant.pandit@wecrew.in',
     ] } },
     select: { email: true, firstName: true, lastName: true }
   });
@@ -19,7 +19,7 @@ async function main() {
   // 2. Fix all escalation rules with the wrong email
   const wrongEmail = await p.escalationRule.updateMany({
     where: { notifyTargets: { contains: 'rajkumar.madhu@rmadhu.in' } },
-    data: { notifyTargets: 'rajkumar.madhu@finspot.in' }
+    data: { notifyTargets: 'rajkumar.madhu@wecrew.in' }
   });
   console.log('\nFixed rules with @rmadhu.in:', wrongEmail.count);
 

@@ -4,7 +4,7 @@
 
 const { prisma } = require('../config/database');
 const { paginate, paginationMeta, success, error, generateIncidentNumber } = require('../utils/helpers');
-const { getCreateOrgId } = require('../middleware/tenant');
+const { getCreateOrgId, isPlatformAdmin, inScope, scopedWhere } = require('../middleware/tenant');
 const voiceService = require('../services/voiceService');
 const logger = require('../utils/logger');
 
@@ -78,15 +78,34 @@ async function makeCall(req, res, next) {
     const { to, twiml, record, incidentId } = req.body;
     if (!to) return error(res, 'to (phone number) is required', 400);
 
+    // Raw TwiML makes the platform's Twilio number say or dial anything.
+    if (twiml && !isPlatformAdmin(req.user)) return error(res, 'Custom TwiML is not allowed', 403);
+
+    // The incident is read out to an arbitrary phone number and the call is
+    // logged under its org — it must be in the caller's scope. Checked before
+    // anything else reads it (language resolution included).
+    let incident = null;
+    if (incidentId) {
+      incident = await prisma.incident.findUnique({
+        where: { id: incidentId },
+        include: {
+          organization: { select: { name: true, slug: true, environment: true, preferredLanguage: true } },
+          assignedTo: { select: { firstName: true, lastName: true } },
+          assignmentGroup: { select: { name: true } },
+        },
+      });
+      if (!inScope(req, incident)) return error(res, 'Incident not found', 404);
+    }
+
     const normalizedTo = normalizePhone(to);
     if (!normalizedTo || normalizedTo.length < 10) return error(res, 'Invalid phone number format', 400);
 
-    const statusCallback = `${process.env.PUBLIC_URL || 'https://fs-le-dev-inc.finspot.in'}/api/v1/webhooks/twilio/status`;
+    const statusCallback = `${process.env.PUBLIC_URL || 'https://itsm.wecrew.in'}/api/v1/webhooks/twilio/status`;
 
     // Look up caller name from phone number
     const cleanPhone = normalizedTo.replace('+91', '').replace('+', '').replace(/\s/g, '');
     const callerUser = await prisma.user.findFirst({
-      where: { phone: { contains: cleanPhone } },
+      where: { ...scopedWhere(req), phone: { contains: cleanPhone } },
       select: { firstName: true, lastName: true },
     });
     const callerName = callerUser ? `${callerUser.firstName}${callerUser.lastName ? ' ' + callerUser.lastName : ''}` : null;
@@ -98,15 +117,7 @@ async function makeCall(req, res, next) {
     // If incidentId provided, fetch incident + org details for rich TwiML
     let richTwiml = twiml;
     let incidentOrgId = null;
-    if (!twiml && incidentId) {
-      const incident = await prisma.incident.findUnique({
-        where: { id: incidentId },
-        include: {
-          organization: { select: { name: true, slug: true, environment: true, preferredLanguage: true } },
-          assignedTo: { select: { firstName: true, lastName: true } },
-          assignmentGroup: { select: { name: true } },
-        },
-      });
+    if (!twiml && incident) {
       logger.info(`Voice call: incident=${incident?.number}, org=${incident?.organization?.name || 'none'}, priority=${incident?.priority}, caller=${callerName || 'unknown'}, lang=${lang}`);
       if (incident) {
         const incLang = requestLang || incident.organization?.preferredLanguage || lang;
@@ -164,12 +175,8 @@ async function getCallLogs(req, res, next) {
 async function getCallLog(req, res, next) {
   try {
     const call = await prisma.voiceCallLog.findUnique({ where: { id: req.params.id } });
-    if (!call) return error(res, 'Call log not found', 404);
     // Tenant access check
-    const tw = req.tenantWhere || {};
-    if (tw.organizationId && call.organizationId !== tw.organizationId) {
-      return error(res, 'Call log not found', 404);
-    }
+    if (!inScope(req, call)) return error(res, 'Call log not found', 404);
     return success(res, call);
   } catch (err) { next(err); }
 }
@@ -235,7 +242,7 @@ async function twilioSpeechInput(req, res, next) {
     const { SpeechResult, Confidence, From, CallSid } = req.body;
     if (parseFloat(Confidence) > 0.6 && SpeechResult) {
       const number = await generateIncidentNumber();
-      const admin = await prisma.user.findFirst({ where: { role: 'ADMIN' } });
+      const admin = await prisma.user.findFirst({ where: { role: 'ADMIN', isPlatformAdmin: true } });
       const incident = await prisma.incident.create({
         data: {
           number,

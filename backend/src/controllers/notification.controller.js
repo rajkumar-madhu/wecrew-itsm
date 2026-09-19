@@ -27,8 +27,13 @@ async function listNotifications(req, res, next) {
 // PATCH /api/v1/notifications/:id/read
 async function markAsRead(req, res, next) {
   try {
+    // Only the recipient may touch a notification; anyone else's id reads as 404.
+    const own = await prisma.notification.findFirst({
+      where: { id: req.params.id, userId: req.user.id }, select: { id: true },
+    });
+    if (!own) return error(res, 'Notification not found', 404);
     const notification = await prisma.notification.update({
-      where: { id: req.params.id },
+      where: { id: own.id },
       data: { isRead: true, readAt: new Date() },
     });
     return success(res, notification);

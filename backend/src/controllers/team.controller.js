@@ -4,8 +4,31 @@
 
 const { prisma } = require('../config/database');
 const { paginate, paginationMeta, success, error } = require('../utils/helpers');
-const { getCreateOrgId } = require('../middleware/tenant');
+const { Prisma } = require('@prisma/client');
+const { getCreateOrgId, scopedWhere, inScope, stripTenantFields } = require('../middleware/tenant');
 const logger = require('../utils/logger');
+
+// ── Tenant guards ─────────────────────────────────────────
+// Every /teams/:id route resolves the team inside the caller's scope first;
+// a team id from another organization reads as 404.
+function findTeamInScope(req, id = req.params.id) {
+  return prisma.team.findFirst({ where: { ...scopedWhere(req), id }, select: { id: true, organizationId: true, managerId: true } });
+}
+
+// A user (member, on-call responder, manager) must belong to the team's own org.
+async function userInOrg(userId, organizationId) {
+  if (!userId) return false;
+  return !!await prisma.user.findFirst({ where: { id: userId, organizationId }, select: { id: true } });
+}
+
+// Only real columns may be written from a request body — never nested relation
+// writes (e.g. `members: { create: ... }`) or the tenant key.
+const TEAM_COLUMNS = new Set(Prisma.dmmf.datamodel.models.find((m) => m.name === 'Team').fields
+  .filter((f) => f.kind !== 'object').map((f) => f.name));
+function pickTeamColumns(body) {
+  return Object.fromEntries(Object.entries(stripTenantFields(body))
+    .filter(([k]) => TEAM_COLUMNS.has(k) && !['createdAt', 'updatedAt'].includes(k)));
+}
 
 // GET /api/v1/teams
 async function listTeams(req, res, next) {
@@ -47,8 +70,7 @@ async function getTeam(req, res, next) {
         _count: { select: { assignedIncidents: true, assignedChanges: true, assignedProblems: true } },
       },
     });
-    if (!team) return error(res, 'Team not found', 404);
-    if (req.tenantWhere?.organizationId && team.organizationId !== req.tenantWhere.organizationId) return error(res, 'Team not found', 404);
+    if (!inScope(req, team)) return error(res, 'Team not found', 404);
     return success(res, team);
   } catch (err) { next(err); }
 }
@@ -57,8 +79,12 @@ async function getTeam(req, res, next) {
 async function createTeam(req, res, next) {
   try {
     const { name, description, email, slackChannel, managerId } = req.body;
+    const organizationId = getCreateOrgId(req);
+    if (managerId && !await userInOrg(managerId, organizationId)) {
+      return error(res, 'managerId must be a user in this organization', 400);
+    }
     const team = await prisma.team.create({
-      data: { name, description, email, slackChannel, managerId, organizationId: getCreateOrgId(req) },
+      data: { name, description, email, slackChannel, managerId, organizationId },
     });
     return success(res, team, 201);
   } catch (err) { next(err); }
@@ -67,7 +93,14 @@ async function createTeam(req, res, next) {
 // PATCH /api/v1/teams/:id
 async function updateTeam(req, res, next) {
   try {
-    const team = await prisma.team.update({ where: { id: req.params.id }, data: req.body });
+    const existing = await findTeamInScope(req);
+    if (!existing) return error(res, 'Team not found', 404);
+    const data = pickTeamColumns(req.body);
+    if (data.managerId && data.managerId !== existing.managerId
+      && !await userInOrg(data.managerId, existing.organizationId)) {
+      return error(res, 'managerId must be a user in this organization', 400);
+    }
+    const team = await prisma.team.update({ where: { id: existing.id }, data });
     return success(res, team);
   } catch (err) { next(err); }
 }
@@ -76,6 +109,11 @@ async function updateTeam(req, res, next) {
 async function addMember(req, res, next) {
   try {
     const { userId, role } = req.body;
+    const team = await findTeamInScope(req);
+    if (!team) return error(res, 'Team not found', 404);
+    if (!await userInOrg(userId, team.organizationId)) {
+      return error(res, 'userId must be a user in this organization', 400);
+    }
     const member = await prisma.teamMember.create({
       data: { teamId: req.params.id, userId, role: role || 'MEMBER' },
       include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } },
@@ -87,6 +125,7 @@ async function addMember(req, res, next) {
 // DELETE /api/v1/teams/:id/members/:userId
 async function removeMember(req, res, next) {
   try {
+    if (!await findTeamInScope(req)) return error(res, 'Team not found', 404);
     await prisma.teamMember.deleteMany({ where: { teamId: req.params.id, userId: req.params.userId } });
     return success(res, { message: 'Member removed' });
   } catch (err) { next(err); }
@@ -95,6 +134,7 @@ async function removeMember(req, res, next) {
 // GET /api/v1/teams/:id/on-call
 async function getOnCall(req, res, next) {
   try {
+    if (!await findTeamInScope(req)) return error(res, 'Team not found', 404);
     const now = new Date();
     const onCall = await prisma.onCallSchedule.findMany({
       where: { teamId: req.params.id, startTime: { lte: now }, endTime: { gte: now } },
@@ -112,8 +152,7 @@ async function getOnCallOverview(req, res, next) {
     const where = { startTime: { lte: now }, endTime: { gte: now } };
 
     // If tenant-scoped, filter by team org
-    const teamWhere = {};
-    Object.assign(teamWhere, req.tenantWhere);
+    const teamWhere = { ...scopedWhere(req) };
 
     const schedules = await prisma.onCallSchedule.findMany({
       where: {
@@ -134,7 +173,7 @@ async function getOnCallOverview(req, res, next) {
     // Get open P1/P2 incident count
     const openCritical = await prisma.incident.count({
       where: {
-        ...req.tenantWhere,
+        ...scopedWhere(req),
         state: { in: ['NEW', 'IN_PROGRESS', 'ON_HOLD'] },
         priority: { in: ['P1', 'P2'] },
       },
@@ -150,6 +189,7 @@ async function getOnCallOverview(req, res, next) {
 // GET /api/v1/teams/:id/escalation — escalation policies + rules for a team
 async function getEscalationPolicies(req, res, next) {
   try {
+    if (!await findTeamInScope(req)) return error(res, 'Team not found', 404);
     const policies = await prisma.escalationPolicy.findMany({
       where: { teamId: req.params.id },
       include: {
@@ -167,6 +207,11 @@ async function createOnCallSchedule(req, res, next) {
     const { userId, startTime, endTime, isPrimary } = req.body;
     if (!userId || !startTime || !endTime) {
       return error(res, 'userId, startTime, and endTime are required', 400);
+    }
+    const team = await findTeamInScope(req);
+    if (!team) return error(res, 'Team not found', 404);
+    if (!await userInOrg(userId, team.organizationId)) {
+      return error(res, 'userId must be a user in this organization', 400);
     }
 
     const schedule = await prisma.onCallSchedule.create({
@@ -192,6 +237,7 @@ async function createOnCallSchedule(req, res, next) {
 async function getOnCallHistory(req, res, next) {
   try {
     const { skip, take, page: pg, limit: lim } = paginate(req.query.page, req.query.limit);
+    if (!await findTeamInScope(req)) return error(res, 'Team not found', 404);
 
     // Past schedules for this team
     const [schedules, total] = await prisma.$transaction([
@@ -210,6 +256,7 @@ async function getOnCallHistory(req, res, next) {
     // Also get recent P1/P2 incidents for this team
     const recentIncidents = await prisma.incident.findMany({
       where: {
+        ...scopedWhere(req),
         assignmentGroupId: req.params.id,
         priority: { in: ['P1', 'P2'] },
       },
@@ -231,6 +278,7 @@ async function createEscalationPolicy(req, res, next) {
   try {
     const { name, description, rules = [] } = req.body;
     if (!name) return error(res, 'Policy name is required', 400);
+    if (!await findTeamInScope(req)) return error(res, 'Team not found', 404);
     const policy = await prisma.escalationPolicy.create({
       data: {
         teamId: req.params.id,
@@ -252,11 +300,20 @@ async function createEscalationPolicy(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// The policy must belong to the :id team, and that team to the caller's scope.
+async function findPolicyInScope(req) {
+  if (!await findTeamInScope(req)) return null;
+  return prisma.escalationPolicy.findFirst({
+    where: { id: req.params.policyId, teamId: req.params.id }, select: { id: true },
+  });
+}
+
 // PUT /api/v1/teams/:id/escalation-policies/:policyId
 async function updateEscalationPolicy(req, res, next) {
   try {
     const { name, description, isActive, rules } = req.body;
     const { policyId } = req.params;
+    if (!await findPolicyInScope(req)) return error(res, 'Escalation policy not found', 404);
     await prisma.escalationPolicy.update({
       where: { id: policyId },
       data: { ...(name && { name }), ...(description !== undefined && { description }), ...(isActive !== undefined && { isActive }) },
@@ -286,6 +343,7 @@ async function updateEscalationPolicy(req, res, next) {
 // DELETE /api/v1/teams/:id/escalation-policies/:policyId
 async function deleteEscalationPolicy(req, res, next) {
   try {
+    if (!await findPolicyInScope(req)) return error(res, 'Escalation policy not found', 404);
     await prisma.escalationPolicy.delete({ where: { id: req.params.policyId } });
     return success(res, { deleted: true });
   } catch (err) { next(err); }

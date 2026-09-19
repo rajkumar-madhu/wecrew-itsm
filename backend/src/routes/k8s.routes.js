@@ -1,10 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate, authorize } = require('../middleware/auth');
+const { enforceWriteAccess } = require('../middleware/billing.middleware');
 const { tenantContext } = require('../middleware/tenant');
 const ctrl = require('../controllers/k8s.controller');
 
 router.use(authenticate, tenantContext);
+router.use(enforceWriteAccess); // 402 on writes once the org's trial or subscription lapses
 
 // Cluster overview — nodes, pod counts, namespace summary
 router.get('/overview', ctrl.clusterOverview);

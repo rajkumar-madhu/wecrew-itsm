@@ -3,6 +3,9 @@
 // ═══════════════════════════════════════════════════════════
 
 const axios = require('axios');
+const crypto = require('crypto');
+const { isPlatformAdmin, stripTenantFields } = require('../middleware/tenant');
+const { checkIntegrationConfig } = require('../utils/integrationGuard');
 const { prisma } = require('../config/database');
 const { config } = require('../config/env');
 const { success, error } = require('../utils/helpers');
@@ -38,16 +41,32 @@ async function getIntegration(req, res, next) {
 async function createIntegration(req, res, next) {
   try {
     const { getCreateOrgId } = require('../middleware/tenant');
-    const integration = await prisma.integration.create({ data: { ...req.body, organizationId: getCreateOrgId(req) } });
+    const bad = await checkIntegrationConfig(req.body.config, { platformAdmin: isPlatformAdmin(req.user) });
+    if (bad) return error(res, bad, 400);
+    const integration = await prisma.integration.create({ data: { ...stripTenantFields(req.body), organizationId: getCreateOrgId(req) } });
     return success(res, integration, 201);
   } catch (err) { next(err); }
+}
+
+// Load an integration only if it belongs to the caller's tenant scope, so an
+// id from another organization reads as not found.
+function findScopedIntegration(req) {
+  return prisma.integration.findFirst({ where: { ...(req.tenantWhere || {}), id: req.params.id } });
 }
 
 // PATCH /api/v1/integrations/:id
 async function updateIntegration(req, res, next) {
   try {
+    const current = await findScopedIntegration(req);
+    if (!current) return error(res, 'Integration not found', 404);
+    const bad = await checkIntegrationConfig(req.body.config, {
+      platformAdmin: isPlatformAdmin(req.user), existing: current.config,
+    });
+    if (bad) return error(res, bad, 400);
+    // Never let the body move the record to another org or rewrite its key.
+    const data = stripTenantFields(req.body);
     const integration = await prisma.integration.update({
-      where: { id: req.params.id }, data: req.body,
+      where: { id: req.params.id }, data,
     });
     return success(res, integration);
   } catch (err) { next(err); }
@@ -56,24 +75,46 @@ async function updateIntegration(req, res, next) {
 // POST /api/v1/integrations/:id/test
 async function testConnection(req, res, next) {
   try {
-    const integration = await prisma.integration.findUnique({ where: { id: req.params.id } });
+    const integration = await findScopedIntegration(req);
     if (!integration) return error(res, 'Integration not found', 404);
 
     let testResult = { connected: false, message: '' };
 
     switch (integration.type) {
       case 'PROMETHEUS': {
-        const url = config.observability.prometheusUrl;
+        let cfg = {};
+        try { cfg = integration.config ? JSON.parse(integration.config) : {}; } catch (_) { /* ignore */ }
+        const url = (cfg.prometheusUrl || config.observability.prometheusUrl || '').replace(/\/+$/, '');
         if (!url) { testResult.message = 'Prometheus URL not configured'; break; }
-        const resp = await axios.get(`${url}/api/v1/status/runtimeinfo`, { timeout: 5000 });
-        testResult = { connected: true, message: 'Prometheus reachable', version: resp.data?.data?.version };
+        // VictoriaMetrics / Prometheus-compatible health checks
+        let ok = false;
+        let detail = '';
+        for (const path of ['/-/healthy', '/health', '/api/v1/query?query=up']) {
+          try {
+            const resp = await axios.get(`${url}${path.startsWith('/') ? path : `/${path}`}`, { timeout: 5000, validateStatus: () => true });
+            if (resp.status >= 200 && resp.status < 300) {
+              ok = true;
+              detail = path;
+              break;
+            }
+            detail = `${path} → HTTP ${resp.status}`;
+          } catch (e) {
+            detail = `${path} → ${e.message}`;
+          }
+        }
+        testResult = ok
+          ? { connected: true, message: `Prometheus reachable at ${url}`, endpoint: detail }
+          : { connected: false, message: `Prometheus unreachable at ${url} (${detail})` };
         break;
       }
       case 'GRAFANA': {
-        const url = config.observability.grafanaUrl;
+        let cfg = {};
+        try { cfg = integration.config ? JSON.parse(integration.config) : {}; } catch (_) { /* ignore */ }
+        const url = (cfg.grafanaExternalUrl || config.observability.grafanaUrl || '').replace(/\/+$/, '');
         if (!url) { testResult.message = 'Grafana URL not configured'; break; }
-        const resp = await axios.get(`${url}/api/health`, { timeout: 5000 });
-        testResult = { connected: resp.data?.database === 'ok', message: resp.data?.database === 'ok' ? 'Grafana healthy' : 'Grafana unhealthy' };
+        const headers = cfg.apiKey ? { Authorization: `Bearer ${cfg.apiKey}` } : {};
+        const resp = await axios.get(`${url}/api/health`, { headers, timeout: 5000 });
+        testResult = { connected: resp.data?.database === 'ok', message: resp.data?.database === 'ok' ? `Grafana healthy (${resp.data?.version || 'ok'})` : 'Grafana unhealthy', version: resp.data?.version };
         break;
       }
       case 'LOKI': {
@@ -132,4 +173,48 @@ async function testConnection(req, res, next) {
   }
 }
 
-module.exports = { listIntegrations, getIntegration, createIntegration, updateIntegration, testConnection };
+// ── Inbound alert webhook token (per org) ──────────────────
+// Senders append ?token=<value> to /api/v1/webhooks/{alertmanager,grafana};
+// the token alone decides the org. ADMIN of the org (or a platform admin who
+// has selected one) may read it; rotating invalidates every configured sender.
+
+function alertWebhookOrgId(req) {
+  return req.organizationId || null; // resolved by authenticate(); null = no single org selected
+}
+
+async function ensureAlertWebhookToken(orgId, rotate) {
+  const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { alertWebhookToken: true } });
+  if (!org) return null;
+  if (org.alertWebhookToken && !rotate) return org.alertWebhookToken;
+  const token = `whk_${crypto.randomBytes(24).toString('hex')}`;
+  await prisma.organization.update({ where: { id: orgId }, data: { alertWebhookToken: token } });
+  return token;
+}
+
+// GET /api/v1/integrations/alert-webhook
+async function getAlertWebhook(req, res, next) {
+  try {
+    const orgId = alertWebhookOrgId(req);
+    if (!orgId) return error(res, 'Select an organization first', 400);
+    const token = await ensureAlertWebhookToken(orgId, false);
+    if (!token) return error(res, 'Organization not found', 404);
+    return success(res, { token, paths: ['/api/v1/webhooks/alertmanager', '/api/v1/webhooks/grafana'] });
+  } catch (err) { next(err); }
+}
+
+// POST /api/v1/integrations/alert-webhook/rotate
+async function rotateAlertWebhook(req, res, next) {
+  try {
+    const orgId = alertWebhookOrgId(req);
+    if (!orgId) return error(res, 'Select an organization first', 400);
+    const token = await ensureAlertWebhookToken(orgId, true);
+    if (!token) return error(res, 'Organization not found', 404);
+    logger.info(`[integrations] alert webhook token rotated for org ${orgId} by ${req.user.email}`);
+    return success(res, { token });
+  } catch (err) { next(err); }
+}
+
+module.exports = {
+  listIntegrations, getIntegration, createIntegration, updateIntegration, testConnection,
+  getAlertWebhook, rotateAlertWebhook,
+};

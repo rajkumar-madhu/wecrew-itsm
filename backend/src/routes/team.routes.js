@@ -5,11 +5,13 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate, authorize, checkPermission } = require('../middleware/auth');
+const { enforceWriteAccess } = require('../middleware/billing.middleware');
 const { validateUUID, validatePagination, validate } = require('../middleware/validator');
 const { body } = require('express-validator');
 const ctrl = require('../controllers/team.controller');
 
 router.use(authenticate);
+router.use(enforceWriteAccess); // 402 on writes once the org's trial or subscription lapses
 
 router.get('/', checkPermission('teams', 'read'), validatePagination, ctrl.listTeams);
 router.get('/on-call/overview', checkPermission('teams', 'read'), ctrl.getOnCallOverview);

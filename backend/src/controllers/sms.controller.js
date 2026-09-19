@@ -4,7 +4,7 @@
 
 const { prisma } = require('../config/database');
 const { paginate, paginationMeta, success, error } = require('../utils/helpers');
-const { getCreateOrgId } = require('../middleware/tenant');
+const { getCreateOrgId, inScope, scopedWhere } = require('../middleware/tenant');
 const smsService = require('../services/smsService');
 const logger = require('../utils/logger');
 
@@ -87,12 +87,8 @@ async function getSMSLog(req, res, next) {
       where: { id: req.params.id },
       include: { incident: { select: { id: true, number: true, shortDescription: true } } },
     });
-    if (!log) return error(res, 'SMS log not found', 404);
     // Tenant access check
-    const tw = req.tenantWhere || {};
-    if (tw.organizationId && log.organizationId !== tw.organizationId) {
-      return error(res, 'SMS log not found', 404);
-    }
+    if (!inScope(req, log)) return error(res, 'SMS log not found', 404);
     return success(res, log);
   } catch (err) { next(err); }
 }
@@ -130,9 +126,17 @@ async function getSMSStats(req, res, next) {
 async function checkDeliveryStatus(req, res, next) {
   try {
     const { messageId } = req.params;
-    const { provider } = req.query;
 
-    const result = await smsService.checkDeliveryStatus(messageId, provider || 'TWILIO');
+    // Only messages this org actually sent: otherwise any provider message id
+    // (another tenant's, or the platform's) can be looked up. The provider is
+    // taken from our own log, not the query string.
+    const log = await prisma.sMSLog.findFirst({
+      where: { ...scopedWhere(req), messageId },
+      select: { provider: true },
+    });
+    if (!log) return error(res, 'Message not found', 404);
+
+    const result = await smsService.checkDeliveryStatus(messageId, log.provider);
     return success(res, result);
   } catch (err) { next(err); }
 }
@@ -177,7 +181,7 @@ async function twilioInboundSMS(req, res, next) {
           shortDescription: result.description.substring(0, 200),
           description: `Auto-created from SMS by ${result.from}: ${result.description}`,
           source: 'VOICE',
-          createdById: (await prisma.user.findFirst({ where: { role: 'ADMIN' } }))?.id,
+          createdById: (await prisma.user.findFirst({ where: { role: 'ADMIN', isPlatformAdmin: true } }))?.id,
         },
       });
       logger.info(`Incident ${incident.number} auto-created from inbound SMS`);

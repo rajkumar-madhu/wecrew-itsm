@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// WeCrew ITSM — AI Controller (Claude + OpenAI Fallback)
+// WeCrew ITSM — AI Controller (Claude → OpenAI → Gemini fallback)
 // ═══════════════════════════════════════════════════════════
 
 const Anthropic = require('@anthropic-ai/sdk');
@@ -8,6 +8,7 @@ const { prisma } = require('../config/database');
 const { config } = require('../config/env');
 const { success, error } = require('../utils/helpers');
 const logger = require('../utils/logger');
+const gemini = require('../services/geminiService');
 
 const SYSTEM_PROMPT = `You are WeCrew AI Assistant, an expert ITSM (IT Service Management) copilot for the WeCrew platform. You help engineers triage incidents, suggest root causes, recommend runbooks, and answer ITIL process questions. Be concise and actionable. If asked about specific incidents, note that you can only provide general guidance without access to the specific incident data in this chat context.`;
 
@@ -52,7 +53,12 @@ async function askAI(systemPrompt, userMessage, maxTokens = 1024) {
     return response.choices[0].message.content;
   }
 
-  throw new Error('No AI provider configured — set ANTHROPIC_API_KEY or OPENAI_API_KEY');
+  // Then Gemini
+  if (gemini.isConfigured()) {
+    return gemini.generate(systemPrompt, userMessage, { maxTokens });
+  }
+
+  throw new Error('No AI provider configured — set ANTHROPIC_API_KEY, OPENAI_API_KEY or GEMINI_API_KEY');
 }
 
 // GET /api/v1/ai/stats
@@ -215,7 +221,7 @@ async function chat(req, res, next) {
     return success(res, { reply });
   } catch (err) {
     if (err.message?.includes('No AI provider configured')) {
-      return error(res, 'AI service not configured — set ANTHROPIC_API_KEY or OPENAI_API_KEY', 503);
+      return error(res, 'AI service not configured — set ANTHROPIC_API_KEY, OPENAI_API_KEY or GEMINI_API_KEY', 503);
     }
     if (err.status === 401) {
       return error(res, 'AI service authentication failed — check API keys', 503);

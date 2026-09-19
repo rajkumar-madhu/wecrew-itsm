@@ -5,6 +5,7 @@
 const { Router } = require('express');
 const multer = require('multer');
 const { authenticate, authorize } = require('../middleware/auth');
+const { enforceWriteAccess } = require('../middleware/billing.middleware');
 const { validatePagination, validateUUID } = require('../middleware/validator');
 const ctrl = require('../controllers/voice.controller');
 
@@ -24,6 +25,7 @@ const audioUpload = multer({
 // ── Authenticated Voice Endpoints ───────────────────────
 
 router.use(authenticate);
+router.use(enforceWriteAccess); // 402 on writes once the org's trial or subscription lapses
 
 // Core voice pipeline
 router.post('/transcribe', audioUpload.single('audio'), ctrl.transcribe);

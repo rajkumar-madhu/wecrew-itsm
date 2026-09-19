@@ -14,11 +14,11 @@ const PLATFORM = {
   name: 'WeCrew',
   version: 'v2.0',
   tagline: 'Enterprise ITSM Platform',
-  company: 'FinSpot Technology Solutions Private Limited',
-  companyShort: 'FinSpot Technology',
-  website: 'https://finspot.in',
-  supportEmail: 'support@finspot.in',
-  parentBrand: 'FinSpot',
+  company: 'WeCrew',
+  companyShort: 'WeCrew',
+  website: 'https://wecrew.in',
+  supportEmail: 'support@wecrew.in',
+  parentBrand: 'WeCrew',
 
   hero: {
     title1: 'WeCrew',
@@ -49,7 +49,7 @@ const PLATFORM = {
 
   clients: [
     { n: 'IndMoney', i: 'IM', c: '#4338CA', s: 'Wealth Tech', city: 'Bangalore' },
-    { n: 'FinSpot', i: 'FS', c: '#0891B2', s: 'FinTech Infra', city: 'Mumbai' },
+    { n: 'WeCrew', i: 'WC', c: '#0891B2', s: 'FinTech Infra', city: 'Mumbai' },
     { n: 'PL India', i: 'PL', c: '#7C3AED', s: 'Stock Broking', city: 'Mumbai' },
     { n: 'Neo', i: 'NE', c: '#059669', s: 'Digital Banking', city: 'Mumbai' },
     { n: 'FlatTrade', i: 'FT', c: '#DC2626', s: 'Discount Trading', city: 'Chennai' },
@@ -59,7 +59,7 @@ const PLATFORM = {
     { n: 'SMIFS', i: 'SM', c: '#6D28D9', s: 'Financial Services', city: 'Kolkata' },
     { n: 'IndMoney IFSC', i: 'IF', c: '#4F46E5', s: 'GIFT City Unit', city: 'Gujarat' },
     { n: 'IndMoney DR', i: 'DR', c: '#6366F1', s: 'Disaster Recovery', city: 'Mumbai' },
-    { n: 'FinSpot Mumbai', i: 'FM', c: '#0E7490', s: 'Production Site', city: 'Mumbai' },
+    { n: 'WeCrew Mumbai', i: 'WM', c: '#0E7490', s: 'Production Site', city: 'Mumbai' },
     { n: 'PL Prod', i: 'PP', c: '#8B5CF6', s: 'Production Env', city: 'Mumbai' },
   ],
 

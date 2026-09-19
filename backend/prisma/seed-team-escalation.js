@@ -25,7 +25,7 @@ const MEMBERS = [
     escalationLevel: 1,
   },
   {
-    email: 'hoysala.bise@finspot.in',
+    email: 'hoysala.bise@wecrew.in',
     firstName: 'Hoysala',
     lastName: 'Bise',
     phone: '9980146101',
@@ -39,7 +39,7 @@ const MEMBERS = [
     escalationLevel: 2,
   },
   {
-    email: 'siva.kadirannagari@finspot.in',
+    email: 'siva.kadirannagari@wecrew.in',
     firstName: 'Siva',
     lastName: 'Kadirannagari',
     phone: '9603683828',
@@ -53,7 +53,7 @@ const MEMBERS = [
     escalationLevel: 1,
   },
   {
-    email: 'rajkumar.ashokan@finspot.in',
+    email: 'rajkumar.ashokan@wecrew.in',
     firstName: 'Rajkumar',
     lastName: 'Ashokan',
     phone: '9751892775',
@@ -67,7 +67,7 @@ const MEMBERS = [
     escalationLevel: 1,
   },
   {
-    email: 'shrikant.pandit@finspot.in',
+    email: 'shrikant.pandit@wecrew.in',
     firstName: 'Shrikant',
     lastName: 'Pandit',
     phone: null,
@@ -81,7 +81,7 @@ const MEMBERS = [
     escalationLevel: 3, // Final escalation for all teams
   },
   {
-    email: 'edukondalu.p@finspot.in',
+    email: 'edukondalu.p@wecrew.in',
     firstName: 'Edukondalu',
     lastName: 'P',
     phone: '9840023898',
@@ -95,7 +95,7 @@ const MEMBERS = [
     escalationLevel: 2,
   },
   {
-    email: 'devendrareddy.puppala@finspot.in',
+    email: 'devendrareddy.puppala@wecrew.in',
     firstName: 'Devendrareddy',
     lastName: 'Puppala',
     phone: '6301462775',
@@ -117,26 +117,26 @@ const ESCALATION_POLICIES = {
     description: 'P1: 5min → Primary On-Call, P1: 15min → Senior DevOps, P1: 30min → Client Relations Manager',
     rules: [
       { level: 1, delayMinutes: 5, notifyType: 'ALL', targets: 'rajkumar.madhu@rmadhu.in' },
-      { level: 2, delayMinutes: 15, notifyType: 'ALL', targets: 'hoysala.bise@finspot.in' },
-      { level: 3, delayMinutes: 30, notifyType: 'EMAIL_NOTIFY', targets: 'shrikant.pandit@finspot.in' },
+      { level: 2, delayMinutes: 15, notifyType: 'ALL', targets: 'hoysala.bise@wecrew.in' },
+      { level: 3, delayMinutes: 30, notifyType: 'EMAIL_NOTIFY', targets: 'shrikant.pandit@wecrew.in' },
     ],
   },
   'Network Operations': {
     name: 'Network Incident Escalation',
     description: 'P1: 5min → Network Lead, P1: 15min → Network Engineers, P1: 30min → Client Relations Manager',
     rules: [
-      { level: 1, delayMinutes: 5, notifyType: 'ALL', targets: 'siva.kadirannagari@finspot.in' },
-      { level: 2, delayMinutes: 15, notifyType: 'ALL', targets: 'edukondalu.p@finspot.in,devendrareddy.puppala@finspot.in' },
-      { level: 3, delayMinutes: 30, notifyType: 'EMAIL_NOTIFY', targets: 'shrikant.pandit@finspot.in' },
+      { level: 1, delayMinutes: 5, notifyType: 'ALL', targets: 'siva.kadirannagari@wecrew.in' },
+      { level: 2, delayMinutes: 15, notifyType: 'ALL', targets: 'edukondalu.p@wecrew.in,devendrareddy.puppala@wecrew.in' },
+      { level: 3, delayMinutes: 30, notifyType: 'EMAIL_NOTIFY', targets: 'shrikant.pandit@wecrew.in' },
     ],
   },
   DBA: {
     name: 'DBA Incident Escalation',
     description: 'P1: 5min → DBA Lead, P1: 15min → Senior DevOps, P1: 30min → Client Relations Manager',
     rules: [
-      { level: 1, delayMinutes: 5, notifyType: 'ALL', targets: 'rajkumar.ashokan@finspot.in' },
+      { level: 1, delayMinutes: 5, notifyType: 'ALL', targets: 'rajkumar.ashokan@wecrew.in' },
       { level: 2, delayMinutes: 15, notifyType: 'ALL', targets: 'rajkumar.madhu@rmadhu.in' },
-      { level: 3, delayMinutes: 30, notifyType: 'EMAIL_NOTIFY', targets: 'shrikant.pandit@finspot.in' },
+      { level: 3, delayMinutes: 30, notifyType: 'EMAIL_NOTIFY', targets: 'shrikant.pandit@wecrew.in' },
     ],
   },
   'Platform Engineering': {
@@ -144,8 +144,8 @@ const ESCALATION_POLICIES = {
     description: 'P1: 5min → Platform Lead, P1: 15min → DevOps, P1: 30min → Client Relations Manager',
     rules: [
       { level: 1, delayMinutes: 5, notifyType: 'ALL', targets: 'rajkumar.madhu@rmadhu.in' },
-      { level: 2, delayMinutes: 15, notifyType: 'ALL', targets: 'hoysala.bise@finspot.in' },
-      { level: 3, delayMinutes: 30, notifyType: 'EMAIL_NOTIFY', targets: 'shrikant.pandit@finspot.in' },
+      { level: 2, delayMinutes: 15, notifyType: 'ALL', targets: 'hoysala.bise@wecrew.in' },
+      { level: 3, delayMinutes: 30, notifyType: 'EMAIL_NOTIFY', targets: 'shrikant.pandit@wecrew.in' },
     ],
   },
 };
@@ -273,15 +273,15 @@ async function main() {
   const onCallConfig = {
     DevOps: [
       { email: 'rajkumar.madhu@rmadhu.in', primary: true },
-      { email: 'hoysala.bise@finspot.in', primary: false },
+      { email: 'hoysala.bise@wecrew.in', primary: false },
     ],
     'Network Operations': [
-      { email: 'siva.kadirannagari@finspot.in', primary: true },
-      { email: 'edukondalu.p@finspot.in', primary: false },
-      { email: 'devendrareddy.puppala@finspot.in', primary: false },
+      { email: 'siva.kadirannagari@wecrew.in', primary: true },
+      { email: 'edukondalu.p@wecrew.in', primary: false },
+      { email: 'devendrareddy.puppala@wecrew.in', primary: false },
     ],
     DBA: [
-      { email: 'rajkumar.ashokan@finspot.in', primary: true },
+      { email: 'rajkumar.ashokan@wecrew.in', primary: true },
     ],
     'Platform Engineering': [
       { email: 'rajkumar.madhu@rmadhu.in', primary: true },

@@ -57,7 +57,7 @@
 | **API Pods** | `linkedeye-api` deployment | 2-8 replicas (HPA: CPU 70%, Mem 80%) |
 | **Frontend Pods** | `linkedeye-frontend` deployment | 2 replicas, nginx on port 80 |
 | **Ingress** | `linkedeye-ingress` | NGINX Ingress, TLS via cert-manager (letsencrypt-prod) |
-| **Production URL** | `https://fs-le-dev-inc.finspot.in` | |
+| **Production URL** | `https://itsm.wecrew.in` | |
 | **SSH Key** | K8s Secret: `linkedeye-ssh-key` → `/home/finadmin/.ssh/` | Ed25519 key for remote access |
 | **DB Backups** | CronJob: `linkedeye-db-backup` | Daily 2:00 AM IST, 30-day retention, 50Gi PVC |
 
@@ -280,7 +280,7 @@ kubectl apply -f k8s/base/  # Apply all manifests
 
 ### 4.7 DNS/Ingress Failure
 
-**Symptoms:** `https://fs-le-dev-inc.finspot.in` unreachable, DNS resolution fails, TLS errors.
+**Symptoms:** `https://itsm.wecrew.in` unreachable, DNS resolution fails, TLS errors.
 
 **Diagnosis:**
 ```bash
@@ -386,8 +386,8 @@ kubectl exec -n fs-linkedeye deployment/linkedeye-api -- npx prisma migrate depl
 kubectl scale deployment/linkedeye-api --replicas=2 -n fs-linkedeye
 
 # Step 6: Verify data integrity
-curl -s https://fs-le-dev-inc.finspot.in/health
-curl -s https://fs-le-dev-inc.finspot.in/api/v1/dashboard/stats -H "Authorization: Bearer <TOKEN>"
+curl -s https://itsm.wecrew.in/health
+curl -s https://itsm.wecrew.in/api/v1/dashboard/stats -H "Authorization: Bearer <TOKEN>"
 ```
 
 ---

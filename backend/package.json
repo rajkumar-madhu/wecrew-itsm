@@ -16,6 +16,8 @@
     "test": "jest --coverage",
     "test:watch": "jest --watch",
     "sla:check": "node scripts/check-sla.js",
+    "trial:remind": "node scripts/trial-reminders.js",
+    "billing:seed-plans": "node scripts/seed-plans.js",
     "db:backup": "bash scripts/db-backup.sh",
     "db:health": "node scripts/db-health-check.js"
   },
@@ -44,6 +46,7 @@
     "openai": "^6.22.0",
     "pdfkit": "^0.15.0",
     "rate-limit-redis": "^4.2.0",
+    "razorpay": "^2.9.8",
     "socket.io": "^4.7.5",
     "speakeasy": "^2.0.0",
     "uuid": "^9.0.1",

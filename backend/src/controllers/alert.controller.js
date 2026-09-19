@@ -3,10 +3,18 @@
 // ═══════════════════════════════════════════════════════════
 
 const { prisma } = require('../config/database');
+const { appFromLabels, alertIncidentTitle } = require('../utils/incidentTitle');
+const { authenticateAlertWebhook } = require('../middleware/alertWebhookAuth');
 const { emitToAll } = require('../config/socket');
 const { paginate, paginationMeta, success, error } = require('../utils/helpers');
 const logger = require('../utils/logger');
 const { resolveInstanceToConfigItem } = require('../utils/cmdbResolver');
+const { scopedWhere, inScope } = require('../middleware/tenant');
+
+// An alert id from another organization reads as 404.
+function findAlertInScope(req) {
+  return prisma.alert.findFirst({ where: { ...scopedWhere(req), id: req.params.id }, select: { id: true } });
+}
 
 // GET /api/v1/alerts
 async function listAlerts(req, res, next) {
@@ -45,8 +53,7 @@ async function getAlert(req, res, next) {
       where: { id: req.params.id },
       include: { configItem: true, incident: { select: { id: true, number: true, shortDescription: true, state: true } } },
     });
-    if (!alert) return error(res, 'Alert not found', 404);
-    if (req.tenantWhere?.organizationId && alert.organizationId !== req.tenantWhere.organizationId) return error(res, 'Alert not found', 404);
+    if (!inScope(req, alert)) return error(res, 'Alert not found', 404);
     return success(res, alert);
   } catch (err) { next(err); }
 }
@@ -54,6 +61,9 @@ async function getAlert(req, res, next) {
 // POST /api/v1/alerts/webhook (Prometheus/Grafana)
 async function receiveWebhook(req, res, next) {
   try {
+    const auth = await authenticateAlertWebhook(req);
+    if (auth.error) return error(res, auth.error, 401);
+
     const { alerts: incoming } = req.body;
     if (!Array.isArray(incoming)) return error(res, 'Invalid webhook payload', 400);
 
@@ -61,6 +71,12 @@ async function receiveWebhook(req, res, next) {
     for (const a of incoming) {
       const alertId = a.labels?.alertname + ':' + (a.labels?.instance || a.fingerprint || Date.now());
       const existing = await prisma.alert.findUnique({ where: { alertId } });
+
+      // A token-authenticated sender may only touch its own org's alerts.
+      if (existing && auth.orgId && existing.organizationId !== auth.orgId) {
+        results.push({ alertId, action: 'skipped-foreign' });
+        continue;
+      }
 
       if (a.status === 'resolved' && existing) {
         await prisma.alert.update({ where: { id: existing.id }, data: { status: 'RESOLVED', resolvedAt: new Date() } });
@@ -70,10 +86,10 @@ async function receiveWebhook(req, res, next) {
         const configItemId = await resolveInstanceToConfigItem(a.labels?.instance);
 
         // Try to resolve org from Prometheus instance IP (strip port if present)
-        let orgId = null;
+        let orgId = auth.orgId;
         const rawInstance = a.labels?.instance || '';
         const instanceIp = rawInstance.split(':')[0];
-        if (instanceIp) {
+        if (auth.legacy && instanceIp) {
           const matchedOrg = await prisma.organization.findFirst({ where: { serverIp: instanceIp }, select: { id: true } });
           if (matchedOrg) orgId = matchedOrg.id;
         }
@@ -107,6 +123,7 @@ async function receiveWebhook(req, res, next) {
 // POST /api/v1/alerts/:id/acknowledge
 async function acknowledgeAlert(req, res, next) {
   try {
+    if (!await findAlertInScope(req)) return error(res, 'Alert not found', 404);
     const alert = await prisma.alert.update({
       where: { id: req.params.id },
       data: { status: 'ACKNOWLEDGED', acknowledgedAt: new Date(), acknowledgedBy: req.user.id },
@@ -121,6 +138,7 @@ async function silenceAlert(req, res, next) {
   try {
     const durationMinutes = parseInt(req.body.duration, 10) || 60;
     const silenceUntil = new Date(Date.now() + durationMinutes * 60000);
+    if (!await findAlertInScope(req)) return error(res, 'Alert not found', 404);
     const alert = await prisma.alert.update({
       where: { id: req.params.id },
       data: { status: 'SILENCED', silenceUntil },
@@ -276,7 +294,7 @@ function parseDiskVolumes(annotations) {
 async function createIncidentFromAlert(req, res, next) {
   try {
     const alert = await prisma.alert.findUnique({ where: { id: req.params.id }, include: { configItem: true, organization: true } });
-    if (!alert) return error(res, 'Alert not found', 404);
+    if (!inScope(req, alert)) return error(res, 'Alert not found', 404);
 
     let labels = {};
     let annotations = {};
@@ -307,13 +325,11 @@ async function createIncidentFromAlert(req, res, next) {
 
     // Short description: [SEVERITY] AlertName on hostname (IP)
     const sevLabel = alert.severity || 'WARNING';
-    let shortDescription = `[${sevLabel}] ${alert.name}`;
-    if (resolvedHostname) {
-      shortDescription += ` on ${resolvedHostname}`;
-      if (ip && ip !== resolvedHostname) shortDescription += ` (${ip})`;
-    } else if (ip) {
-      shortDescription += ` on ${ip}`;
-    }
+    // [SEVERITY] Customer · Application · host (IP) — AlertName
+    const app = appFromLabels(labels);
+    const shortDescription = alertIncidentTitle({
+      severity: sevLabel, alertName: alert.name, orgName, app, host: resolvedHostname, ip,
+    });
 
     // Build AI-quality structured description
     const kb = getAlertKB(alert.name);
@@ -327,6 +343,7 @@ async function createIncidentFromAlert(req, res, next) {
     // ── Affected System
     d.push('── Affected System ─────────────────');
     if (orgName) d.push(`Client: ${orgName}${orgEnv ? ` (${orgEnv})` : ''}`);
+    if (app) d.push(`Application: ${app}`);
     if (resolvedHostname) d.push(`Hostname: ${resolvedHostname}`);
     if (ip) d.push(`IP Address: ${ip}`);
     if (asset) {
@@ -522,13 +539,11 @@ async function buildIncidentFromAlert(alert) {
 
   // Short description
   const sevLabel = alert.severity || 'WARNING';
-  let shortDescription = `[${sevLabel}] ${alert.name}`;
-  if (resolvedHostname) {
-    shortDescription += ` on ${resolvedHostname}`;
-    if (ip && ip !== resolvedHostname) shortDescription += ` (${ip})`;
-  } else if (ip) {
-    shortDescription += ` on ${ip}`;
-  }
+  // [SEVERITY] Customer · Application · host (IP) — AlertName
+  const app = appFromLabels(labels);
+  const shortDescription = alertIncidentTitle({
+    severity: sevLabel, alertName: alert.name, orgName: org?.name, app, host: resolvedHostname, ip,
+  });
 
   // Build structured description
   const kb = getAlertKB(alert.name);
@@ -540,6 +555,7 @@ async function buildIncidentFromAlert(alert) {
 
   d.push('── Affected System ─────────────────');
   if (org) d.push(`Client: ${org.name}${org.environment ? ` (${org.environment})` : ''}`);
+  if (app) d.push(`Application: ${app}`);
   if (resolvedHostname) d.push(`Hostname: ${resolvedHostname}`);
   if (ip) d.push(`IP Address: ${ip}`);
   if (asset) {

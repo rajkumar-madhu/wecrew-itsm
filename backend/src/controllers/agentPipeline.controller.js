@@ -6,10 +6,20 @@
 
 const { success, error } = require('../utils/helpers');
 const pipeline = require('../services/agentPipeline');
+const { isPlatformAdmin, inScope } = require('../middleware/tenant');
+
+// A null org id means the GLOBAL pipeline: its state is shared by everyone and
+// its log holds every org's executions. Only platform staff may use it; any
+// other caller without an organization gets nothing.
+function lacksOrg(req) {
+  return !req.organizationId && !isPlatformAdmin(req.user);
+}
+const NO_ORG = 'No organization on this account';
 
 // GET /api/v1/agent/status — Full pipeline status + config (org-scoped)
 async function getStatus(req, res, next) {
   try {
+    if (lacksOrg(req)) return error(res, NO_ORG, 400);
     const status = pipeline.getStatus(req.organizationId);
     return success(res, status);
   } catch (err) { next(err); }
@@ -18,6 +28,7 @@ async function getStatus(req, res, next) {
 // POST /api/v1/agent/toggle — Enable/disable pipeline (org-scoped)
 async function togglePipeline(req, res, next) {
   try {
+    if (lacksOrg(req)) return error(res, NO_ORG, 400);
     const { enabled } = req.body;
     if (typeof enabled !== 'boolean') return error(res, 'enabled (boolean) is required', 400);
     const result = pipeline.setEnabled(req.organizationId, enabled);
@@ -28,6 +39,7 @@ async function togglePipeline(req, res, next) {
 // POST /api/v1/agent/actions/:actionId/toggle — Enable/disable action (org-scoped)
 async function toggleAction(req, res, next) {
   try {
+    if (lacksOrg(req)) return error(res, NO_ORG, 400);
     const { actionId } = req.params;
     const { enabled } = req.body;
     if (typeof enabled !== 'boolean') return error(res, 'enabled (boolean) is required', 400);
@@ -40,6 +52,7 @@ async function toggleAction(req, res, next) {
 // POST /api/v1/agent/notifications/:ruleId/toggle — Enable/disable notification rule (org-scoped)
 async function toggleNotification(req, res, next) {
   try {
+    if (lacksOrg(req)) return error(res, NO_ORG, 400);
     const { ruleId } = req.params;
     const { enabled } = req.body;
     if (typeof enabled !== 'boolean') return error(res, 'enabled (boolean) is required', 400);
@@ -52,6 +65,7 @@ async function toggleNotification(req, res, next) {
 // GET /api/v1/agent/executions — Execution log (org-scoped)
 async function getExecutions(req, res, next) {
   try {
+    if (lacksOrg(req)) return error(res, NO_ORG, 400);
     const limit = Math.min(parseInt(req.query.limit) || 50, 100);
     const offset = parseInt(req.query.offset) || 0;
     const log = pipeline.getExecutionLog(req.organizationId, limit, offset);
@@ -62,8 +76,9 @@ async function getExecutions(req, res, next) {
 // GET /api/v1/agent/executions/:id — Single execution detail
 async function getExecution(req, res, next) {
   try {
+    // The lookup searches the global log (every org), so check ownership.
     const execution = pipeline.getExecution(req.params.id);
-    if (!execution) return error(res, 'Execution not found', 404);
+    if (!inScope(req, execution)) return error(res, 'Execution not found', 404);
     return success(res, execution);
   } catch (err) { next(err); }
 }

@@ -1,6 +1,6 @@
 /**
  * Incident Report Generation Controller
- * WeCrew-FinSpot ITSM Platform
+ * WeCrew ITSM Platform
  *
  * Generates professional PDF reports for incidents including:
  * - Executive Summary with severity indicators
@@ -20,6 +20,7 @@ const PDFDocument = require('pdfkit');
 const { prisma } = require('../config/database');
 const logger = require('../utils/logger');
 const { param, query } = require('express-validator');
+const { scopedWhere } = require('../middleware/tenant');
 
 // ═══════════════════════════════════════════════════════════════
 // COLOR PALETTE — WeCrew Brand
@@ -808,9 +809,10 @@ exports.generateIncidentReport = async (req, res) => {
     const { id } = req.params;
     const { format = 'pdf', sections = 'all' } = req.query;
 
-    // Fetch complete incident data
-    const incident = await prisma.incident.findUnique({
-      where: { id },
+    // Fetch complete incident data — only inside the caller's tenant scope, so
+    // another org's incident reads as not found (and gets no Activity row).
+    const incident = await prisma.incident.findFirst({
+      where: { ...scopedWhere(req), id },
       include: {
         assignedTo: {
           select: {
@@ -973,8 +975,9 @@ exports.generateBulkReport = async (req, res) => {
       });
     }
 
+    // Ids outside the caller's tenant scope are silently dropped.
     const incidents = await prisma.incident.findMany({
-      where: { id: { in: incidentIds } },
+      where: { ...scopedWhere(req), id: { in: incidentIds } },
       include: {
         assignedTo: {
           select: { id: true, firstName: true, lastName: true, email: true }

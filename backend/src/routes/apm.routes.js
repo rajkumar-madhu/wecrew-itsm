@@ -5,9 +5,11 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate } = require('../middleware/auth');
+const { enforceWriteAccess } = require('../middleware/billing.middleware');
 const ctrl = require('../controllers/apm.controller');
 
 router.use(authenticate);
+router.use(enforceWriteAccess); // 402 on writes once the org's trial or subscription lapses
 
 // Full overview (all metrics in one call)
 router.get('/overview', ctrl.getOverview);

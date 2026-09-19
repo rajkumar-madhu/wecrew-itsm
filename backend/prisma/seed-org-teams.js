@@ -16,36 +16,36 @@ const prisma = new PrismaClient();
 const STAFF = {
   // LE Team
   le: {
-    lead: 'rajkumar.ashokan@finspot.in',   // LE App Engineer
+    lead: 'rajkumar.ashokan@wecrew.in',   // LE App Engineer
   },
   // DevOps Team
   devops: {
     lead: 'rajkumar.madhu@rmadhu.in',      // Senior DevOps Lead
-    members: ['hoysala.bise@finspot.in'],
+    members: ['hoysala.bise@wecrew.in'],
   },
   // Network Team
   network: {
-    lead: 'siva.kadirannagari@finspot.in', // Senior Network Lead
-    members: ['edukondalu.p@finspot.in', 'devendrareddy.puppala@finspot.in'],
+    lead: 'siva.kadirannagari@wecrew.in', // Senior Network Lead
+    members: ['edukondalu.p@wecrew.in', 'devendrareddy.puppala@wecrew.in'],
   },
   // DB Team (LE App Engineer covers DB too; DevOps lead on L2)
   db: {
-    lead: 'rajkumar.ashokan@finspot.in',
+    lead: 'rajkumar.ashokan@wecrew.in',
     members: ['rajkumar.madhu@rmadhu.in'],
   },
   // Management / escalation final stop
   management: {
-    lead: 'shrikant.pandit@finspot.in',
+    lead: 'shrikant.pandit@wecrew.in',
   },
 };
 
 // ── 5 teams to create per org ────────────────────────────────
 const TEAM_DEFS = [
-  { key: 'le',         name: 'LE Team',         description: 'LinkedEye application support and maintenance', email: 'le-team@finspot.in',     slackChannel: '#le-team'        },
-  { key: 'devops',     name: 'DevOps Team',      description: 'DevOps, platform engineering, and K8s operations', email: 'devops@finspot.in', slackChannel: '#devops'          },
-  { key: 'network',    name: 'Network Team',     description: 'Network devices, hardware, firewalls, and connectivity', email: 'network@finspot.in', slackChannel: '#network-ops'  },
-  { key: 'db',         name: 'DB Team',          description: 'Database administration and recovery', email: 'dba@finspot.in',         slackChannel: '#dba'             },
-  { key: 'management', name: 'Management Team',  description: 'Client relations and final escalation', email: 'management@finspot.in', slackChannel: '#management'     },
+  { key: 'le',         name: 'LE Team',         description: 'LinkedEye application support and maintenance', email: 'support@wecrew.in',     slackChannel: '#le-team'        },
+  { key: 'devops',     name: 'DevOps Team',      description: 'DevOps, platform engineering, and K8s operations', email: 'support@wecrew.in', slackChannel: '#devops'          },
+  { key: 'network',    name: 'Network Team',     description: 'Network devices, hardware, firewalls, and connectivity', email: 'support@wecrew.in', slackChannel: '#network-ops'  },
+  { key: 'db',         name: 'DB Team',          description: 'Database administration and recovery', email: 'support@wecrew.in',         slackChannel: '#dba'             },
+  { key: 'management', name: 'Management Team',  description: 'Client relations and final escalation', email: 'support@wecrew.in', slackChannel: '#management'     },
 ];
 
 // ── Escalation policies per team (level → who) ──────────────
@@ -54,9 +54,9 @@ const ESCALATION_TEMPLATES = {
     name: 'LE App Escalation',
     description: 'L1: LE App Engineer (5min) → L2: Senior DevOps Lead (15min) → L3: Management (30min)',
     rules: [
-      { level: 1, delayMinutes: 5,  notifyType: 'ALL',          targets: 'rajkumar.ashokan@finspot.in' },
+      { level: 1, delayMinutes: 5,  notifyType: 'ALL',          targets: 'rajkumar.ashokan@wecrew.in' },
       { level: 2, delayMinutes: 15, notifyType: 'ALL',          targets: 'rajkumar.madhu@rmadhu.in' },
-      { level: 3, delayMinutes: 30, notifyType: 'EMAIL_NOTIFY', targets: 'shrikant.pandit@finspot.in' },
+      { level: 3, delayMinutes: 30, notifyType: 'EMAIL_NOTIFY', targets: 'shrikant.pandit@wecrew.in' },
     ],
   },
   devops: {
@@ -64,44 +64,44 @@ const ESCALATION_TEMPLATES = {
     description: 'L1: Senior DevOps Lead (5min) → L2: DevOps Engineer (15min) → L3: Management (30min)',
     rules: [
       { level: 1, delayMinutes: 5,  notifyType: 'ALL',          targets: 'rajkumar.madhu@rmadhu.in' },
-      { level: 2, delayMinutes: 15, notifyType: 'ALL',          targets: 'hoysala.bise@finspot.in' },
-      { level: 3, delayMinutes: 30, notifyType: 'EMAIL_NOTIFY', targets: 'shrikant.pandit@finspot.in' },
+      { level: 2, delayMinutes: 15, notifyType: 'ALL',          targets: 'hoysala.bise@wecrew.in' },
+      { level: 3, delayMinutes: 30, notifyType: 'EMAIL_NOTIFY', targets: 'shrikant.pandit@wecrew.in' },
     ],
   },
   network: {
     name: 'Network Incident Escalation',
     description: 'L1: Senior Network Lead (5min) → L2: Network Engineers (15min) → L3: Management (30min)',
     rules: [
-      { level: 1, delayMinutes: 5,  notifyType: 'ALL',          targets: 'siva.kadirannagari@finspot.in' },
-      { level: 2, delayMinutes: 15, notifyType: 'ALL',          targets: 'edukondalu.p@finspot.in,devendrareddy.puppala@finspot.in' },
-      { level: 3, delayMinutes: 30, notifyType: 'EMAIL_NOTIFY', targets: 'shrikant.pandit@finspot.in' },
+      { level: 1, delayMinutes: 5,  notifyType: 'ALL',          targets: 'siva.kadirannagari@wecrew.in' },
+      { level: 2, delayMinutes: 15, notifyType: 'ALL',          targets: 'edukondalu.p@wecrew.in,devendrareddy.puppala@wecrew.in' },
+      { level: 3, delayMinutes: 30, notifyType: 'EMAIL_NOTIFY', targets: 'shrikant.pandit@wecrew.in' },
     ],
   },
   db: {
     name: 'DB Incident Escalation',
     description: 'L1: DB Lead (5min) → L2: Senior DevOps Lead (15min) → L3: Management (30min)',
     rules: [
-      { level: 1, delayMinutes: 5,  notifyType: 'ALL',          targets: 'rajkumar.ashokan@finspot.in' },
+      { level: 1, delayMinutes: 5,  notifyType: 'ALL',          targets: 'rajkumar.ashokan@wecrew.in' },
       { level: 2, delayMinutes: 15, notifyType: 'ALL',          targets: 'rajkumar.madhu@rmadhu.in' },
-      { level: 3, delayMinutes: 30, notifyType: 'EMAIL_NOTIFY', targets: 'shrikant.pandit@finspot.in' },
+      { level: 3, delayMinutes: 30, notifyType: 'EMAIL_NOTIFY', targets: 'shrikant.pandit@wecrew.in' },
     ],
   },
   management: {
     name: 'Management Escalation',
     description: 'Client Relations Manager — final stop',
     rules: [
-      { level: 1, delayMinutes: 0, notifyType: 'EMAIL_NOTIFY', targets: 'shrikant.pandit@finspot.in' },
+      { level: 1, delayMinutes: 0, notifyType: 'EMAIL_NOTIFY', targets: 'shrikant.pandit@wecrew.in' },
     ],
   },
 };
 
 // ── On-call config per team (email + isPrimary) ──────────────
 const ONCALL_TEMPLATES = {
-  le:         [{ email: 'rajkumar.ashokan@finspot.in', primary: true }],
-  devops:     [{ email: 'rajkumar.madhu@rmadhu.in', primary: true }, { email: 'hoysala.bise@finspot.in', primary: false }],
-  network:    [{ email: 'siva.kadirannagari@finspot.in', primary: true }, { email: 'edukondalu.p@finspot.in', primary: false }, { email: 'devendrareddy.puppala@finspot.in', primary: false }],
-  db:         [{ email: 'rajkumar.ashokan@finspot.in', primary: true }, { email: 'rajkumar.madhu@rmadhu.in', primary: false }],
-  management: [{ email: 'shrikant.pandit@finspot.in', primary: true }],
+  le:         [{ email: 'rajkumar.ashokan@wecrew.in', primary: true }],
+  devops:     [{ email: 'rajkumar.madhu@rmadhu.in', primary: true }, { email: 'hoysala.bise@wecrew.in', primary: false }],
+  network:    [{ email: 'siva.kadirannagari@wecrew.in', primary: true }, { email: 'edukondalu.p@wecrew.in', primary: false }, { email: 'devendrareddy.puppala@wecrew.in', primary: false }],
+  db:         [{ email: 'rajkumar.ashokan@wecrew.in', primary: true }, { email: 'rajkumar.madhu@rmadhu.in', primary: false }],
+  management: [{ email: 'shrikant.pandit@wecrew.in', primary: true }],
 };
 
 // ── Member mapping per team key ──────────────────────────────

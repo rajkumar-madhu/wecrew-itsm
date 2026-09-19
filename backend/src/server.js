@@ -48,6 +48,8 @@ const agentPipelineRoutes = require('./routes/agentPipeline.routes');
 const pagerdutyRoutes = require('./routes/pagerduty.routes');
 const apmRoutes = require('./routes/apm.routes');
 const statusRoutes = require('./routes/status.routes');
+const billingRoutes = require('./routes/billing.routes');
+const razorpayWebhookRoutes = require('./routes/razorpayWebhook.routes');
 const auditRoutes = require('./routes/audit.routes');
 const chatRoutes = require('./routes/chat.routes');
 const publicRoutes = require('./routes/public.routes');
@@ -85,8 +87,19 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Organization-Id'],
 }));
 app.use(compression());
+
+// ── Razorpay webhook (MUST precede express.json) ────────
+// The router brings its own express.raw parser; signature verification
+// needs the unparsed bytes. Moving this below express.json() silently
+// breaks every webhook with a 400.
+app.use('/api/v1/webhooks', razorpayWebhookRoutes);
+
 app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+// Keep the raw form body: Slack signs the exact bytes (webhook.controller verifySlackRequest).
+app.use(express.urlencoded({
+  extended: true,
+  verify: (req, _res, buf) => { req.rawBody = buf.toString('utf8'); },
+}));
 app.use(cookieParser());
 app.use(morganMiddleware);
 app.use(globalLimiter);
@@ -144,6 +157,7 @@ app.use('/api/v1/apm', apmRoutes);
 app.use('/api/v1/status', statusRoutes);  // Public — no auth
 app.use('/api/v1/audit', auditRoutes);
 app.use('/api/v1/chat', chatRoutes);
+app.use('/api/v1/billing', billingRoutes);
 app.use('/api/v1/public', publicRoutes);  // Public — no auth (marketing site forms)
 
 // ── 404 ─────────────────────────────────────────────────

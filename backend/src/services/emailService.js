@@ -4,6 +4,7 @@
 // ═══════════════════════════════════════════════════════════
 
 const nodemailer = require('nodemailer');
+const { incidentSubject } = require('../utils/incidentTitle');
 const { prisma } = require('../config/database');
 const { config } = require('../config/env');
 const logger = require('../utils/logger');
@@ -187,23 +188,9 @@ function getHostInfo(incident) {
  *   [TAG][PRIORITY] OrgName · hostname (IP) · short description
  * Used by notificationService for every incident email.
  */
+// Subject format lives in utils/incidentTitle (shared with chat/voice notifications).
 function buildIncidentSubject(incident, event) {
-  const orgName  = incident.organization?.name || 'WeCrew';
-  const { hostname, ip } = getHostInfo(incident);
-  const hostPart = [hostname, ip ? `(${ip})` : null].filter(Boolean).join(' ');
-  const issue    = (incident.shortDescription || '').substring(0, 55);
-  const num      = incident.number;
-
-  const tags = {
-    Created:   `[INC][${incident.priority}]`,
-    Assigned:  `[ASSIGNED][${incident.priority}]`,
-    Escalated: `[ESCALATED][${incident.priority}]`,
-    Resolved:  `[RESOLVED][${incident.priority}]`,
-    default:   `[${incident.priority}]`,
-  };
-  const tag = tags[event] || tags.default;
-
-  return `${tag} ${orgName}${hostPart ? ' · ' + hostPart : ''} · ${issue} (${num})`;
+  return incidentSubject(incident, event);
 }
 
 // ── Base layout — white card, accent hero bar ─────────────
@@ -225,7 +212,7 @@ function baseLayout(title, accentColor, tagline, body) {
   <tr><td style="padding:0 0 8px;">
     <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
       <tr>
-        <td><span style="color:#111827;font-size:14px;font-weight:800;">FinSpot</span><span style="color:${accentColor};font-size:14px;font-weight:800;"> ITSM</span></td>
+        <td><span style="color:#111827;font-size:14px;font-weight:800;">WeCrew</span><span style="color:${accentColor};font-size:14px;font-weight:800;"> ITSM</span></td>
         <td align="right"><span style="color:#9CA3AF;font-size:11px;">${tagline}</span></td>
       </tr>
     </table>
@@ -242,8 +229,8 @@ function baseLayout(title, accentColor, tagline, body) {
   <!-- Footer -->
   <tr><td style="background:#F9FAFB;padding:16px 28px;border:1px solid #E5E7EB;border-top:none;border-radius:0 0 10px 10px;">
     <p style="margin:0;color:#9CA3AF;font-size:11px;line-height:1.9;text-align:center;">
-      Regards, <strong style="color:#6B7280;">FinSpot ITSM Tool</strong><br/>
-      FinSpot Technology Solutions Private Limited.<br/>
+      Regards, <strong style="color:#6B7280;">WeCrew ITSM</strong><br/>
+      WeCrew Technologies.<br/>
       No.55B, First Main, Electronic City Phase – 1, Bengaluru – 560 100 &nbsp;·&nbsp; Contact: 9176772077
     </p>
   </td></tr>
@@ -433,7 +420,7 @@ function renderIncidentEscalated(incident, opts = {}) {
   if (jwt && process.env.JWT_SECRET) {
     try {
       const token = jwt.sign({ incidentId: incident.id, action: 'ack' }, process.env.JWT_SECRET, { expiresIn: '24h' });
-      const base  = (process.env.API_URL || process.env.FRONTEND_URL || 'https://fs-le-dev-inc.finspot.in').replace(/\/$/, '');
+      const base  = (process.env.API_URL || process.env.FRONTEND_URL || 'https://itsm.wecrew.in').replace(/\/$/, '');
       ackUrl = `${base}/api/v1/incidents/ack?token=${token}`;
     } catch (_) { /* fallback */ }
   }
@@ -564,7 +551,7 @@ function renderIncidentEscalated(incident, opts = {}) {
         <tr><td style="padding:0 0 10px;">
           <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
             <tr>
-              <td><span style="color:#111827;font-size:15px;font-weight:800;letter-spacing:-0.3px;">FinSpot</span><span style="color:#DC2626;font-size:15px;font-weight:800;"> ITSM</span></td>
+              <td><span style="color:#111827;font-size:15px;font-weight:800;letter-spacing:-0.3px;">WeCrew</span><span style="color:#DC2626;font-size:15px;font-weight:800;"> ITSM</span></td>
               <td align="right"><span style="color:#9CA3AF;font-size:11px;">Automated Escalation · WeCrew Platform</span></td>
             </tr>
           </table>
@@ -656,8 +643,8 @@ function renderIncidentEscalated(incident, opts = {}) {
         <!-- ── FOOTER ── -->
         <tr><td style="background:#F9FAFB;border:1px solid #E5E7EB;border-top:none;border-radius:0 0 12px 12px;padding:16px 28px;">
           <p style="margin:0;color:#9CA3AF;font-size:11px;line-height:1.9;text-align:center;">
-            Regards, <strong style="color:#6B7280;">FinSpot ITSM Tool</strong><br/>
-            FinSpot Technology Solutions Private Limited.<br/>
+            Regards, <strong style="color:#6B7280;">WeCrew ITSM</strong><br/>
+            WeCrew Technologies.<br/>
             No.55B, First Main, Electronic City Phase – 1, Bengaluru – 560 100 &nbsp;·&nbsp; Contact: 9176772077
           </p>
         </td></tr>
@@ -1254,7 +1241,7 @@ function buildRCASubject(incident) {
 // ── Template 10: Welcome / Account Created ─────────────────
 
 function renderWelcomeUser(user, tempPassword) {
-  const loginUrl   = config.frontendUrl || 'https://fs-le-dev-inc.finspot.in';
+  const loginUrl   = config.frontendUrl || 'https://itsm.wecrew.in';
   const docsUrl    = `${loginUrl}/help`;
   const firstName  = user.firstName || user.name || 'there';
   const roleLabels = { ADMIN: 'Administrator', MANAGER: 'Team Manager', ENGINEER: 'Engineer', OPERATOR: 'Operator', VIEWER: 'Viewer' };

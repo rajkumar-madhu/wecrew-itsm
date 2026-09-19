@@ -19,7 +19,7 @@ let _systemUserId = null;
 async function getSystemUserId() {
   if (_systemUserId) return _systemUserId;
   const admin = await prisma.user.findFirst({
-    where: { role: 'ADMIN', status: 'ACTIVE' },
+    where: { role: 'ADMIN', isPlatformAdmin: true, status: 'ACTIVE' },
     select: { id: true },
     orderBy: { createdAt: 'asc' },
   });

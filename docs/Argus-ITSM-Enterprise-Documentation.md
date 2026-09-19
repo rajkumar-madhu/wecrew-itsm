@@ -125,7 +125,7 @@ Argus serves 13 active client organizations — primarily financial institutions
 
 The platform's AI Agent Pipeline processes alerts end-to-end — from detection through triage, enrichment, remediation, notification, and verification — entirely within the API process with zero additional infrastructure. This approach eliminates the operational overhead of external automation engines while delivering sub-minute response times to critical infrastructure events.
 
-Argus is deployed on Kubernetes (namespace: `fs-linkedeye`) and is accessible at `https://fs-le-dev-inc.finspot.in`. The platform is designed for financial-grade reliability and maintains strict tenant isolation: every data record is scoped to an organization, and all API queries enforce this boundary at the middleware layer.
+Argus is deployed on Kubernetes (namespace: `fs-linkedeye`) and is accessible at `https://itsm.wecrew.in`. The platform is designed for financial-grade reliability and maintains strict tenant isolation: every data record is scoped to an organization, and all API queries enforce this boundary at the middleware layer.
 
 ---
 
@@ -820,13 +820,13 @@ NOTE: The AI RCA endpoint may take 15–60 seconds to complete depending on mode
 **Grafana Webhook URL Pattern:**
 
 ```
-POST https://fs-le-dev-inc.finspot.in/api/v1/webhooks/grafana?orgId=<org-uuid>
+POST https://itsm.wecrew.in/api/v1/webhooks/grafana?orgId=<org-uuid>
 ```
 
 or
 
 ```
-POST https://fs-le-dev-inc.finspot.in/api/v1/webhooks/grafana?orgSlug=<slug>
+POST https://itsm.wecrew.in/api/v1/webhooks/grafana?orgSlug=<slug>
 ```
 
 ### 4.13 Notification Endpoints
@@ -868,7 +868,7 @@ POST https://fs-le-dev-inc.finspot.in/api/v1/webhooks/grafana?orgSlug=<slug>
   "promPort": 30000,
   "grafanaPort": 30010,
   "prometheusUrl": "http://154.210.170.126:30000",
-  "grafanaExternalUrl": "http://lemonn.finspot.in:30010"
+  "grafanaExternalUrl": "http://lemonn.wecrew.in:30010"
 }
 ```
 
@@ -1080,7 +1080,7 @@ Accepts multipart/form-data with a single `audio` file field. Supported formats:
   "slug": "acme-fin",
   "environment": "PROD",
   "serverIp": "203.0.113.10",
-  "fqdn": "acme.finspot.in",
+  "fqdn": "acme.wecrew.in",
   "description": "Primary production environment for Acme Financial"
 }
 ```
@@ -1480,7 +1480,7 @@ Authorization: Bearer <admin-token>
   "slug": "client-org-slug",
   "environment": "PROD",
   "serverIp": "203.0.113.10",
-  "fqdn": "client.finspot.in",
+  "fqdn": "client.wecrew.in",
   "description": "Brief description"
 }
 ```
@@ -1516,7 +1516,7 @@ POST /api/v1/integrations
   "name": "client-grafana",
   "type": "GRAFANA",
   "organizationId": "<org-id>",
-  "config": "{\"accessMethod\":\"ssh\",\"serverIp\":\"203.0.113.10\",\"sshPort\":2233,\"sshUser\":\"finadmin\",\"grafanaPort\":30010,\"grafanaExternalUrl\":\"http://client.finspot.in:30010\"}"
+  "config": "{\"accessMethod\":\"ssh\",\"serverIp\":\"203.0.113.10\",\"sshPort\":2233,\"sshUser\":\"finadmin\",\"grafanaPort\":30010,\"grafanaExternalUrl\":\"http://client.wecrew.in:30010\"}"
 }
 ```
 
@@ -1532,7 +1532,7 @@ PATCH /api/v1/integrations/<integration-id>
 Add a webhook receiver in the client's Alertmanager configuration pointing to:
 
 ```
-https://fs-le-dev-inc.finspot.in/api/v1/webhooks/alertmanager
+https://itsm.wecrew.in/api/v1/webhooks/alertmanager
 ```
 
 Include an `org_slug` label in the alert labels to enable automatic organization routing:
@@ -1553,7 +1553,7 @@ groups:
 In Grafana, create a contact point of type "Webhook" pointing to:
 
 ```
-https://fs-le-dev-inc.finspot.in/api/v1/webhooks/grafana?orgId=<org-id>
+https://itsm.wecrew.in/api/v1/webhooks/grafana?orgId=<org-id>
 ```
 
 **Step 6: Verify SSH Connectivity**
@@ -1636,7 +1636,7 @@ The `grafanaExternalUrl` in the integration config provides the public-facing UR
 
 **Grafana Lemonn Reference:**
 - Internal: `http://localhost:30010` (via SSH proxy)
-- External: `http://lemonn.finspot.in:30010`
+- External: `http://lemonn.wecrew.in:30010`
 - Service Account: `linkedeye-integration`
 - API Key: stored in the Grafana integration `config` JSON field
 
@@ -2255,7 +2255,7 @@ SLA targets are calculated at incident creation time and stored as `slaTargetRes
 
 ```bash
 # External health check
-curl https://fs-le-dev-inc.finspot.in/health
+curl https://itsm.wecrew.in/health
 
 # Expected response
 {
@@ -2311,7 +2311,7 @@ cd backend && npm run sla:check
 
 5. **Verify health:**
    ```bash
-   curl https://fs-le-dev-inc.finspot.in/health
+   curl https://itsm.wecrew.in/health
    ```
 
 6. **Rollback if health check fails:**
@@ -2391,7 +2391,7 @@ WARNING: Never run `prisma migrate dev` against the production database. Use `pr
 
 1. Verify Alertmanager rule labels include `org_slug` matching the organization's slug field
 2. Alternatively, verify the `instance` IP in alert labels matches `Organization.serverIp`
-3. Check the webhook endpoint is reachable: `curl -X POST https://fs-le-dev-inc.finspot.in/api/v1/webhooks/alertmanager`
+3. Check the webhook endpoint is reachable: `curl -X POST https://itsm.wecrew.in/api/v1/webhooks/alertmanager`
 
 **Problem: PagerDuty events not being sent**
 
@@ -2472,7 +2472,7 @@ The following 13 client organizations have active SSH connectivity as of 2026-03
 | `pl-prod-le` | 182.76.252.237 | 4427 | finadmin | Different SSH port |
 
 **Lemonn Organization Reference Details:**
-- FQDN: `lemonn.finspot.in`
+- FQDN: `lemonn.wecrew.in`
 - Organization ID (K8s postgres): `78b981f8-4df8-4c74-8a59-c9ea3fd8be6c`
 - Prometheus: `http://154.210.170.126:30000`
 - Grafana: `http://154.210.170.126:30010`
@@ -2494,7 +2494,7 @@ The following 13 client organizations have active SSH connectivity as of 2026-03
   "promPort": 30000,
   "grafanaPort": 30010,
   "prometheusUrl": "http://203.0.113.10:30000",
-  "grafanaExternalUrl": "http://client.finspot.in:30010",
+  "grafanaExternalUrl": "http://client.wecrew.in:30010",
   "apiKey": "glsa_xxxxxxxxxxxx"
 }
 ```

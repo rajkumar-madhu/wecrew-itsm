@@ -4,6 +4,7 @@
 
 const { prisma } = require('../config/database');
 const { emitToTeam } = require('../config/socket');
+const { isPlatformAdmin } = require('../middleware/tenant');
 
 async function assertTeamAccess(user, teamId) {
   const team = await prisma.team.findUnique({
@@ -17,8 +18,13 @@ async function assertTeamAccess(user, teamId) {
   });
   if (!team) return { error: 'Team not found', status: 404 };
 
-  // Super-admin / org admin can access all teams in scope
+  // Platform admin: every team. Org ADMIN / MANAGER: every team in their own
+  // org only — a teamId from another tenant reads as not found, not forbidden.
+  if (isPlatformAdmin(user)) return { team };
   if (user.role === 'ADMIN' || user.role === 'MANAGER') {
+    if (!user.organizationId || team.organizationId !== user.organizationId) {
+      return { error: 'Team not found', status: 404 };
+    }
     return { team };
   }
 

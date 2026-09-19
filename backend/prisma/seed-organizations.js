@@ -18,7 +18,7 @@ const ORGANIZATIONS = [
   { name: 'Way2Wealth W2W',         slug: 'fs-w2w-le',                environment: 'PROD', serverIp: '192.168.12.109',  fqdn: 'fs-w2w-le.linkedeye.local' },
   { name: 'FinSpot IFSC',           slug: 'fs-ifsc-le',               environment: 'PROD', serverIp: '10.200.1.18',     fqdn: 'fs-ifsc-le.linkedeye.local' },
   { name: 'IndMoney IFSC',          slug: 'indmoney-ifsc-le',         environment: 'PROD', serverIp: '10.40.40.23',     fqdn: 'indmoney-ifsc-le.linkedeye.local' },
-  { name: 'Lemonn Mumbai',          slug: 'lemonn-mum-le',            environment: 'PROD', serverIp: '154.210.170.126',  fqdn: 'lemonn.finspot.in',            description: 'Lemonn Mumbai Production — 154.210.170.126' },
+  { name: 'Lemonn Mumbai',          slug: 'lemonn-mum-le',            environment: 'PROD', serverIp: '154.210.170.126',  fqdn: 'lemonn.wecrew.in',            description: 'Lemonn Mumbai Production — 154.210.170.126' },
   { name: 'FinSpot DX',             slug: 'fs-dx-le',                 environment: 'PROD', serverIp: '206.1.32.216',    fqdn: 'fs-dx-le.linkedeye.local' },
   { name: 'Mirae Asset',            slug: 'fs-le-prod-mirae',         environment: 'PROD', serverIp: '192.168.152.156', fqdn: 'fs-le-prod-mirae.linkedeye.local' },
   { name: 'SMIFS',                  slug: 'fs-le-smifs',              environment: 'PROD', serverIp: null,              fqdn: 'fs-le-smifs.linkedeye.local' },

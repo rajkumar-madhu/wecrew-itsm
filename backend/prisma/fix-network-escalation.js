@@ -1,7 +1,7 @@
 // Fix Network Team escalation chain across all orgs:
-// L1 (30min): rajkumar.madhu@finspot.in + devendrareddy.puppala@finspot.in
-// L2 (60min): edukondalu.p@finspot.in
-// L3 (360min): siva.kadirannagari@finspot.in
+// L1 (30min): rajkumar.madhu@wecrew.in + devendrareddy.puppala@wecrew.in
+// L2 (60min): edukondalu.p@wecrew.in
+// L3 (360min): siva.kadirannagari@wecrew.in
 const { PrismaClient } = require('@prisma/client');
 const p = new PrismaClient();
 
@@ -18,9 +18,9 @@ async function main() {
   for (const pol of policies) {
     for (const rule of pol.rules) {
       let newTargets = null;
-      if (rule.level === 1) newTargets = 'rajkumar.madhu@finspot.in,devendrareddy.puppala@finspot.in';
-      if (rule.level === 2) newTargets = 'edukondalu.p@finspot.in';
-      if (rule.level === 3) newTargets = 'siva.kadirannagari@finspot.in';
+      if (rule.level === 1) newTargets = 'rajkumar.madhu@wecrew.in,devendrareddy.puppala@wecrew.in';
+      if (rule.level === 2) newTargets = 'edukondalu.p@wecrew.in';
+      if (rule.level === 3) newTargets = 'siva.kadirannagari@wecrew.in';
       if (newTargets) {
         await p.escalationRule.update({ where: { id: rule.id }, data: { notifyTargets: newTargets } });
         updated++;
@@ -82,7 +82,7 @@ async function main() {
   }
 
   console.log('createdAt: 29 min ago → L1 fires in next 60s escalation cycle');
-  console.log('L1 targets: rajkumar.madhu@finspot.in + devendrareddy.puppala@finspot.in');
+  console.log('L1 targets: rajkumar.madhu@wecrew.in + devendrareddy.puppala@wecrew.in');
 }
 
 main().catch(console.error).finally(() => p.$disconnect());

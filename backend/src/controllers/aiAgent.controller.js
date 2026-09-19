@@ -10,6 +10,8 @@ const { success, error } = require('../utils/helpers');
 const prometheusService = require('../services/prometheusService');
 const lokiService = require('../services/lokiService');
 const logger = require('../utils/logger');
+const gemini = require('../services/geminiService');
+const { isPlatformAdmin, inScope, scopedWhere } = require('../middleware/tenant');
 
 const AGENT_SYSTEM_PROMPT = `You are WeCrew AI Agent, an infrastructure intelligence system for the WeCrew ITSM platform. You analyze real-time metrics from Kubernetes clusters, PostgreSQL databases, application logs, and monitoring systems. Always return structured JSON as specified. Be precise, actionable, and concise. Prioritize issues by severity.`;
 
@@ -48,6 +50,15 @@ async function askAI(prompt, fallback = {}) {
       text = response.choices[0].message.content.trim();
     }
 
+    // Then Gemini (JSON mode — every agent prompt expects structured JSON)
+    if (!text && gemini.isConfigured()) {
+      try {
+        text = await gemini.generate(AGENT_SYSTEM_PROMPT, prompt, { maxTokens: 2048, json: true });
+      } catch (err) {
+        logger.warn('[AI Agent] Gemini call failed: %s', err.message);
+      }
+    }
+
     if (!text) {
       logger.warn('[AI Agent] No AI provider configured');
       return fallback;
@@ -75,6 +86,57 @@ function buildPromAuthHeaders(access) {
 
 // ── Resolve Prometheus access method for an asset's org ──────────────
 // Returns { method: 'local'|'ssh'|'direct', serverIp, sshPort, promPort, promUrl, apiKey, username, password }
+// ── Shell-safe config values ──────────────────────────────
+// serverIp / sshPort / sshUser / promPort / grafanaPort are interpolated into
+// a local `ssh …` line by k8sService (exec). Org admins can write integration
+// config, so anything outside a strict charset is dropped, never escaped.
+const SAFE_HOST = /^[A-Za-z0-9][A-Za-z0-9.:-]{0,252}$/; // no leading '-' (ssh option injection)
+const SAFE_USER = /^[A-Za-z_][A-Za-z0-9_.-]{0,31}$/;
+
+function safeHost(v) {
+  return typeof v === 'string' && SAFE_HOST.test(v) ? v : null;
+}
+function safeUser(v, fallback) {
+  return typeof v === 'string' && SAFE_USER.test(v) ? v : fallback;
+}
+function safePort(v, fallback) {
+  const n = parseInt(v, 10);
+  return Number.isInteger(n) && n > 0 && n < 65536 ? n : fallback;
+}
+// API keys / uids go inside quotes in the same shell line.
+const SAFE_TOKEN = /^[A-Za-z0-9._~+=:/-]{1,256}$/;
+function safeToken(v) {
+  return typeof v === 'string' && SAFE_TOKEN.test(v) ? v : null;
+}
+
+/**
+ * An organization that has a platform admin among its users is WeCrew's own —
+ * the only kind allowed to fall back to the platform Prometheus / Grafana.
+ * Tenants cannot set isPlatformAdmin, so they cannot opt into this.
+ */
+async function isPlatformOrg(organizationId) {
+  if (!organizationId) return false;
+  try {
+    return (await prisma.user.count({ where: { organizationId, isPlatformAdmin: true } })) > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Org id a request may read infrastructure for. Platform admins: the org they
+ * switched to, or null for "all". Everyone else: their own org (null = none).
+ */
+function requestOrgId(req) {
+  if (isPlatformAdmin(req.user)) {
+    const org = req.tenantWhere && req.tenantWhere.organizationId;
+    return typeof org === 'string' ? org : null;
+  }
+  return req.organizationId || null;
+}
+
+// method 'none' = no Prometheus this org may read. executePromQueries returns
+// null for it, which every caller already treats as "no data".
 async function resolvePrometheusAccess(organizationId) {
   if (!organizationId) return { method: 'local' };
 
@@ -106,18 +168,35 @@ async function resolvePrometheusAccess(organizationId) {
       if (cfg.accessMethod === 'ssh' || cfg.sshPort) {
         return {
           method: 'ssh',
-          serverIp: cfg.serverIp || org?.serverIp || null,
-          sshPort: cfg.sshPort || 4422,
-          sshUser: cfg.sshUser || 'finadmin',
-          promPort: cfg.promPort || 30000,
+          serverIp: safeHost(cfg.serverIp || org?.serverIp),
+          sshPort: safePort(cfg.sshPort, 4422),
+          sshUser: safeUser(cfg.sshUser, 'finadmin'),
+          promPort: safePort(cfg.promPort, 30000),
         };
       }
     } catch (_) { /* invalid JSON — fall through */ }
   }
 
   // Fallback: if org has serverIp, use SSH (backwards-compatible)
-  if (org?.serverIp) {
+  if (safeHost(org?.serverIp)) {
     return { method: 'ssh', serverIp: org.serverIp, sshPort: 4422, sshUser: 'finadmin', promPort: 30000 };
+  }
+
+  // Everything below is WeCrew's own Prometheus. A tenant org without its own
+  // integration or serverIp — e.g. any fresh trial org — must not land here,
+  // or it reads platform metrics (any instance label it puts on an asset).
+  if (!await isPlatformOrg(organizationId)) return { method: 'none' };
+
+  // Local / platform Prometheus (PROMETHEUS_URL env) — used by WeCrew Kind and global view
+  const { config: envConfig } = require('../config/env');
+  if (envConfig.observability?.prometheusUrl) {
+    return {
+      method: 'direct',
+      promUrl: envConfig.observability.prometheusUrl.replace(/\/+$/, ''),
+      apiKey: null,
+      username: null,
+      password: null,
+    };
   }
 
   return { method: 'local' };
@@ -572,13 +651,15 @@ async function getResolutionDetails(req, res, next) {
       },
     });
 
-    if (!incident) {
+    if (!inScope(req, incident)) {
       return error(res, 'Incident not found', 404);
     }
 
-    // Find related incidents with same category
+    // Find related incidents with same category — same org only: their
+    // resolutionNotes are returned and fed to the AI prompt.
     const relatedIncidents = await prisma.incident.findMany({
       where: {
+        organizationId: incident.organizationId,
         id: { not: id },
         category: incident.category,
         state: { in: ['RESOLVED', 'CLOSED'] },
@@ -646,10 +727,18 @@ Incident:
 // ═══════════════════════════════════════════════════════════
 async function getTips(req, res, next) {
   try {
+    // Cluster, database, logs and firing alerts below all come from WeCrew's
+    // own infrastructure. Only platform admins get them; a tenant's tips are
+    // built from its own incidents alone.
+    const platform = isPlatformAdmin(req.user);
+    const platformOnly = (label, fn) => (platform
+      ? safeGather(label, fn)
+      : Promise.resolve({ available: false, error: 'Not available for this organization' }));
+
     // Gather data from all sources in parallel
     const [clusterData, dbData, logData, recentP1P2, firingAlerts] = await Promise.all([
       // Cluster summary (lightweight)
-      safeGather('Cluster', async () => {
+      platformOnly('Cluster', async () => {
         const [nodeStatus, podPhases] = await Promise.all([
           prometheusService.query('kube_node_status_condition{condition="Ready",status="true"}'),
           prometheusService.query('count by (phase) (kube_pod_status_phase == 1)'),
@@ -661,7 +750,7 @@ async function getTips(req, res, next) {
       }),
 
       // DB summary (lightweight)
-      safeGather('Database', async () => {
+      platformOnly('Database', async () => {
         const [poolResult, longQResult] = await Promise.all([
           prisma.$queryRaw`SELECT numbackends AS active_connections, deadlocks FROM pg_stat_database WHERE datname = current_database()`,
           prisma.$queryRaw`SELECT count(*)::integer AS count FROM pg_stat_activity WHERE (now() - query_start) > interval '30 seconds' AND state != 'idle' AND pid != pg_backend_pid()`,
@@ -674,7 +763,7 @@ async function getTips(req, res, next) {
       }),
 
       // Log summary (lightweight)
-      safeGather('Logs', async () => {
+      platformOnly('Logs', async () => {
         const errorLogs = await lokiService.searchLogs('error', 'fs-linkedeye', '1h', 100);
         return { errorCount: (errorLogs?.result || []).reduce((sum, s) => sum + (s.values?.length || 0), 0) };
       }),
@@ -682,6 +771,7 @@ async function getTips(req, res, next) {
       // Recent P1/P2 incidents
       safeGather('Recent incidents', () => prisma.incident.findMany({
         where: {
+          ...scopedWhere(req),
           priority: { in: ['P1', 'P2'] },
           createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
         },
@@ -691,7 +781,7 @@ async function getTips(req, res, next) {
       })),
 
       // Firing alerts
-      safeGather('Alerts', () => prometheusService.getFiringAlerts()),
+      platformOnly('Alerts', () => prometheusService.getFiringAlerts()),
     ]);
 
     const alertsList = firingAlerts.available ? (firingAlerts.data?.alerts || []) : [];
@@ -751,7 +841,7 @@ async function getAssetLiveMetrics(req, res, next) {
       },
     });
 
-    if (!asset) return error(res, 'Asset not found', 404);
+    if (!inScope(req, asset)) return error(res, 'Asset not found', 404);
 
     const ip = asset.ipAddress;
     if (!ip) return error(res, 'Asset has no IP address — cannot query Prometheus', 400);
@@ -1114,48 +1204,59 @@ async function getGrafanaDashboards(req, res, next) {
   try {
     // ── Determine Grafana source: org-specific integration or default local ──
     let grafanaInternalUrl = (config.monitoring?.grafanaUrl || process.env.GRAFANA_URL || '').replace(/\/+$/, '');
-    let grafanaExternalUrl = (process.env.GRAFANA_EXTERNAL_URL || 'https://fs-le-dev-grafana.finspot.in').replace(/\/+$/, '');
+    let grafanaExternalUrl = (process.env.GRAFANA_EXTERNAL_URL || 'https://itsm.wecrew.in').replace(/\/+$/, '');
     let authHeader = 'Basic ' + Buffer.from('admin:admin').toString('base64');
+    // grafanaInternalUrl starts as WeCrew's own Grafana; cleared below when an
+    // org integration supplies its own URL.
+    let usingPlatformGrafana = true;
     let remoteOrgIp = null;
     let remoteGrafanaPort = null;
     let remoteApiKey = null;
     let remoteSshPort = 4422;
     let remoteSshUser = 'finadmin';
 
-    if (req.tenantWhere?.organizationId) {
+    const platform = isPlatformAdmin(req.user);
+    const orgId = requestOrgId(req);
+    if (!platform && !orgId) {
+      return success(res, { dashboards: [], grafanaUrl: grafanaExternalUrl, error: 'No organization on this account' });
+    }
+
+    if (orgId) {
       const [grafanaIntegration, orgRow] = await Promise.all([
         prisma.integration.findFirst({
-          where: { organizationId: req.tenantWhere.organizationId, type: 'GRAFANA', status: 'ACTIVE' },
+          where: { organizationId: orgId, type: 'GRAFANA', status: 'ACTIVE' },
           select: { config: true },
         }),
         prisma.organization.findUnique({
-          where: { id: req.tenantWhere.organizationId },
+          where: { id: orgId },
           select: { serverIp: true },
         }),
       ]);
       if (grafanaIntegration?.config) {
         try {
           const cfg = JSON.parse(grafanaIntegration.config);
-          remoteSshPort = cfg.sshPort || remoteSshPort;
-          remoteSshUser = cfg.sshUser || remoteSshUser;
+          remoteSshPort = safePort(cfg.sshPort, remoteSshPort);
+          remoteSshUser = safeUser(cfg.sshUser, remoteSshUser);
           if (cfg.grafanaExternalUrl) {
             grafanaExternalUrl = cfg.grafanaExternalUrl.replace(/\/+$/, '');
           }
           if (cfg.grafanaPort && orgRow?.serverIp) {
             // SSH-based access using grafanaPort from config
-            remoteOrgIp = cfg.serverIp || orgRow.serverIp;
-            remoteGrafanaPort = cfg.grafanaPort;
-            remoteApiKey = cfg.apiKey || null;
+            remoteOrgIp = safeHost(cfg.serverIp || orgRow.serverIp);
+            remoteGrafanaPort = safePort(cfg.grafanaPort, null);
+            remoteApiKey = safeToken(cfg.apiKey);
           } else if (cfg.grafanaUrl) {
             // Fallback: extract port from URL
             const urlMatch = cfg.grafanaUrl.match(/:(\d+)\/?$/);
             if (orgRow?.serverIp && urlMatch) {
-              remoteOrgIp = cfg.serverIp || orgRow.serverIp;
+              remoteOrgIp = safeHost(cfg.serverIp || orgRow.serverIp);
               remoteGrafanaPort = urlMatch[1];
-              remoteApiKey = cfg.apiKey || null;
+              remoteApiKey = safeToken(cfg.apiKey);
             } else {
               grafanaInternalUrl = cfg.grafanaUrl.replace(/\/+$/, '');
-              if (cfg.apiKey) authHeader = `Bearer ${cfg.apiKey}`;
+              usingPlatformGrafana = false;
+              // Never send the platform's default credentials to an org-supplied URL.
+              authHeader = cfg.apiKey ? `Bearer ${cfg.apiKey}` : null;
             }
           }
         } catch (_) { /* invalid JSON — fall back to default */ }
@@ -1173,7 +1274,9 @@ async function getGrafanaDashboards(req, res, next) {
       }
 
       const dashboards = [];
-      for (const db of searchData) {
+      // uids come back from the remote Grafana and go straight into the next
+      // shell command — skip any that are not plain identifiers.
+      for (const db of searchData.filter((d) => /^[A-Za-z0-9_-]{1,64}$/.test(String(d && d.uid)))) {
         const detail = await k8sService.remoteGrafanaApi(
           remoteOrgIp, remoteGrafanaPort, `/api/dashboards/uid/${db.uid}`, remoteApiKey, remoteSshPort, remoteSshUser
         );
@@ -1186,11 +1289,15 @@ async function getGrafanaDashboards(req, res, next) {
     }
 
     // ── Local Grafana: direct HTTP fetch ──
+    // WeCrew's own dashboards are for platform admins and WeCrew's own org only.
+    if (usingPlatformGrafana && !platform && !await isPlatformOrg(orgId)) {
+      return success(res, { dashboards: [], grafanaUrl: grafanaExternalUrl, error: 'No Grafana integration configured for this organization' });
+    }
     if (!grafanaInternalUrl) {
       return error(res, 'GRAFANA_URL is not configured', 500);
     }
 
-    const headers = { Authorization: authHeader, 'Content-Type': 'application/json' };
+    const headers = { 'Content-Type': 'application/json', ...(authHeader ? { Authorization: authHeader } : {}) };
 
     const searchResult = await safeGather('Grafana search', async () => {
       const resp = await fetch(`${grafanaInternalUrl}/api/search?type=dash-db`, { headers });
@@ -1237,7 +1344,12 @@ async function getGrafanaDashboards(req, res, next) {
 async function getInfrastructureMetrics(req, res, next) {
   try {
     // ── Resolve org FIRST — determines local vs. remote Prometheus ──
-    const access = await resolvePrometheusAccess(req.tenantWhere?.organizationId);
+    // resolvePrometheusAccess(null) means WeCrew's own Prometheus: only a
+    // platform admin viewing all orgs may ask for that.
+    const orgId = requestOrgId(req);
+    const access = !orgId && !isPlatformAdmin(req.user)
+      ? { method: 'none' }
+      : await resolvePrometheusAccess(orgId);
     const isRemoteOrg = access.method !== 'local';
 
     // ── All PromQL queries (same set for local and remote) ──
@@ -1622,7 +1734,7 @@ async function getInfrastructureMetrics(req, res, next) {
     // ── Alerts — remote orgs already have their own alerts, local orgs filter by IP ──
     let rawAlerts = firingAlerts.available ? (firingAlerts.data?.alerts || []) : [];
 
-    if (req.tenantWhere?.organizationId && !isRemoteOrg) {
+    if (orgId && !isRemoteOrg) {
       if (access.serverIp) {
         rawAlerts = rawAlerts.filter(a => {
           const inst = a.labels?.instance || '';
@@ -1641,7 +1753,7 @@ async function getInfrastructureMetrics(req, res, next) {
       summary: a.annotations?.summary || a.annotations?.description || '',
     }));
 
-    const noDataForOrg = !!req.tenantWhere?.organizationId && access.method === 'local' && !access.serverIp;
+    const noDataForOrg = !!orgId && access.method === 'local' && !access.serverIp;
     return success(res, { cpu, memory, disk, network, virtualization, containerHealth, storage, alerts, lastUpdated: new Date().toISOString(), orgServerIp: access.serverIp, noDataForOrg });
   } catch (err) {
     next(err);
@@ -1658,7 +1770,7 @@ async function getAssetMetricsHistory(req, res, next) {
     const step = req.query.step || '120s';
 
     const asset = await prisma.configurationItem.findUnique({ where: { id }, select: { ipAddress: true, name: true, organizationId: true } });
-    if (!asset) return error(res, 'Asset not found', 404);
+    if (!inScope(req, asset)) return error(res, 'Asset not found', 404);
     if (!asset.ipAddress) return error(res, 'Asset has no IP address', 400);
 
     const instance = `${asset.ipAddress}:9100`;

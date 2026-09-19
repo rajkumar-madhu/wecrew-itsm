@@ -5,6 +5,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate, authorize } = require('../middleware/auth');
+const { enforceWriteAccess } = require('../middleware/billing.middleware');
 const ctrl = require('../controllers/pagerduty.controller');
 
 // Webhook endpoint — no auth (PagerDuty calls this)
@@ -12,6 +13,7 @@ router.post('/webhook', ctrl.handleWebhook);
 
 // All other routes require auth
 router.use(authenticate);
+router.use(enforceWriteAccess); // 402 on writes once the org's trial or subscription lapses
 
 // Connection management (admin only)
 router.post('/validate', authorize('ADMIN', 'MANAGER'), ctrl.validate);

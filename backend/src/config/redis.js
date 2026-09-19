@@ -53,8 +53,11 @@ async function deletePattern(pattern) {
 
 function cacheMiddleware(keyPrefix, ttlSeconds = 30) {
   return async (req, res, next) => {
-    // Include org context in key so each org gets its own cached response
-    const orgSegment = req.headers['x-organization-id'] || req.query.orgId || 'all';
+    // Key on the tenant authenticate() RESOLVED, never the raw header: a caller
+    // locked to their own org can still send any X-Organization-Id, and a
+    // header-less caller must not be served the platform-wide 'all' entry.
+    const scoped = req.tenantWhere && 'organizationId' in req.tenantWhere;
+    const orgSegment = scoped ? (req.organizationId || 'none') : 'all';
     const key = `${keyPrefix}:${orgSegment}:${req.originalUrl}`;
     try {
       const cached = await getJSON(key);

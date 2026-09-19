@@ -8,7 +8,25 @@ const { generateChangeNumber, paginate, paginationMeta, success, error } = requi
 const { CHANGE_TRANSITIONS } = require('../config/constants');
 const logger = require('../utils/logger');
 const emailService = require('../services/emailService');
-const { getCreateOrgId } = require('../middleware/tenant');
+const { getCreateOrgId, scopedWhere, stripTenantFields, isPlatformAdmin } = require('../middleware/tenant');
+
+// Ids in a request body must point at records in the SAME org as the change
+// being written, or the includes return another tenant's user/team.
+// Platform staff may cross orgs.
+const CHANGE_FKS = [
+  ['assignedToId', 'user'],
+  ['assignmentGroupId', 'team'],
+];
+async function foreignKeyError(req, orgId, body) {
+  if (isPlatformAdmin(req.user)) return null;
+  for (const [key, model] of CHANGE_FKS) {
+    const value = body[key];
+    if (value === undefined || value === null || value === '') continue;
+    const row = await prisma[model].findFirst({ where: { id: value, organizationId: orgId }, select: { id: true } });
+    if (!row) return `${key} does not belong to this organization`;
+  }
+  return null;
+}
 
 const INCLUDE_LIST = {
   assignedTo: { select: { id: true, firstName: true, lastName: true, email: true } },
@@ -77,6 +95,10 @@ async function createChange(req, res, next) {
   try {
     const { shortDescription, description, type, riskLevel, category, justification, implementationPlan, rollbackPlan, testPlan, communicationPlan, assignmentGroupId, assignedToId, plannedStartDate, plannedEndDate, affectedServices, downtime, userImpact, gitRepoUrl, gitBranch } = req.body;
 
+    const orgId = getCreateOrgId(req);
+    const fkError = await foreignKeyError(req, orgId, req.body);
+    if (fkError) return error(res, fkError, 400);
+
     const number = await generateChangeNumber();
     const changeType = type || 'NORMAL';
     const initialState = changeType === 'EMERGENCY' ? 'IMPLEMENTING' : 'NEW';
@@ -87,7 +109,7 @@ async function createChange(req, res, next) {
         state: initialState, riskLevel: riskLevel || 'MEDIUM', category,
         justification, implementationPlan, rollbackPlan, testPlan, communicationPlan,
         assignmentGroupId, assignedToId, createdById: req.user.id,
-        organizationId: getCreateOrgId(req),
+        organizationId: orgId,
         plannedStartDate: plannedStartDate ? new Date(plannedStartDate) : null,
         plannedEndDate: plannedEndDate ? new Date(plannedEndDate) : null,
         affectedServices, downtime, userImpact, gitRepoUrl, gitBranch,
@@ -120,7 +142,10 @@ async function updateChange(req, res, next) {
       }
     }
 
-    const data = { ...req.body };
+    // Never let the body move the change to another org or rewrite its author.
+    const { createdById: _createdBy, ...data } = stripTenantFields(req.body);
+    const fkError = await foreignKeyError(req, existing.organizationId, data);
+    if (fkError) return error(res, fkError, 400);
     if (data.state === 'IMPLEMENTING') data.actualStartDate = new Date();
     if (data.state === 'CLOSED') data.actualEndDate = new Date();
 
@@ -188,7 +213,8 @@ async function rejectChange(req, res, next) {
 // POST /api/v1/changes/:id/submit
 async function submitForApproval(req, res, next) {
   try {
-    const change = await prisma.change.findUnique({ where: { id: req.params.id }, include: { assignmentGroup: { include: { members: { where: { role: 'LEAD' }, include: { user: true } } } } } });
+    // Scoped lookup: another org's change reads as not found and emails nobody.
+    const change = await prisma.change.findFirst({ where: { ...scopedWhere(req), id: req.params.id }, include: { assignmentGroup: { include: { members: { where: { role: 'LEAD' }, include: { user: true } } } } } });
     if (!change) return error(res, 'Change not found', 404);
 
     const approvers = change.assignmentGroup?.members || [];
