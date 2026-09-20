@@ -34,7 +34,9 @@ export default function OrgSwitcher() {
     setOpen(false);
     qc.invalidateQueries({ predicate: (q) => !q.queryKey.includes('organizations') });
   }
-  const isSuperAdmin = user?.role === 'ADMIN' && !user?.organizationId;
+  // Platform staff only — a self-registered trial owner is also role ADMIN
+  // but must stay locked to their own org (see useAuth.isPlatformAdmin).
+  const isSuperAdmin = user?.role === 'ADMIN' && user?.isPlatformAdmin === true;
 
   const { data } = useQuery({
     queryKey: ['organizations'],

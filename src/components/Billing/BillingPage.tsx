@@ -122,12 +122,17 @@ export default function BillingPage() {
             razorpay_payment_id: r.razorpay_payment_id,
             razorpay_subscription_id: r.razorpay_subscription_id,
             razorpay_signature: r.razorpay_signature,
+          }, {
+            onError: (e) => setErr(errorMessage(e, 'Payment received but confirmation failed — refresh in a moment, or contact support if billing stays on trial.')),
           });
         },
         modal: { ondismiss: () => setBusy(null) },
         theme: { color: '#ff5b2e' },
       });
-      rzp.on('payment.failed', (e) => setErr(e?.error?.description || 'Payment failed. No money was taken.'));
+      rzp.on('payment.failed', (e) => {
+        setBusy(null);
+        setErr(e?.error?.description || 'Payment failed. No money was taken.');
+      });
       rzp.open();
     } catch (e) {
       setErr(errorMessage(e, 'Could not start checkout'));
@@ -137,6 +142,12 @@ export default function BillingPage() {
 
   const sortedPlans = [...(plans ?? [])].sort((a, b) => TIER_ORDER.indexOf(a.tier) - TIER_ORDER.indexOf(b.tier));
   const trialing = sub?.status === 'TRIALING';
+  // Only a healthy paid/trial seat on this tier is "current". Failed/lapsed
+  // statuses must still offer Upgrade / Update payment — otherwise PAST_DUE
+  // locks the CTA while the banner tells the admin to manage billing.
+  const liveOnTier = sub?.status === 'ACTIVE' || sub?.status === 'TRIALING'
+    || (sub?.status === 'CANCELLED' && !sub?.isReadOnly);
+  const canCancel = sub?.status === 'ACTIVE' || sub?.status === 'PAST_DUE';
 
   return (
     <Page>
@@ -183,8 +194,12 @@ export default function BillingPage() {
         ) : (
           <div className="grid gap-3 md:grid-cols-3">
             {sortedPlans.map((p) => {
-              const current = sub?.tier === p.tier;
+              const current = liveOnTier && sub?.tier === p.tier;
+              const needsPaymentFix = sub?.tier === p.tier && (sub?.status === 'PAST_DUE' || sub?.status === 'HALTED');
               const price = p.tier === 'TRIAL' ? 'Free' : formatAmount(p.amount, p.currency);
+              const ctaLabel = needsPaymentFix
+                ? (busy === p.tier ? 'Opening…' : 'Update payment')
+                : (busy === p.tier ? 'Opening…' : `Upgrade to ${p.name}`);
               return (
                 <div key={p.tier} className="cx-panel p-4 flex flex-col gap-2">
                   <div className="cx-eyebrow">{p.name}</div>
@@ -213,7 +228,7 @@ export default function BillingPage() {
                       </div>
                     ) : (
                       <PrimaryButton disabled={busy !== null} onClick={() => startCheckout(p.tier)}>
-                        {busy === p.tier ? 'Opening…' : `Upgrade to ${p.name}`}
+                        {ctaLabel}
                       </PrimaryButton>
                     )}
                   </div>
@@ -224,7 +239,7 @@ export default function BillingPage() {
         )}
       </Panel>
 
-      {sub?.status === 'ACTIVE' && (
+      {canCancel && (
         <Panel title="Cancel subscription">
           <p className="text-sm text-muted mb-3">
             Cancelling keeps access until the end of the paid period.

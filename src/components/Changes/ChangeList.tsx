@@ -280,9 +280,13 @@ export default function ChangeList() {
   // filter — a forward window that moved every time someone typed in the search
   // box would answer nobody's question. Paged at the API's cap of 100 rather
   // than requested in one oversized page, which the API rejects with a 400.
+  // Forward window needs upcoming work first. Sorting asc without a lower
+  // bound pulled the oldest 1,200 planned starts on large tenants and left
+  // the window empty. plannedFrom is filtered on plannedStartDate server-side.
   const { data: census } = useChangeCensus<Change>({
     sortBy: 'plannedStartDate',
     sortOrder: 'asc',
+    plannedFrom: startOfDay(new Date()).toISOString(),
   });
 
   const changes: Change[] = data?.data || [];

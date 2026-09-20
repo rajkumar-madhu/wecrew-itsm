@@ -83,18 +83,22 @@ export default function ChangeCalendar() {
   const [view, setView] = useState<'month' | 'week'>('month');
   const [selected, setSelected] = useState<Change | null>(null);
 
-  // The calendar places one mark per change across a month, so it needs the whole
-  // set — paged at the API's cap of 100. A single `limit: 500` request is
-  // rejected with a 400 (validatePagination does not clamp), which rendered an
-  // empty grid and a row of zeros. See lib/census.ts.
+  // Bound the census to the visible month (±1 for week spill) on
+  // plannedStartDate — an unbounded asc sort quietly under-counted large
+  // tenants, and createdAt dateFrom would miss rescheduled work.
+  const plannedFrom = useMemo(() => new Date(year, month - 1, 1).toISOString(), [year, month]);
+  const plannedTo = useMemo(() => new Date(year, month + 2, 0, 23, 59, 59, 999).toISOString(), [year, month]);
   const { data: census, isLoading } = useChangeCensus({
     sortBy: 'plannedStartDate',
     sortOrder: 'asc',
+    plannedFrom,
+    plannedTo,
   });
   const changes: Change[] = useMemo(
     () => (census?.items ?? []).map(asCalChange),
     [census],
   );
+  const truncated = Boolean(census?.truncated);
 
   const monthCells = useMemo(() => {
     const firstDow = new Date(year, month, 1).getDay();
@@ -204,6 +208,12 @@ export default function ChangeCalendar() {
           ))}
         </dl>
       </div>
+
+      {truncated && (
+        <p className="cx-posture cx-posture--warn mx-0 text-sm text-ink" role="status">
+          More than {census?.items?.length ?? 0} changes fall in this range — the grid may omit some marks.
+        </p>
+      )}
 
       <nav className="cx-crumb" aria-label="Breadcrumb">
         <Link to="/dashboard">Operations</Link>

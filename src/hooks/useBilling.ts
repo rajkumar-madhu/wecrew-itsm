@@ -60,14 +60,18 @@ export function useBillingPlans() {
 export function useSubscription() {
   // Mounted in Layout for every page: skip the request entirely for an
   // account with no organization (e.g. platform staff) — the API answers 400.
-  const hasOrg = useAuthStore((s) => !!s.user?.organizationId);
+  // selectedOrgId is in the key so a platform-admin org switch cannot keep
+  // showing the previous tenant's billing state from cache.
+  const homeOrgId = useAuthStore((s) => s.user?.organizationId ?? null);
+  const selectedOrgId = useAuthStore((s) => s.selectedOrgId);
+  const orgKey = selectedOrgId || homeOrgId;
   return useQuery({
-    queryKey: keys.subscription(),
+    queryKey: [...keys.subscription(), orgKey],
     queryFn: async () => {
       const { data } = await api.get('/billing/subscription');
       return data.data as AccessState;
     },
-    enabled: hasOrg,
+    enabled: !!orgKey,
     staleTime: 60000,
     // 400 = account has no organization; retrying cannot fix that.
     retry: false,

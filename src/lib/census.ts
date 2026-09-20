@@ -47,7 +47,10 @@ interface Envelope {
 function unwrap<T>(payload: Envelope, select: RowSelector<T>): { rows: T[]; total: number; totalPages: number } {
   const rows: T[] = select(payload?.data) ?? [];
   const total: number = payload?.pagination?.total ?? rows.length;
-  const totalPages: number = payload?.pagination?.totalPages ?? 1;
+  // Prefer the server page count; if it is missing, derive from total so we
+  // still fan out (and report truncated) instead of quietly stopping at page 1.
+  const totalPages: number = payload?.pagination?.totalPages
+    ?? Math.max(1, Math.ceil(total / CENSUS_PAGE_SIZE));
   return { rows, total, totalPages };
 }
 
@@ -88,6 +91,6 @@ export async function fetchCensus<T>(
   return {
     items: rows.concat(...rest),
     total,
-    truncated: totalPages > CENSUS_MAX_PAGES,
+    truncated: totalPages > CENSUS_MAX_PAGES || total > CENSUS_PAGE_SIZE * CENSUS_MAX_PAGES,
   };
 }

@@ -10,7 +10,7 @@ function bannerMessage(s: AccessState): string | null {
     if (s.isReadOnly) return 'Your trial has ended — the workspace is read-only until you subscribe.';
     return `${s.daysRemaining} day${s.daysRemaining === 1 ? '' : 's'} left in your trial.`;
   }
-  if (s.status === 'PAST_DUE') return 'Your last payment failed — Razorpay will retry. Update your payment method to keep access.';
+  if (s.status === 'PAST_DUE') return 'Your last payment failed — Razorpay will retry. Open Billing to update your payment method and keep access.';
   if (s.status === 'CANCELLED' && !s.isReadOnly) {
     const until = s.currentPeriodEnd ? new Date(s.currentPeriodEnd).toLocaleDateString('en-IN') : 'the end of the period';
     return `Subscription cancelled — full access until ${until}.`;
