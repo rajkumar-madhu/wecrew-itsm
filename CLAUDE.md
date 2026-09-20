@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Standalone React SPA for **Argus ITSM** (formerly branded LinkedEye, UI title "WeCrew ITSM") — incidents,
+Standalone React SPA for **Argus ITSM** (formerly LinkedEye, UI title "WeCrew ITSM") — incidents,
 changes, problems, CMDB/assets, alerts, on-call, NOC, k8s/APM/log views, plus SMS/voice/PagerDuty
 integrations. The same bundle also serves the **public marketing site** for wecrew.in (see "Public
 marketing site" below). Frontend only; there is **no backend and no test runner here**. This is a git
@@ -184,7 +184,7 @@ renders **static demo data** from `src/data/gprc.ts` — there is no GPRC backen
   same-origin defaults. Keep `VITE_SOCKET_URL` empty in dev — pointing it at `localhost:5001` bypasses the
   Vite proxy.
 - **Voice widget (removed 2026-08-08, do not naively re-add).** `index.html` used to hard-code
-  `<script src="https://voice.santhira.com/integrations/finspot/embed.js">` with the tenant id and a
+  `<script src="https://voice.wecrew.in/integrations/finspot/embed.js">` with the tenant id and a
   `vsk_…` API key as inline `data-*` attributes. That origin returns **503** (backend removed from
   `173.249.2.23`), and the host before it (`voice.wecrew.in`) no longer resolves — so it was failing on
   every page load. The same embed + **the same key** also sat in `argus-itsm/frontend-react/index.html`

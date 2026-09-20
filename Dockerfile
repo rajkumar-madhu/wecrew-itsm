@@ -1,5 +1,5 @@
 # ═══════════════════════════════════════════════════════════
-# LinkedEye ITSM — Frontend Dockerfile
+# WeCrew ITSM — Frontend Dockerfile
 # ═══════════════════════════════════════════════════════════
 
 FROM node:20-alpine AS builder

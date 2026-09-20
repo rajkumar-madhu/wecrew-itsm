@@ -14,7 +14,7 @@
 
 - Backend repo is `/root/projects/argus-itsm/backend`; frontend repo is `/root/projects/argus-itsm-frontend`. **Tasks 1–7 and 10 are backend; tasks 8–9 are frontend.**
 - Backend is **CommonJS JavaScript** (`require`/`module.exports`). No TypeScript, no ESM.
-- Backend file header style: a `// ═══` banner comment naming the module. **Branding: "WeCrew ITSM" only.** Never write "LinkedEye" or "Santhira" into any new or edited file, header, log line, string or comment — even though existing files contain them. Copy the banner *shape* from neighbours, not their product name.
+- Backend file header style: a `// ═══` banner comment naming the module. **Branding: "WeCrew ITSM" only.** Never write "WeCrew" or "WeCrew" into any new or edited file, header, log line, string or comment — even though existing files contain them. Copy the banner *shape* from neighbours, not their product name.
 - All money is **paise** (integers). Starter = `3000000` paise = ₹30,000. Currency `INR` only.
 - Trial length is **20 days**. Trial seat cap **10**, Starter seat cap **10**.
 - **Billable seat** = a `User` with `status: 'ACTIVE'` and `role != 'VIEWER'`.
