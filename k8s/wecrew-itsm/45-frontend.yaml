@@ -25,7 +25,7 @@ spec:
         app: linkedeye-frontend
     spec:
       containers:
-      - image: harbor.wecrew.in/linkedeye/argus-itsm-frontend:20260920-review-fixes
+      - image: harbor.wecrew.in/linkedeye/argus-itsm-frontend:20260920-pr2-275f87a
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 3
