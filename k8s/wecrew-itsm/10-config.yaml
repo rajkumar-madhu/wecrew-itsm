@@ -1,0 +1,26 @@
+apiVersion: v1
+data:
+  CORS_ORIGINS: https://incident.wecrew.in,https://incident.api.wecrew.in,https://itsm.wecrew.in,https://itsm.api.wecrew.in,http://localhost
+  FLOWISE_URL: ''
+  FRONTEND_URL: https://incident.wecrew.in
+  GRAFANA_URL: http://vm-grafana.monitoring.svc.cluster.local
+  HF_TEI_URL: ''
+  LOKI_URL: ''
+  NODE_ENV: production
+  OLLAMA_URL: ''
+  PORT: '5000'
+  PROMETHEUS_URL: http://vmsingle-vm.monitoring.svc.cluster.local:8428
+  # Without this the backend falls back to redis://localhost:6379 (see
+  # backend src/config/env.js), which inside the API pod points at nothing —
+  # the Redis Deployment lives at the `redis` Service from 25-redis.yaml.
+  REDIS_URL: redis://redis:6379
+  SLACK_DEFAULT_CHANNEL: '#incidents'
+  SMTP_HOST: smtp.gmail.com
+  SMTP_PORT: '587'
+  VOICE_SERVER_URL: ''
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/part-of: linkedeye
+  name: linkedeye-config
+  namespace: wecrew-itsm

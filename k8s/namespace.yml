@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: itsm-wecrew
+  labels:
+    app.kubernetes.io/part-of: linkedeye
+    app.kubernetes.io/name: itsm-wecrew

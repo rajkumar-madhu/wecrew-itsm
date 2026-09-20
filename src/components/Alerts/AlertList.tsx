@@ -13,7 +13,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { useAlerts, useAcknowledgeAlert, useSilenceAlert, useCreateIncidentFromAlert, useAlertStats } from '../../hooks/useAlerts';
-import { Page, Toolbar } from '../ui/PageChrome';
+import { Page, Toolbar, EnterpriseHero, EnterprisePosture } from '../ui/PageChrome';
 
 // ── Types ──
 
@@ -108,7 +108,7 @@ function StatusBadge({ status }: { status: AlertStatus }) {
 
 interface AlertStatGroup { severity?: string; status?: string; _count?: number | Record<string, number> }
 interface AlertStatsResponse { total?: number; firing?: number; bySeverity?: AlertStatGroup[]; byStatus?: AlertStatGroup[] }
-interface AlertKpi { label: string; value: number; sub: string; tone?: string }
+interface AlertKpi { label: string; value: number; sub: string; tone?: 'danger' | 'warn' | '' }
 
 export default function AlertList() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -214,28 +214,57 @@ export default function AlertList() {
 
   return (
     <Page>
-      <div className="cx-hero">
-        <div className="flex items-start justify-between gap-6 flex-wrap">
-          <div className="min-w-0">
-            <span className="cx-eyebrow">Operate · monitoring</span>
-            <h1 className="cx-hero__title">Alerts</h1>
-            <p className="cx-hero__deck">
-              Real-time monitoring and triage. Firing alerts here are the signals that become incidents.
-            </p>
-          </div>
+      <EnterpriseHero
+        plane="observe"
+        domain="alerts"
+        title="Alerts"
+        deck="Org-scoped real-time monitoring and triage. Firing alerts here are the evidence that becomes incidents."
+        kpiCols={5}
+        kpis={heroKpis}
+      />
+      <EnterprisePosture chips={['Org-scoped signals', 'Evidence before page', 'Audit export ready']} />
+
+      <nav className="cx-crumb" aria-label="Breadcrumb">
+        <Link to="/dashboard">Operations</Link>
+        <span aria-hidden>/</span>
+        <span className="cx-crumb__current">Alerts</span>
+      </nav>
+
+      <Toolbar>
+        <div className="flex items-center gap-1.5 text-muted">
+          <Filter size={13} />
+          <span className="text-[10px] font-semibold uppercase tracking-widest">Filters</span>
         </div>
-        <dl className="cx-hero__kpis cx-hero__kpis--5 mt-6">
-          {heroKpis.map((kpi) => (
-            <div key={kpi.label} className={clsx('cx-hero__kpi', kpi.tone && `cx-hero__kpi--${kpi.tone}`)}>
-              <dt className="cx-hero__kpi-label">{kpi.label}</dt>
-              <dd>
-                <div className="cx-hero__kpi-value">{kpi.value}</div>
-                <div className="cx-hero__kpi-sub">{kpi.sub}</div>
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </div>
+        <select value={severityFilter} onChange={(e) => setSeverityFilter(e.target.value as Severity | 'ALL')} className="filter-select">
+          <option value="ALL">All severities</option>
+          <option value="CRITICAL">Critical</option>
+          <option value="WARNING">Warning</option>
+          <option value="INFO">Info</option>
+        </select>
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as AlertStatus | 'ALL')} className="filter-select">
+          <option value="ALL">All statuses</option>
+          <option value="FIRING">Firing</option>
+          <option value="RESOLVED">Resolved</option>
+          <option value="ACKNOWLEDGED">Acknowledged</option>
+          <option value="SILENCED">Silenced</option>
+        </select>
+        <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value as AlertSource | 'ALL')} className="filter-select">
+          <option value="ALL">All sources</option>
+          <option value="PROMETHEUS">Prometheus</option>
+          <option value="GRAFANA">Grafana</option>
+          <option value="CUSTOM">Custom</option>
+        </select>
+        <div className="relative flex-1 min-w-[200px] max-w-md">
+          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-dim" />
+          <input
+            type="text"
+            placeholder="Search alerts by name, description, or CI..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="input-field pl-8 py-1.5 text-[13px]"
+          />
+        </div>
+      </Toolbar>
 
       <nav className="cx-crumb" aria-label="Breadcrumb">
         <Link to="/dashboard">Operations</Link>

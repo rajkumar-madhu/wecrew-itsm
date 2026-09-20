@@ -5,8 +5,8 @@ import { BarChart, Bar, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGri
 import {
   AlertTriangle, Zap, CheckCircle2,
   Server, Database, Shield, Globe, HardDrive, Container, Cpu, Network,
-  ArrowRight, Users, Calendar, Activity, Phone,
-  RefreshCw, ChevronRight, GitMerge, Tag,
+  ArrowRight, Users, Calendar, Activity, Phone, ShieldCheck,
+  RefreshCw, ChevronRight, Tag, ClipboardCheck, Bell,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../lib/api';
@@ -16,8 +16,29 @@ import { useAlerts } from '../../hooks/useAlerts';
 import { useAssets } from '../../hooks/useAssets';
 import { useChanges } from '../../hooks/useChanges';
 import { useTeams } from '../../hooks/useTeams';
-import { useOnCallOverview } from '../../hooks/useOnCall';
+import { useOnCallOverview, type OnCallScheduleRow } from '../../hooks/useOnCall';
 import { useAuthStore } from '../../stores/authStore';
+import { EnterpriseHero, EnterprisePosture } from '../ui/PageChrome';
+
+/* ===================================================================
+   DASHBOARD PAYLOAD TYPES
+   Shapes returned by /dashboard/stats and /dashboard/sla-compliance.
+   =================================================================== */
+type GroupCount = number | Record<string, number>;
+interface CategoryGroup { category?: string | null; _count?: GroupCount }
+interface StateGroup { state?: string | null; _count?: GroupCount }
+interface BreakdownRow { label: string; count: number; pct: number }
+interface SlaBucket { percentage?: number; total?: number; breached?: number; met?: number }
+interface SlaPriorityRow { priority: string; value: number; total: number; breached: number }
+interface SlaLegacyRow { priority?: string; label?: string; value?: number; compliance?: number; total?: number; breached?: number }
+interface SlaResponse {
+  overall?: number;
+  byPriority?: SlaLegacyRow[];
+  P1?: SlaBucket; P2?: SlaBucket; P3?: SlaBucket; P4?: SlaBucket;
+}
+
+const BRAND_BLUE = '#2b4cff';
+const BRAND_BLUE_SOFT = '#8fa0ff';
 
 /* ===================================================================
    DASHBOARD PAYLOAD TYPES
@@ -406,7 +427,30 @@ export default function DashboardOverview() {
   const teams: any[] = teamsData?.data ?? [];
 
   /* ── On-Call ── */
-  const onCallTeams: any[] = onCallData?.data ?? [];
+  // /teams/on-call/overview returns { schedules, stats } — not an array. Reading
+  // `.data` as a list made `.length` undefined, which zeroed the KPI and made the
+  // roster strip below unreachable.
+  const onCallSchedules: OnCallScheduleRow[] = onCallData?.data?.schedules ?? [];
+  const onCallStats = onCallData?.data?.stats;
+
+  // One entry per team, primary responder first (the server already orders
+  // isPrimary desc, so the first hit per team is the primary when there is one).
+  const onCallTeams = useMemo(() => {
+    const byTeam = new Map<string, any>();
+    for (const sched of onCallSchedules) {
+      const teamId = sched.team?.id ?? sched.teamId;
+      if (!teamId || byTeam.has(teamId)) continue;
+      byTeam.set(teamId, {
+        id: teamId,
+        teamName: sched.team?.name,
+        user: sched.user,
+        isPrimary: sched.isPrimary,
+      });
+    }
+    return Array.from(byTeam.values());
+  }, [onCallSchedules]);
+
+  const teamsCovered = onCallStats?.teamsCovered ?? onCallTeams.length;
 
   /* ── Infra metrics ── */
   const { data: infraData } = useQuery({
@@ -435,22 +479,6 @@ export default function DashboardOverview() {
     return items;
   }, [infraData]);
 
-  /* ── Activity feed (derived from incidents + alerts) ── */
-  const activityFeed = useMemo(() => {
-    const items: { type: 'incident' | 'alert' | 'change'; title: string; sub: string; time: string; severity?: string }[] = [];
-    liveAlerts.slice(0, 4).forEach(a => {
-      items.push({ type: 'alert', title: a.name || a.alertName || 'Alert fired', sub: a.severity || 'INFO', time: timeSince(a.firedAt), severity: a.severity });
-    });
-    incidentRows.slice(0, 4).forEach(i => {
-      items.push({ type: 'incident', title: i.desc, sub: `${i.p} • ${i.statusLabel}`, time: i.age });
-    });
-    upcomingChanges.slice(0, 2).forEach((c: any) => {
-      items.push({ type: 'change', title: c.title || c.shortDescription || 'Scheduled change', sub: c.type || 'STANDARD', time: formatDate(c.plannedStartTime || c.scheduledAt) });
-    });
-    /* Stable order: alerts, then incidents, then changes — no random shuffle. */
-    return items.slice(0, 8);
-  }, [liveAlerts, incidentRows, upcomingChanges]);
-
   /* ── Clock ── */
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
@@ -478,88 +506,87 @@ export default function DashboardOverview() {
     { label: 'Changes', value: openChanges, sub: 'open', tone: '', to: '/changes' },
     { label: 'Assets', value: totalAssets, sub: 'cmdb', tone: '', to: '/assets' },
     { label: 'SLA', value: `${slaCompliance || 0}%`, sub: 'compliance', tone: '', to: '/sla' },
-    { label: 'On-call', value: onCallTeams.length, sub: 'teams', tone: '', to: '/oncall' },
+    { label: 'On-call', value: teamsCovered, sub: 'teams covered', tone: teamsCovered === 0 ? 'warn' : '', to: '/oncall' },
   ];
 
+  const openQueue = incidentRows.filter((inc) => inc.status !== 'resolved');
+  const firstP1 = openQueue.find((inc) => inc.p === 'P1');
+
   return (
-    <div className="cx-page">
+    <div className="cx-page cx-page--inspect">
 
-      {/* ═══════════════════════════════════════════════
-          1. COMMAND CENTRE HERO — outcome KPIs only
-          ═══════════════════════════════════════════════ */}
-      <div className="cx-hero">
-        <div className="flex items-start justify-between gap-6 flex-wrap">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="cx-eyebrow">Unified service operations</span>
-              <span className="font-mono text-[9.5px] uppercase tracking-[0.12em] px-1.5 py-0.5 rounded border border-white/20 text-white/70">
-                {heroEnv}
-              </span>
-            </div>
+      <EnterpriseHero
+        plane="operate"
+        domain="command centre"
+        title="Command Centre"
+        deck={
+          heroOrgName
+            ? `Enterprise multi-tenant operations for ${heroOrgName} — incidents, changes, alerts and CMDB with evidence before action.`
+            : 'Enterprise multi-tenant operations — incidents, changes, alerts and CMDB across the selected estate. Read the record; a named person approves the change.'
+        }
+        orgName={heroOrgName}
+        env={heroEnv}
+        meta={
+          <>
+            <LiveDot color={systemStatus.dot} />
+            <span className="text-[12px] font-medium text-white/90">{systemStatus.label}</span>
+            <span className="text-white/30">·</span>
+            <span className="font-mono text-[11px] text-white/60">
+              {now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
+            </span>
+            <span className="text-white/30">·</span>
+            <span className="font-mono text-[11px] text-white/50">
+              {now.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
+            </span>
+          </>
+        }
+        actions={
+          <>
+            <button type="button" onClick={() => navigate('/incidents/create')} className="cx-hero__btn">
+              <AlertTriangle size={13} /> New incident
+            </button>
+            <button type="button" onClick={() => navigate('/alerts')} className="cx-hero__btn cx-hero__btn--ghost">
+              <Zap size={13} />
+              Alerts
+              {firingAlerts > 0 && (
+                <span className="bg-coral text-white rounded-full px-1.5 text-[9px] font-bold leading-none py-0.5">{firingAlerts}</span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => refetchDash()}
+              className="cx-hero__btn cx-hero__btn--ghost !px-2"
+              aria-label="Refresh"
+            >
+              <RefreshCw size={14} />
+            </button>
+          </>
+        }
+        kpis={[
+          {
+            label: 'Health',
+            value: dashboardLoading ? '—' : slaCompliance || 0,
+            sub: 'sla index',
+          },
+          {
+            label: 'P1 open',
+            value: dashboardLoading ? '—' : p1Critical,
+            sub: 'critical',
+            tone: p1Critical > 0 ? 'danger' : '',
+          },
+          {
+            label: 'SLA risks',
+            value: dashboardLoading ? '—' : heroRiskValue,
+            sub: heroRiskSub,
+            tone: heroRiskDanger ? 'danger' : '',
+          },
+        ]}
+      />
 
-            <h1 className="cx-hero__title">
-              {heroOrgName || 'Service workspace'}
-            </h1>
-
-            <p className="cx-hero__deck">
-              Incidents, changes, problems, alerts and assets for the estate in one plane —
-              then dig into timeline and evidence when something breaks.
-            </p>
-
-            <div className="flex items-center gap-2 mt-3 flex-wrap">
-              <LiveDot color={systemStatus.dot} />
-              <span className="text-[12px] font-medium text-white/90">{systemStatus.label}</span>
-              <span className="text-white/30">·</span>
-              <span className="font-mono text-[11px] text-white/60">
-                {now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
-              </span>
-              <span className="text-white/30">·</span>
-              <span className="font-mono text-[11px] text-white/50">
-                {now.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2 mt-4 flex-wrap">
-              <button type="button" onClick={() => navigate('/incidents/create')} className="cx-hero__btn">
-                <AlertTriangle size={13} /> New incident
-              </button>
-              <button type="button" onClick={() => navigate('/alerts')} className="cx-hero__btn cx-hero__btn--ghost">
-                <Zap size={13} />
-                Alerts
-                {firingAlerts > 0 && (
-                  <span className="bg-coral text-white rounded-full px-1.5 text-[9px] font-bold leading-none py-0.5">{firingAlerts}</span>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => refetchDash()}
-                className="cx-hero__btn cx-hero__btn--ghost !px-2"
-                aria-label="Refresh"
-              >
-                <RefreshCw size={14} />
-              </button>
-            </div>
-          </div>
-
-          <div className="cx-hero__kpis">
-            <div className="cx-hero__kpi">
-              <div className="cx-hero__kpi-label">Health</div>
-              <div className="cx-hero__kpi-value">{dashboardLoading ? '—' : slaCompliance || 0}</div>
-              <div className="cx-hero__kpi-sub">sla index</div>
-            </div>
-            <div className={clsx('cx-hero__kpi', p1Critical > 0 && 'cx-hero__kpi--danger')}>
-              <div className="cx-hero__kpi-label">P1 open</div>
-              <div className="cx-hero__kpi-value">{dashboardLoading ? '—' : p1Critical}</div>
-              <div className="cx-hero__kpi-sub">critical</div>
-            </div>
-            <div className={clsx('cx-hero__kpi', heroRiskDanger && 'cx-hero__kpi--danger')}>
-              <div className="cx-hero__kpi-label">SLA risks</div>
-              <div className="cx-hero__kpi-value">{dashboardLoading ? '—' : heroRiskValue}</div>
-              <div className="cx-hero__kpi-sub">{heroRiskSub}</div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <EnterprisePosture
+        label="Enterprise · evidence-first operations"
+        chips={['Org-scoped estate', 'Named approver on every change', 'Correlation before page', 'Audit trail on every state change', 'No unattended production writes']}
+      />
 
       {/* 2. Signal strip — clickable work queues */}
       <div className="cx-signals">
@@ -582,7 +609,7 @@ export default function DashboardOverview() {
       {/* ═══════════════════════════════════════════════
           3. ACTIVE INCIDENTS + ACTIVITY (work first)
           ═══════════════════════════════════════════════ */}
-      <div className="grid grid-cols-1 lg:grid-cols-[3fr_1fr] gap-4">
+      <div>
         <Panel
           title="Active Incidents"
           noPad
@@ -674,36 +701,6 @@ export default function DashboardOverview() {
             </table>
           </div>
         </Panel>
-
-        <Panel title={<><Activity size={13} className="text-signal" /> Activity Feed</>}>
-          {activityFeed.length > 0 ? (
-            <div className="space-y-3">
-              {activityFeed.map((item, i) => (
-                <div key={i} className="flex items-start gap-2.5">
-                  <div className={clsx('w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5',
-                    item.type === 'alert' ? 'bg-crimson/10' : item.type === 'change' ? 'bg-emerald/10' : 'bg-[color:var(--argus-signal-dim)]'
-                  )}>
-                    {item.type === 'alert' ? <Zap size={11} className="text-crimson" /> :
-                     item.type === 'change' ? <GitMerge size={11} className="text-emerald" /> :
-                     <AlertTriangle size={11} className="text-signal" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[11px] font-medium text-ink leading-tight truncate">{item.title}</p>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className={clsx('text-[9px] font-bold uppercase px-1 py-0.5 rounded',
-                        item.type === 'alert' ? 'bg-crimson/10 text-crimson' :
-                        item.type === 'change' ? 'bg-emerald/10 text-emerald' : 'bg-[color:var(--argus-signal-dim)] text-signal'
-                      )}>{item.sub}</span>
-                      <span className="text-[10px] text-dim font-mono">{item.time}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyState message="No recent activity" icon={<Activity size={24} />} />
-          )}
-        </Panel>
       </div>
 
       {/* ═══════════════════════════════════════════════
@@ -721,10 +718,9 @@ export default function DashboardOverview() {
           </div>
           <div className="flex gap-3 px-[18px] py-3 overflow-x-auto">
             {onCallTeams.map((team: any, i: number) => {
-              const primary = team.currentOnCall?.primary;
-              const name = primary?.user?.firstName
-                ? `${primary.user.firstName} ${primary.user.lastName || ''}`.trim()
-                : (team.currentOnCall?.name || 'Unassigned');
+              const name = team.user?.firstName
+                ? `${team.user.firstName} ${team.user.lastName || ''}`.trim()
+                : 'Unassigned';
               return (
                 <button
                   key={team.id || i}
@@ -735,7 +731,10 @@ export default function DashboardOverview() {
                   <AvatarCircle name={name} idx={i} size="sm" />
                   <div>
                     <p className="text-[11px] font-semibold text-ink">{name}</p>
-                    <p className="text-[10px] text-dim">{team.name || `Team ${i + 1}`}</p>
+                    <p className="text-[10px] text-dim">
+                      {team.teamName || `Team ${i + 1}`}
+                      {team.isPrimary ? ' · primary' : ''}
+                    </p>
                   </div>
                   <span className="ml-1 relative flex h-2 w-2 flex-shrink-0">
                     <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-emerald opacity-60" />
@@ -1129,6 +1128,74 @@ export default function DashboardOverview() {
       <p className="text-center py-4 font-mono text-[10px] text-dim tracking-wide">
         WeCrew Command Centre · {now.toLocaleDateString('en-IN', { year: 'numeric' })}
       </p>
+
+      <aside className="cx-inspector hidden lg:flex" aria-label="Quick actions">
+        <div className="cx-inspector__head">
+          <span className="cx-inspector__head-label">Quick actions</span>
+        </div>
+        <div className="cx-inspector__body">
+          <div>
+            <p className="cx-inspector__eyebrow">Jump to work</p>
+            <div className="mt-2 flex flex-col gap-1.5">
+              <button
+                type="button"
+                className="cx-inspector__jump cx-inspector__jump--primary"
+                onClick={() => navigate(firstP1 ? `/incidents/${firstP1.rawId}` : '/incidents')}
+              >
+                <AlertTriangle size={13} />
+                {firstP1 ? `Open ${firstP1.id}` : 'Open incident queue'}
+              </button>
+              <button type="button" className="cx-inspector__jump" onClick={() => navigate('/alerts')}>
+                <Bell size={13} />
+                Alerts{firingAlerts > 0 ? ` (${firingAlerts})` : ''}
+              </button>
+              <button type="button" className="cx-inspector__jump" onClick={() => navigate('/changes')}>
+                <ClipboardCheck size={13} />
+                Change window
+              </button>
+              <button type="button" className="cx-inspector__jump" onClick={() => navigate('/oncall')}>
+                <Phone size={13} />
+                On-call now
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="cx-inspector__section">Open incidents</h3>
+            {openQueue.length > 0 ? (
+              <div className="mt-2 space-y-0.5">
+                {openQueue.slice(0, 6).map((inc) => (
+                  <button
+                    key={inc.id}
+                    type="button"
+                    className="cx-inspector__row"
+                    onClick={() => navigate(`/incidents/${inc.rawId}`)}
+                  >
+                    <span className="min-w-0">
+                      <span className="cx-inspector__row-name block">{inc.desc}</span>
+                      <span className="cx-inspector__row-meta">{inc.id} · {inc.statusLabel}</span>
+                    </span>
+                    <span
+                      className={clsx(
+                        'cx-inspector__status',
+                        inc.p === 'P1' ? 'cx-inspector__status--danger' : inc.p === 'P2' ? 'cx-inspector__status--warn' : ''
+                      )}
+                    >
+                      {inc.p}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="cx-inspector__muted">No open incidents on this estate.</p>
+            )}
+          </div>
+
+          <p className="cx-inspector__foot">
+            {heroOrgName ? `${heroOrgName} · ${heroEnv}` : heroEnv} · evidence before action
+          </p>
+        </div>
+      </aside>
     </div>
   );
 }

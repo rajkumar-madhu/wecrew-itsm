@@ -1,0 +1,138 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: linkedeye-api
+  name: linkedeye-api
+  namespace: wecrew-itsm
+spec:
+  progressDeadlineSeconds: 600
+  # PINNED TO 1 UNTIL SOCKET.IO IS MULTI-PROCESS.
+  #
+  # Socket.IO rooms are per-process. `emitToUser` reaches only the clients held
+  # by the pod that handled the write, so with 2+ replicas and no shared adapter
+  # roughly half of every realtime event (incident updates, subscription:updated)
+  # is silently dropped — and sticky sessions do NOT fix it, because the emit
+  # originates on the writing pod, not the client's pod.
+  #
+  # To go back to 2+: wire @socket.io/redis-adapter (already in the backend's
+  # package.json, and Redis is deployed at the `redis` Service in 25-redis.yaml)
+  # in the backend's socket setup, then raise this and the HPA's maxReplicas
+  # together.
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: linkedeye-api
+  strategy:
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/restartedAt: '2026-09-18T23:32:58Z'
+      labels:
+        app: linkedeye-api
+    spec:
+      containers:
+      - args:
+        - src/server.js
+        command:
+        - node
+        envFrom:
+        - secretRef:
+            name: linkedeye-secrets
+        - configMapRef:
+            name: linkedeye-config
+        image: harbor.wecrew.in/linkedeye/argus-itsm-api:20260919-wecrew-org
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /health
+            port: 5000
+            scheme: HTTP
+          initialDelaySeconds: 20
+          periodSeconds: 30
+          successThreshold: 1
+          timeoutSeconds: 1
+        name: api
+        ports:
+        - containerPort: 5000
+          name: http
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /health
+            port: 5000
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 50m
+            memory: 128Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      imagePullSecrets:
+      - name: harbor-linkedeye-pull
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: linkedeye-k8s-viewer
+      serviceAccountName: linkedeye-k8s-viewer
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: linkedeye-api
+  namespace: wecrew-itsm
+spec:
+  ports:
+  - name: http
+    port: 5000
+    protocol: TCP
+    targetPort: 5000
+  selector:
+    app: linkedeye-api
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  labels:
+    app.kubernetes.io/part-of: linkedeye
+  name: linkedeye-api-hpa
+  namespace: wecrew-itsm
+spec:
+  # Held at 1 for the same reason as the Deployment's replicas above: scaling out
+  # silently drops realtime events until the Socket.IO Redis adapter is wired.
+  maxReplicas: 1
+  metrics:
+  - resource:
+      name: cpu
+      target:
+        averageUtilization: 70
+        type: Utilization
+    type: Resource
+  - resource:
+      name: memory
+      target:
+        averageUtilization: 80
+        type: Utilization
+    type: Resource
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: linkedeye-api

@@ -18,7 +18,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { onEvent } from '../../lib/socket';
 import api from '../../lib/api';
 import { Link } from 'react-router-dom';
-import { Page, Segmented } from '../ui/PageChrome';
+import { Page, Segmented, EnterpriseHero, EnterprisePosture } from '../ui/PageChrome';
 import {
   usePipelineStatus,
   usePipelineActions,
@@ -1027,47 +1027,45 @@ function HeroBanner({ pipelineEnabled, canManage, onToggle, toggling, uptime, lo
   failed?: number;
 }) {
   return (
-    <div className="cx-hero">
-      <div className="flex items-start justify-between gap-6 flex-wrap">
-        <div className="min-w-0">
-          <span className="cx-eyebrow">Intelligence · automation</span>
-          <h1 className="cx-hero__title">Automation</h1>
-          <p className="cx-hero__deck">
-            Detect → Triage → Enrich → Act → Notify → Verify
-            {isGlobalView ? ' · all organisations' : orgName ? ` · ${orgName}${orgEnv ? ` (${orgEnv})` : ''}` : ''}.
-          </p>
-        </div>
-        {loading ? (
-          <div className="w-24 h-8 rounded animate-pulse bg-obsidian" />
-        ) : (
-          <button
-            type="button"
-            onClick={onToggle}
-            disabled={!canManage || toggling}
-            className={clsx('cx-hero__btn', !pipelineEnabled && 'cx-hero__btn--ghost')}
-          >
-            {toggling ? <Loader2 size={14} className="animate-spin" /> : <Power size={14} />}
-            {pipelineEnabled ? 'Enabled' : 'Disabled'}
-          </button>
-        )}
-      </div>
-      <dl className="cx-hero__kpis cx-hero__kpis--5 mt-6">
-        {[
+    <>
+      <EnterpriseHero
+        plane="intelligence"
+        domain="automation"
+        title="Automation"
+        deck={
+          isGlobalView
+            ? 'Detect → Triage → Enrich → Act → Notify → Verify · all organisations, evidence-first.'
+            : orgName
+              ? `Detect → Triage → Enrich → Act → Notify → Verify · org-scoped for ${orgName}${orgEnv ? ` (${orgEnv})` : ''}.`
+              : 'Detect → Triage → Enrich → Act → Notify → Verify · org-scoped pipeline.'
+        }
+        orgName={isGlobalView ? null : orgName}
+        env={isGlobalView ? null : orgEnv}
+        actions={
+          loading ? (
+            <div className="w-24 h-8 rounded animate-pulse bg-obsidian" />
+          ) : (
+            <button
+              type="button"
+              onClick={onToggle}
+              disabled={!canManage || toggling}
+              className={clsx('cx-hero__btn', !pipelineEnabled && 'cx-hero__btn--ghost')}
+            >
+              {toggling ? <Loader2 size={14} className="animate-spin" /> : <Power size={14} />}
+              {pipelineEnabled ? 'Enabled' : 'Disabled'}
+            </button>
+          )
+        }
+        kpiCols={5}
+        kpis={[
           { label: 'Pipeline', value: pipelineEnabled ? 'On' : 'Off', sub: formatUptime(uptime), tone: pipelineEnabled ? undefined : 'warn' },
           { label: 'Executions', value: loading ? '—' : (executions ?? '—'), sub: 'all time' },
           { label: 'Success', value: loading ? '—' : (successRate != null ? `${successRate}%` : '—'), sub: 'remediation rate' },
           { label: 'Failed', value: loading ? '—' : (failed ?? '—'), sub: 'need review', tone: (failed ?? 0) > 0 ? 'danger' : undefined },
           { label: 'Access', value: canManage ? 'Manage' : 'View', sub: canManage ? 'admin / manager' : 'toggle locked' },
-        ].map((kpi) => (
-          <div key={kpi.label} className={clsx('cx-hero__kpi', kpi.tone && `cx-hero__kpi--${kpi.tone}`)}>
-            <dt className="cx-hero__kpi-label">{kpi.label}</dt>
-            <dd>
-              <div className="cx-hero__kpi-value">{kpi.value}</div>
-              <div className="cx-hero__kpi-sub">{kpi.sub}</div>
-            </dd>
-          </div>
-        ))}
-      </dl>
-    </div>
+        ]}
+      />
+      <EnterprisePosture chips={['Org-scoped actions', 'Named approver on change', 'Audit export ready']} />
+    </>
   );
 }

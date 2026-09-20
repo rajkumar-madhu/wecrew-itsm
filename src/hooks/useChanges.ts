@@ -1,12 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
-import { fetchAllPages } from '../lib/pagination';
+import { fetchCensus } from '../lib/census';
+import type { Change } from '../types';
 
 const keys = {
   all: ['changes'] as const,
   list: (f: any) => [...keys.all, 'list', f] as const,
   schedule: ['changes', 'schedule'] as const,
   detail: (id: string) => [...keys.all, 'detail', id] as const,
+  census: (f: Record<string, unknown>) => [...keys.all, 'census', f] as const,
 };
 
 export function useChanges(filters: Record<string, any> = {}) {
@@ -64,5 +66,21 @@ export function useUpdateChange() {
   return useMutation({
     mutationFn: async ({ id, data: d }: { id: string; data: any }) => { const { data } = await api.patch(`/changes/${id}`, d); return data; },
     onSuccess: (_, v) => { qc.invalidateQueries({ queryKey: keys.detail(v.id) }); qc.invalidateQueries({ queryKey: keys.all }); },
+  });
+}
+
+/**
+ * Every change matching `filters`, for the forward window and the calendar —
+ * both draw one mark per change across a date range, so neither can work from a
+ * single page. Bounded; see `lib/census.ts`.
+ *
+ * Note `sortOrder`, not `sortDir`: the controller reads `sortOrder` and
+ * `validatePagination` only accepts that name.
+ */
+export function useChangeCensus<T = Change>(filters: Record<string, unknown> = {}) {
+  return useQuery({
+    queryKey: keys.census(filters),
+    queryFn: () => fetchCensus<T>('/changes', filters),
+    staleTime: 30000,
   });
 }

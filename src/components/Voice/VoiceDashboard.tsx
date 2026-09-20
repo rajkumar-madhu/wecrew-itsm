@@ -20,7 +20,6 @@ import {
   Square,
   Volume2,
   Languages,
-  Heart,
   User,
   ExternalLink,
   Send,
@@ -38,7 +37,7 @@ import {
 } from '../../hooks/useVoice';
 import { useSocket } from '../../lib/socket';
 import type { VoiceCallLog, VoiceHandler } from '../../types';
-import { Page, Toolbar, Panel, Segmented, GhostButton, PrimaryButton } from '../ui/PageChrome';
+import { Page, Toolbar, Panel, Segmented, GhostButton, PrimaryButton, EnterpriseHero, EnterprisePosture } from '../ui/PageChrome';
 
 // ── AI Voice Agent Chat ──
 
@@ -552,35 +551,23 @@ export default function VoiceDashboard() {
 
   return (
     <Page>
-      <div className="cx-hero">
-        <div className="flex items-start justify-between gap-6 flex-wrap">
-          <div className="min-w-0">
-            <span className="cx-eyebrow">Respond · communications</span>
-            <h1 className="cx-hero__title">Voice</h1>
-            <p className="cx-hero__deck">
-              Santhira on the line — STT, TTS and Twilio IVR. A missed call here is a pager that never rang.
-            </p>
-          </div>
-          <div className="cx-posture">
-            <Heart size={14} strokeWidth={1.75} />
-            <span className="text-xs font-mono">Voice server</span>
-            <span className={clsx('cx-posture__chip', voiceHealth?.healthy ? 'text-emerald' : 'text-crimson')}>
+      <EnterpriseHero
+        plane="respond"
+        domain="communications"
+        title="Voice"
+        deck="Org-scoped STT, TTS and Twilio IVR — evidence on every call. A missed call here is a pager that never rang."
+        meta={
+          <>
+            <span className="text-xs font-mono text-white/70">Voice server</span>
+            <span className={clsx('cx-pill', voiceHealth?.healthy ? 'cx-pill--ok' : 'cx-pill--alert')}>
               {voiceHealth?.healthy ? 'online' : 'offline'}
             </span>
-          </div>
-        </div>
-        <dl className="cx-hero__kpis cx-hero__kpis--5 mt-6">
-          {kpis.map((kpi) => (
-            <div key={kpi.label} className="cx-hero__kpi">
-              <dt className="cx-hero__kpi-label">{kpi.label}</dt>
-              <dd>
-                <div className="cx-hero__kpi-value">{kpi.value}</div>
-                <div className="cx-hero__kpi-sub">{kpi.sub}</div>
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </div>
+          </>
+        }
+        kpiCols={5}
+        kpis={kpis}
+      />
+      <EnterprisePosture chips={['Org-scoped call logs', 'Evidence on every session', 'Audit export ready']} />
 
       <nav className="cx-crumb" aria-label="Breadcrumb">
         <Link to="/dashboard">Operations</Link>

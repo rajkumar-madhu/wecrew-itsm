@@ -40,6 +40,15 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    // 402 = subscription lapsed or seat limit hit. Surface it and stop — it must
+    // NOT fall into the 401 refresh path below. A window event rather than a
+    // queryClient import, because every hook imports this module (cycle).
+    if (error.response?.status === 402) {
+      window.dispatchEvent(new CustomEvent('billing:blocked', {
+        detail: { code: error.response?.data?.code, message: error.response?.data?.error },
+      }));
+      return Promise.reject(error);
+    }
     if (error.response?.status !== 401 || originalRequest._retry) return Promise.reject(error);
 
     if (isRefreshing) {

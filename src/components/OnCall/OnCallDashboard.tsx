@@ -18,9 +18,11 @@ import {
   useOnCallSchedules,
   useEscalationPolicies,
   useOnCallHistory,
-  useOnCallRota,
+  useOnCallRoster,
+  type OnCallScheduleRow,
 } from '../../hooks/useOnCall';
-import { Page, Panel, Toolbar } from '../ui/PageChrome';
+import { Page, Panel, Toolbar, EnterpriseHero, EnterprisePosture } from '../ui/PageChrome';
+import type { EnterpriseKpi } from '../ui/PageChrome';
 
 /* ====================================================================
    HELPERS
@@ -214,12 +216,8 @@ export default function OnCallDashboard() {
   const { data: schedulesData } = useOnCallSchedules(activeTeamId);
   const { data: escalationData } = useEscalationPolicies(activeTeamId);
   const { data: historyData } = useOnCallHistory(activeTeamId);
-  // The ribbon paints a whole week, so it needs the team's rota — not the
-  // overview, which only ever returns the shifts running at this instant.
-  const { data: rotaData, isError: rotaFailed } = useOnCallRota<{
-    startTime: string;
-    endTime: string;
-  }>(activeTeamId);
+  // The ribbon needs the whole rota, not just who is on duty this second.
+  const { data: rosterCensus, isLoading: rosterLoading } = useOnCallRoster(activeTeamId);
 
   const overview = overviewData?.data;
   const schedules: any[] = schedulesData?.data || [];
@@ -227,7 +225,11 @@ export default function OnCallDashboard() {
   const recentIncidents: any[] = historyData?.data?.recentIncidents || [];
 
   const stats = overview?.stats || { activeResponders: 0, teamsCovered: 0, openCritical: 0, totalSchedules: 0 };
-  const rota = useMemo(() => rotaData?.items ?? [], [rotaData]);
+
+  // `overview.schedules` is now-only (startTime <= now <= endTime), so it cannot
+  // describe a week. The ribbon reads the selected team's full rota instead.
+  const teamRoster: OnCallScheduleRow[] = useMemo(() => rosterCensus?.items ?? [], [rosterCensus]);
+  const activeTeamName = teams.find((t: any) => t.id === activeTeamId)?.name;
 
   const primarySchedules = schedules.filter((s: any) => s.isPrimary);
   const secondarySchedules = schedules.filter((s: any) => !s.isPrimary);
@@ -257,7 +259,7 @@ export default function OnCallDashboard() {
 
   const coverageMatrix = useMemo(() => {
     const matrix: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
-    for (const sched of rota) {
+    for (const sched of teamRoster) {
       const start = new Date(sched.startTime);
       const end = new Date(sched.endTime);
       for (let d = 0; d < 7; d++) {
@@ -269,27 +271,24 @@ export default function OnCallDashboard() {
       }
     }
     return matrix;
-  }, [rota, weekDates]);
+  }, [teamRoster, weekDates]);
 
   const uncoveredHours = useMemo(() => coverageMatrix.flat().filter((n) => n === 0).length, [coverageMatrix]);
 
-  // With no team selected there is no rota to read, so 168/168 uncovered would
-  // be an artefact of the empty selection rather than a gap in the schedule.
-  const rotaUnavailable = rotaFailed || !activeTeamId;
+  const isLoadingAny = teamsLoading || overviewLoading || rosterLoading;
 
-  const isLoadingAny = teamsLoading || overviewLoading;
-
-  const kpis = [
+  const kpis: EnterpriseKpi[] = [
     { label: 'On duty', value: stats.activeResponders, sub: 'holding a pager now' },
     { label: 'Teams covered', value: stats.teamsCovered, sub: `of ${teams.length || '—'} teams` },
     {
-      // Scoped to the selected team, like the rota panels below it. The ribbon
-      // is drawn from that team's shifts, so a figure claiming to cover the
-      // whole organisation would not match the grid underneath it.
+      // Scoped to the selected team and the displayed week — the ribbon below
+      // shows exactly these hours, so the number and the picture always agree.
       label: 'Uncovered hours',
-      value: rotaUnavailable ? '—' : uncoveredHours,
-      sub: rotaUnavailable ? 'rota unavailable' : 'this week, selected team',
-      tone: !rotaUnavailable && uncoveredHours > 0 ? 'danger' : undefined,
+      value: rosterLoading ? '—' : uncoveredHours,
+      sub: activeTeamName
+        ? `${activeTeamName}, ${weekOffset === 0 ? 'this week' : 'week shown'}`
+        : 'select a team',
+      tone: !rosterLoading && uncoveredHours > 0 ? 'danger' : undefined,
     },
     {
       label: 'Open P1/P2',
@@ -302,18 +301,13 @@ export default function OnCallDashboard() {
 
   return (
     <Page>
-      {/* ── Hero ── */}
-      <div className="cx-hero">
-        <div className="flex items-start justify-between gap-6 flex-wrap">
-          <div className="min-w-0">
-            <span className="cx-eyebrow">Respond · on-call</span>
-            <h1 className="cx-hero__title">On-call</h1>
-            <p className="cx-hero__deck">
-              Who holds the pager, when the rota hands over, and which hours of the week belong to
-              nobody. An uncovered hour is the one failure this page exists to catch.
-            </p>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
+      <EnterpriseHero
+        plane="respond"
+        domain="on-call"
+        title="On-call"
+        deck="Org-scoped rota coverage — who holds the pager, when handover happens, and which hours belong to nobody. An uncovered hour is the failure this page catches."
+        actions={
+          <>
             <button
               type="button"
               onClick={() => navigate('/oncall-calendar')}
@@ -324,21 +318,15 @@ export default function OnCallDashboard() {
             <button type="button" onClick={() => navigate('/escalation')} className="cx-hero__btn">
               Escalation policies
             </button>
-          </div>
-        </div>
-
-        <dl className="cx-hero__kpis cx-hero__kpis--5 mt-6">
-          {kpis.map((kpi) => (
-            <div key={kpi.label} className={clsx('cx-hero__kpi', kpi.tone && `cx-hero__kpi--${kpi.tone}`)}>
-              <dt className="cx-hero__kpi-label">{kpi.label}</dt>
-              <dd>
-                <div className="cx-hero__kpi-value">{isLoadingAny ? '—' : kpi.value}</div>
-                <div className="cx-hero__kpi-sub">{kpi.sub}</div>
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </div>
+          </>
+        }
+        kpiCols={5}
+        kpis={kpis.map((kpi) => ({
+          ...kpi,
+          value: isLoadingAny ? '—' : kpi.value,
+        }))}
+      />
+      <EnterprisePosture chips={['Org-scoped schedules', 'Named responder on page', 'Coverage gaps visible']} />
 
       <nav className="cx-crumb" aria-label="Breadcrumb">
         <Link to="/dashboard">Operations</Link>
@@ -351,7 +339,7 @@ export default function OnCallDashboard() {
         <div>
           <h2 className="cx-sectionhead__title">Coverage</h2>
           <p className="cx-sectionhead__deck">
-            Every hour of the week for the selected team. Coral means nobody is on call for that hour.
+            Every hour of the week across all teams. Coral means nobody is on call for that hour.
           </p>
         </div>
       </div>

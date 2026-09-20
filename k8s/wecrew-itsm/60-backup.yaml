@@ -1,0 +1,123 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  finalizers:
+  - kubernetes.io/pvc-protection
+  labels:
+    app.kubernetes.io/component: storage
+    app.kubernetes.io/name: linkedeye-db-backups
+    app.kubernetes.io/part-of: linkedeye
+  name: linkedeye-db-backups
+  namespace: wecrew-itsm
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: local-path
+---
+# ═══════════════════════════════════════════════════════════
+# Nightly dump (02:00 IST) → local PVC → off-site bucket.
+#
+# The off-site copy is what makes this a backup: the PVC lives on the same
+# node as Postgres. Until secret `db-backup-offsite` exists the job still
+# dumps locally and says loudly that there is no off-site copy.
+# ═══════════════════════════════════════════════════════════
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  labels:
+    app.kubernetes.io/component: cronjob
+    app.kubernetes.io/name: linkedeye-db-backup
+    app.kubernetes.io/part-of: linkedeye
+  name: linkedeye-db-backup
+  namespace: wecrew-itsm
+spec:
+  concurrencyPolicy: Forbid
+  failedJobsHistoryLimit: 3
+  successfulJobsHistoryLimit: 5
+  schedule: 30 20 * * *
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 1800
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/component: cronjob
+            app.kubernetes.io/name: linkedeye-db-backup
+        spec:
+          restartPolicy: Never
+          containers:
+          - name: db-backup
+            image: harbor.wecrew.in/linkedeye/argus-itsm-dbbackup:20260919b
+            imagePullPolicy: IfNotPresent
+            command: ["/usr/local/bin/backup.sh"]
+            env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef: { key: DATABASE_URL, name: linkedeye-secrets }
+            envFrom:
+            - secretRef: { name: db-backup-offsite, optional: true }
+            resources:
+              requests: { cpu: 100m, memory: 128Mi }
+              limits:   { cpu: 500m, memory: 512Mi }
+            volumeMounts:
+            - { mountPath: /backups, name: backup-storage }
+          imagePullSecrets:
+          - name: harbor-linkedeye-pull
+          volumes:
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: linkedeye-db-backups
+---
+# ═══════════════════════════════════════════════════════════
+# Weekly restore test (Sunday 03:30 IST). An unverified backup is not a
+# backup: this restores the newest off-site object into a scratch database,
+# checks core tables, then drops it. It fails loudly if the dump is unusable.
+# ═══════════════════════════════════════════════════════════
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  labels:
+    app.kubernetes.io/component: cronjob
+    app.kubernetes.io/name: linkedeye-db-restore-test
+    app.kubernetes.io/part-of: linkedeye
+  name: linkedeye-db-restore-test
+  namespace: wecrew-itsm
+spec:
+  concurrencyPolicy: Forbid
+  failedJobsHistoryLimit: 3
+  successfulJobsHistoryLimit: 3
+  schedule: 0 22 * * 6
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 3600
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            # NetworkPolicy allow-api-and-backup-to-postgres admits only
+            # app=linkedeye-api and app.kubernetes.io/name=linkedeye-db-backup,
+            # so the restore test wears the backup name to reach the database.
+            app.kubernetes.io/component: restore-test
+            app.kubernetes.io/name: linkedeye-db-backup
+        spec:
+          restartPolicy: Never
+          containers:
+          - name: restore-test
+            image: harbor.wecrew.in/linkedeye/argus-itsm-dbbackup:20260919b
+            imagePullPolicy: IfNotPresent
+            command: ["/usr/local/bin/verify-restore.sh"]
+            env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef: { key: DATABASE_URL, name: linkedeye-secrets }
+            envFrom:
+            - secretRef: { name: db-backup-offsite, optional: true }
+            resources:
+              requests: { cpu: 100m, memory: 256Mi }
+              limits:   { cpu: 1, memory: 1Gi }
+          imagePullSecrets:
+          - name: harbor-linkedeye-pull

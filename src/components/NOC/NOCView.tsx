@@ -8,8 +8,7 @@ import {
   Server, Eye,
 } from 'lucide-react';
 import api from '../../lib/api';
-import { fetchAllPages } from '../../lib/pagination';
-import { Page } from '../ui/PageChrome';
+import { Page, EnterpriseHero, EnterprisePosture } from '../ui/PageChrome';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface Alert {
@@ -51,7 +50,7 @@ function clockDate() {
 // it is read across a lit room, not at a desk. So it takes the app's own dark
 // tokens as literals rather than a private navy scheme: same ink, same coral
 // alarm, same Fraunces numerals as every other page, just sized for distance.
-const INK          = '#0e1116';   // brand ink — board background
+const INK          = '#15131f';   // brand ink (--brand-ink) — board background
 const PANEL        = '#141820';   // panel background
 const CARD         = '#1a1f28';   // card surface
 const HOVER        = '#222835';
@@ -194,7 +193,20 @@ export default function NOCView() {
   });
   const { data: incidentResp } = useQuery({
     queryKey: ['noc-incidents', tick],
-    queryFn: () => api.get('/incidents?state=OPEN&limit=100').then(r => r.data),
+    queryFn: async () => {
+      // Backend has no virtual OPEN state — expand to real open IncidentState values.
+      const openStates = ['NEW', 'IN_PROGRESS', 'ON_HOLD', 'ESCALATED'] as const;
+      const pages = await Promise.all(
+        openStates.map((state) =>
+          api.get(`/incidents?state=${state}&limit=100`).then((r) => r.data?.data || []),
+        ),
+      );
+      const byId = new Map<string, unknown>();
+      for (const row of pages.flat()) {
+        if (row?.id) byId.set(row.id, row);
+      }
+      return { data: Array.from(byId.values()) };
+    },
     staleTime: 30000,
   });
 
@@ -267,58 +279,49 @@ export default function NOCView() {
 
       {!fullscreen && (
         <>
-          <div className="cx-hero">
-            <div className="flex items-start justify-between gap-6 flex-wrap">
-              <div className="min-w-0">
-                <span className="cx-eyebrow">Operate · wallboard</span>
-                <h1 className="cx-hero__title">NOC</h1>
-                <p className="cx-hero__deck">
-                  Live firing alerts, on-call coverage, and service assurance across organisations.
-                </p>
-              </div>
-              <div className="flex items-center gap-3 shrink-0">
+          <EnterpriseHero
+            plane="observe"
+            domain="NOC"
+            title="NOC"
+            deck="Org-scoped wallboard — live firing alerts, on-call coverage, and service assurance across organisations."
+            meta={
+              <>
                 <span className={clsx('cx-pill', systemOK ? 'cx-pill--ok' : 'cx-pill--alert')}>
                   {systemOK ? 'All clear' : `${alerts.length} firing`}
                 </span>
                 <span className="text-right">
-                  <span className="block tabular-nums font-mono text-[15px] tracking-wide">
+                  <span className="block tabular-nums font-mono text-[15px] tracking-wide text-white/90">
                     {clockTime()}
                   </span>
-                  <span className="block font-mono text-[9.5px] uppercase tracking-widest opacity-55">
+                  <span className="block font-mono text-[9.5px] uppercase tracking-widest text-white/55">
                     {clockDate()}
                   </span>
                 </span>
                 {isLoading
                   ? <RefreshCw className="w-4 h-4 animate-spin opacity-55" strokeWidth={1.75} />
                   : <Wifi className="w-4 h-4" style={{ color: GREEN }} strokeWidth={1.75} />}
-                <button
-                  type="button"
-                  onClick={toggleFullscreen}
-                  aria-label="Fill the screen"
-                  className="cx-hero__btn cx-hero__btn--ghost !px-2"
-                >
-                  <Maximize2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-            <dl className="cx-hero__kpis cx-hero__kpis--5 mt-6">
-              {[
-                { label: 'Critical', value: critical.length, sub: 'firing now', tone: critical.length > 0 ? 'danger' : undefined },
-                { label: 'Warning', value: warning.length, sub: 'firing now', tone: warning.length > 0 ? 'warn' : undefined },
-                { label: 'Info', value: info.length, sub: 'firing now' },
-                { label: 'Open incidents', value: incidents.length, sub: p1Incidents > 0 ? `${p1Incidents} P1` : 'none P1', tone: p1Incidents > 0 ? 'danger' : undefined },
-                { label: 'Assurance', value: sas, sub: sas >= 75 ? 'nominal' : sas >= 45 ? 'elevated' : 'critical', tone: sas < 45 ? 'danger' : sas < 75 ? 'warn' : undefined },
-              ].map((kpi) => (
-                <div key={kpi.label} className={clsx('cx-hero__kpi', kpi.tone && `cx-hero__kpi--${kpi.tone}`)}>
-                  <dt className="cx-hero__kpi-label">{kpi.label}</dt>
-                  <dd>
-                    <div className="cx-hero__kpi-value">{kpi.value}</div>
-                    <div className="cx-hero__kpi-sub">{kpi.sub}</div>
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          </div>
+              </>
+            }
+            actions={
+              <button
+                type="button"
+                onClick={toggleFullscreen}
+                aria-label="Fill the screen"
+                className="cx-hero__btn cx-hero__btn--ghost !px-2"
+              >
+                <Maximize2 className="w-4 h-4" />
+              </button>
+            }
+            kpiCols={5}
+            kpis={[
+              { label: 'Critical', value: critical.length, sub: 'firing now', tone: critical.length > 0 ? 'danger' : undefined },
+              { label: 'Warning', value: warning.length, sub: 'firing now', tone: warning.length > 0 ? 'warn' : undefined },
+              { label: 'Info', value: info.length, sub: 'firing now' },
+              { label: 'Open incidents', value: incidents.length, sub: p1Incidents > 0 ? `${p1Incidents} P1` : 'none P1', tone: p1Incidents > 0 ? 'danger' : undefined },
+              { label: 'Assurance', value: sas, sub: sas >= 75 ? 'nominal' : sas >= 45 ? 'elevated' : 'critical', tone: sas < 45 ? 'danger' : sas < 75 ? 'warn' : undefined },
+            ]}
+          />
+          <EnterprisePosture chips={['Multi-org wallboard', 'Evidence-first posture', 'Named on-call visible']} />
 
           <nav className="cx-crumb" aria-label="Breadcrumb">
             <Link to="/dashboard">Operations</Link>

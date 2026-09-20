@@ -3,6 +3,8 @@ import { Suspense, lazy, useEffect, type ReactNode } from 'react';
 import Layout from './components/Layout/Layout';
 import LoginPage from './components/Auth/LoginPage';
 const SignupPage = lazy(() => import('./components/Auth/SignupPage'));
+const ForgotPasswordPage = lazy(() => import('./components/Auth/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('./components/Auth/ResetPasswordPage'));
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 import { useAuthStore } from './stores/authStore';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -13,6 +15,7 @@ const HomePage = lazy(() => import('./components/Public/HomePage'));
 const ItsmPage = lazy(() => import('./components/Public/ItsmPage'));
 const ModulesPage = lazy(() => import('./components/Public/ModulesPage'));
 const SecurityPage = lazy(() => import('./components/Public/SecurityPage'));
+const PricingPage = lazy(() => import('./components/Public/PricingPage'));
 const PilotPage = lazy(() => import('./components/Public/PilotPage'));
 const ContactPage = lazy(() => import('./components/Public/ContactPage'));
 
@@ -29,6 +32,7 @@ const ProblemDetail = lazy(() => import('./components/Problems/ProblemDetail'));
 const AlertList = lazy(() => import('./components/Alerts/AlertList'));
 const AssetList = lazy(() => import('./components/Assets/AssetList'));
 const AssetCreate = lazy(() => import('./components/Assets/AssetCreate'));
+const AssetDashboard = lazy(() => import('./components/Assets/AssetDashboard'));
 const AssetDetail = lazy(() => import('./components/Assets/AssetDetail'));
 const IntegrationHub = lazy(() => import('./components/Integrations/IntegrationHub'));
 const TeamList = lazy(() => import('./components/Teams/TeamList'));
@@ -58,7 +62,18 @@ const KnowledgeBasePage = lazy(() => import('./components/KnowledgeBase/Knowledg
 const SLAPolicyPage = lazy(() => import('./components/SLA/SLAPolicyPage'));
 const AuditLogPage = lazy(() => import('./components/Audit/AuditLogPage'));
 const ProfilePage = lazy(() => import('./components/Profile/ProfilePage'));
+const BillingPage = lazy(() => import('./components/Billing/BillingPage'));
 const TeamChat = lazy(() => import('./components/Chat/TeamChat'));
+// GPRC module (static demo data, see src/data/gprc.ts)
+const GprcCommandCenter = lazy(() => import('./components/Gprc/GprcCommandCenter'));
+const RiskRegister = lazy(() => import('./components/Gprc/GprcModules').then((m) => ({ default: m.RiskRegister })));
+const ComplianceCenter = lazy(() => import('./components/Gprc/GprcModules').then((m) => ({ default: m.ComplianceCenter })));
+const InternalAudit = lazy(() => import('./components/Gprc/GprcModules').then((m) => ({ default: m.InternalAudit })));
+const PerformanceManagement = lazy(() => import('./components/Gprc/GprcModules').then((m) => ({ default: m.PerformanceManagement })));
+const ControlsCapa = lazy(() => import('./components/Gprc/GprcModules').then((m) => ({ default: m.ControlsCapa })));
+const EsgHub = lazy(() => import('./components/Gprc/GprcModules').then((m) => ({ default: m.EsgHub })));
+const OperationalResilience = lazy(() => import('./components/Gprc/GprcModules').then((m) => ({ default: m.OperationalResilience })));
+const DigitalTwin = lazy(() => import('./components/Gprc/GprcModules').then((m) => ({ default: m.DigitalTwin })));
 
 function LoadingFallback() {
   return (
@@ -132,14 +147,17 @@ export default function App() {
         <Route path="/itsm" element={<PublicChunk><ItsmPage /></PublicChunk>} />
         <Route path="/modules" element={<PublicChunk><ModulesPage /></PublicChunk>} />
         <Route path="/security" element={<PublicChunk><SecurityPage /></PublicChunk>} />
+        <Route path="/pricing" element={<PublicChunk><PricingPage /></PublicChunk>} />
         <Route path="/pilot" element={<PublicChunk><PilotPage /></PublicChunk>} />
         <Route path="/contact" element={<PublicChunk><ContactPage /></PublicChunk>} />
       </Route>
 
       {/* Other public routes */}
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/forgot-password" element={<Suspense fallback={null}><ForgotPasswordPage /></Suspense>} />
+      <Route path="/reset-password" element={<Suspense fallback={null}><ResetPasswordPage /></Suspense>} />
       <Route path="/signup" element={<Suspense fallback={<div style={{ background: '#fff', minHeight: '100vh' }} />}><SignupPage /></Suspense>} />
-      <Route path="/docs" element={<Suspense fallback={<div style={{ background: '#0F172A', minHeight: '100vh' }} />}><DeveloperDocs /></Suspense>} />
+      <Route path="/docs" element={<Suspense fallback={<div className="min-h-screen bg-void" />}><DeveloperDocs /></Suspense>} />
       <Route path="/status/:orgSlug" element={<Suspense fallback={<div style={{ background: '#030711', minHeight: '100vh' }} />}><StatusPage /></Suspense>} />
 
       {/* Protected app routes */}
@@ -163,6 +181,9 @@ export default function App() {
         <Route path="/alerts" element={<Suspense fallback={<LoadingFallback />}><AlertList /></Suspense>} />
         <Route path="/assets" element={<Suspense fallback={<LoadingFallback />}><AssetList /></Suspense>} />
         <Route path="/assets/create" element={<Suspense fallback={<LoadingFallback />}><AssetCreate /></Suspense>} />
+        {/* Lifecycle analytics: EOL, warranty, cost and monitoring coverage. Static
+            segment, so it outranks /assets/:id regardless of order. */}
+        <Route path="/assets/insights" element={<Suspense fallback={<LoadingFallback />}><AssetDashboard /></Suspense>} />
         <Route path="/assets/:id" element={<Suspense fallback={<LoadingFallback />}><AssetDetail /></Suspense>} />
         <Route path="/network" element={<Suspense fallback={<LoadingFallback />}><NetworkTopology /></Suspense>} />
         <Route path="/metrics" element={<Suspense fallback={<LoadingFallback />}><MetricsDashboard /></Suspense>} />
@@ -178,8 +199,22 @@ export default function App() {
             <Suspense fallback={<LoadingFallback />}><IntegrationHub /></Suspense>
           </ProtectedRoute>
         } />
+        <Route path="/billing" element={
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <Suspense fallback={<LoadingFallback />}><BillingPage /></Suspense>
+          </ProtectedRoute>
+        } />
         <Route path="/teams" element={<Suspense fallback={<LoadingFallback />}><TeamList /></Suspense>} />
         <Route path="/reports" element={<Suspense fallback={<LoadingFallback />}><ReportsDashboard /></Suspense>} />
+        <Route path="/gprc" element={<Suspense fallback={<LoadingFallback />}><GprcCommandCenter /></Suspense>} />
+        <Route path="/risk" element={<Suspense fallback={<LoadingFallback />}><RiskRegister /></Suspense>} />
+        <Route path="/compliance" element={<Suspense fallback={<LoadingFallback />}><ComplianceCenter /></Suspense>} />
+        <Route path="/internal-audit" element={<Suspense fallback={<LoadingFallback />}><InternalAudit /></Suspense>} />
+        <Route path="/performance" element={<Suspense fallback={<LoadingFallback />}><PerformanceManagement /></Suspense>} />
+        <Route path="/controls" element={<Suspense fallback={<LoadingFallback />}><ControlsCapa /></Suspense>} />
+        <Route path="/esg" element={<Suspense fallback={<LoadingFallback />}><EsgHub /></Suspense>} />
+        <Route path="/resilience" element={<Suspense fallback={<LoadingFallback />}><OperationalResilience /></Suspense>} />
+        <Route path="/digital-twin" element={<Suspense fallback={<LoadingFallback />}><DigitalTwin /></Suspense>} />
         <Route path="/sms" element={<Suspense fallback={<LoadingFallback />}><SMSDashboard /></Suspense>} />
         <Route path="/chat" element={<Suspense fallback={<LoadingFallback />}><TeamChat /></Suspense>} />
         <Route path="/voice" element={<Suspense fallback={<LoadingFallback />}><VoiceDashboard /></Suspense>} />

@@ -1,6 +1,5 @@
 import type React from 'react';
 import { useState, useMemo } from 'react';
-import { clsx } from 'clsx';
 import {
   Activity, Cpu, HardDrive, Network, Server, AlertTriangle,
   CheckCircle, XCircle, RefreshCw, Loader2, Eye, Wifi,
@@ -9,7 +8,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useApmOverview } from '../../hooks/useAPM';
-import { Page } from '../ui/PageChrome';
+import { Page, EnterpriseHero, EnterprisePosture } from '../ui/PageChrome';
 
 // ── Helpers ──────────────────────────────────────────────
 
@@ -256,41 +255,39 @@ export default function APMDashboard() {
 
   return (
     <Page>
-      <div className="cx-hero">
-        <div className="flex items-start justify-between gap-6 flex-wrap">
-          <div className="min-w-0">
-            <span className="cx-eyebrow">Operate · service health</span>
-            <h1 className="cx-hero__title">Service health</h1>
-            <p className="cx-hero__deck">
-              {org?.name ? `${org.name} — ` : ''}Live probes across services
-              {org?.serverIp ? ` · ${org.serverIp}` : ''}.
-              {isSimulated ? ' Showing simulated data until APM is connected.' : ''}
-            </p>
-          </div>
+      <EnterpriseHero
+        plane="observe"
+        domain="service health"
+        title="Service health"
+        deck={
+          <>
+            {org?.name
+              ? `Org-scoped live probes for ${org.name}${org?.serverIp ? ` · ${org.serverIp}` : ''}.`
+              : `Org-scoped live probes across services${org?.serverIp ? ` · ${org.serverIp}` : ''}.`}
+            {isSimulated ? ' Showing simulated data until APM is connected.' : ''}
+          </>
+        }
+        orgName={org?.name}
+        env={org?.serverIp}
+        actions={
           <button type="button" onClick={() => refetch()} className="cx-hero__btn">
             <RefreshCw className="w-4 h-4" /> Refresh
           </button>
-        </div>
-        {summary && (
-          <dl className="cx-hero__kpis cx-hero__kpis--5 mt-6">
-            {[
-              { label: 'Services', value: summary.total, sub: 'in the catalogue' },
-              { label: 'Healthy', value: summary.healthy, sub: 'passing probes' },
-              { label: 'Warning', value: summary.warning, sub: 'degraded', tone: summary.warning > 0 ? 'warn' : undefined },
-              { label: 'Critical', value: summary.critical, sub: 'failing', tone: summary.critical > 0 ? 'danger' : undefined },
-              { label: 'Uptime', value: `${summary.uptime}%`, sub: 'rolling window', tone: summary.uptime < 95 ? 'danger' : summary.uptime < 99 ? 'warn' : undefined },
-            ].map((kpi) => (
-              <div key={kpi.label} className={clsx('cx-hero__kpi', kpi.tone && `cx-hero__kpi--${kpi.tone}`)}>
-                <dt className="cx-hero__kpi-label">{kpi.label}</dt>
-                <dd>
-                  <div className="cx-hero__kpi-value">{kpi.value}</div>
-                  <div className="cx-hero__kpi-sub">{kpi.sub}</div>
-                </dd>
-              </div>
-            ))}
-          </dl>
-        )}
-      </div>
+        }
+        kpiCols={5}
+        kpis={
+          summary
+            ? [
+                { label: 'Services', value: summary.total, sub: 'in the catalogue' },
+                { label: 'Healthy', value: summary.healthy, sub: 'passing probes' },
+                { label: 'Warning', value: summary.warning, sub: 'degraded', tone: summary.warning > 0 ? 'warn' : undefined },
+                { label: 'Critical', value: summary.critical, sub: 'failing', tone: summary.critical > 0 ? 'danger' : undefined },
+                { label: 'Uptime', value: `${summary.uptime}%`, sub: 'rolling window', tone: summary.uptime < 95 ? 'danger' : summary.uptime < 99 ? 'warn' : undefined },
+              ]
+            : undefined
+        }
+      />
+      <EnterprisePosture chips={['Org-scoped probes', 'Evidence-first health', 'Audit export ready']} />
 
       <nav className="cx-crumb" aria-label="Breadcrumb">
         <Link to="/dashboard">Operations</Link>

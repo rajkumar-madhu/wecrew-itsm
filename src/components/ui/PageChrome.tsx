@@ -5,34 +5,13 @@ import type { ReactNode } from 'react';
 
 /** Codex-style page shell — quiet chrome, dense, hairline borders */
 
-interface FlatChild {
-  node: ReactNode;
-  /** Position of this child in the original JSX, e.g. "3" or "2.1" for one
-   *  nested inside a Fragment. */
-  key: string;
-}
-
-/**
- * Flatten the page's children, dropping the empty slots but remembering where
- * each surviving child came from.
- *
- * The position matters. Falsy children are removed, so a conditional block that
- * mounts once its query resolves shifts every sibling below it down one index —
- * and React, reconciling an unkeyed array positionally, then matches each
- * sibling against its neighbour's subtree and rebuilds the mismatched nodes.
- * In practice that means focus jumping out of a search input the moment data
- * lands. `Children.forEach` visits every slot including the empty ones, so the
- * original index is stable whatever is currently rendering, which makes it a
- * safe reconciliation key.
- */
-function flatten(children: ReactNode, prefix = ''): FlatChild[] {
-  const out: FlatChild[] = [];
-  Children.forEach(children, (child, index) => {
-    const key = prefix ? `${prefix}.${index}` : String(index);
+function flatten(children: ReactNode): ReactNode[] {
+  const out: ReactNode[] = [];
+  Children.forEach(children, (child) => {
     if (isValidElement(child) && child.type === Fragment) {
-      out.push(...flatten((child.props as { children?: ReactNode }).children, key));
+      out.push(...flatten((child.props as { children?: ReactNode }).children));
     } else if (child != null && child !== false) {
-      out.push({ node: child, key });
+      out.push(child);
     }
   });
   return out;
@@ -41,26 +20,26 @@ function flatten(children: ReactNode, prefix = ''): FlatChild[] {
 function isPageChrome(child: ReactNode): boolean {
   if (!isValidElement(child)) return false;
   if (child.type === 'style') return true;
-  if (child.type === Toolbar || child.type === Segmented) return true;
+  if (child.type === Toolbar || child.type === Segmented || child.type === EnterpriseHero || child.type === EnterprisePosture) {
+    return true;
+  }
   const cls = (child.props as { className?: unknown }).className;
-  return typeof cls === 'string' && /\b(cx-hero|cx-crumb|cx-toolbar|cx-segmented)\b/.test(cls);
+  return typeof cls === 'string' && /\b(cx-hero|cx-crumb|cx-toolbar|cx-segmented|cx-posture)\b/.test(cls);
 }
 
 export function Page({ children, className }: { children: ReactNode; className?: string }) {
   const items = flatten(children);
-  const chrome: FlatChild[] = [];
+  const chrome: ReactNode[] = [];
   let i = 0;
-  while (i < items.length && isPageChrome(items[i].node)) {
+  while (i < items.length && isPageChrome(items[i])) {
     chrome.push(items[i]);
     i += 1;
   }
   const body = items.slice(i);
-  const render = (list: FlatChild[]) =>
-    list.map((item) => <Fragment key={item.key}>{item.node}</Fragment>);
   return (
     <div className={clsx('cx-page', className)}>
-      {render(chrome)}
-      {body.length > 0 ? <div className="cx-page__body">{render(body)}</div> : null}
+      {chrome}
+      {body.length > 0 ? <div className="cx-page__body">{body}</div> : null}
     </div>
   );
 }
@@ -192,23 +171,18 @@ export function GhostButton({
   className,
   active,
   disabled,
-  title,
 }: {
   children: ReactNode;
   onClick?: () => void;
   className?: string;
   active?: boolean;
-  /** Callers guard in-flight mutations with this; without it a second click
-   *  fires a concurrent request and the later response wins. */
   disabled?: boolean;
-  title?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      title={title}
       className={clsx('cx-btn cx-btn--ghost', active && 'cx-btn--active', className)}
     >
       {children}
@@ -243,6 +217,126 @@ export function Segmented({
           </button>
         );
       })}
+    </div>
+  );
+}
+
+/* ─── Enterprise multi-tenant dashboard chrome ─── */
+
+export type EnterprisePlane = 'observe' | 'respond' | 'govern' | 'serve' | 'intelligence' | 'operate';
+
+const PLANE_LABEL: Record<EnterprisePlane, string> = {
+  observe: 'Observe',
+  respond: 'Respond',
+  govern: 'Govern',
+  serve: 'Serve',
+  intelligence: 'Intelligence',
+  operate: 'Operate',
+};
+
+export type EnterpriseKpi = {
+  label: string;
+  value: string | number;
+  sub?: string;
+  tone?: 'danger' | 'warn' | '';
+};
+
+/**
+ * Shared Command-Centre hero for every enterprise dashboard.
+ * Org chip + multi-tenant posture are automatic from the auth store when omitted.
+ */
+export function EnterpriseHero({
+  plane,
+  domain,
+  title,
+  deck,
+  orgName,
+  env,
+  actions,
+  kpis,
+  kpiCols = 3,
+  meta,
+  className,
+}: {
+  plane: EnterprisePlane;
+  /** Short domain label after the plane, e.g. "on-call", "telemetry". */
+  domain: string;
+  title: string;
+  deck: ReactNode;
+  orgName?: string | null;
+  env?: string | null;
+  actions?: ReactNode;
+  kpis?: EnterpriseKpi[];
+  kpiCols?: 3 | 4 | 5;
+  /** Optional live status row under the deck (clock, health dot, etc.). */
+  meta?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={clsx('cx-hero cx-hero--enterprise', className)}>
+      <div className="flex items-start justify-between gap-6 flex-wrap">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="cx-eyebrow">
+              {PLANE_LABEL[plane]} · {domain}
+            </span>
+            {orgName ? (
+              <span className="cx-hero__chip">{orgName}</span>
+            ) : null}
+            {env ? <span className="cx-hero__chip">{env}</span> : null}
+            <span className="cx-hero__chip cx-hero__chip--accent">Multi-tenant</span>
+          </div>
+
+          <h1 className="cx-hero__title">{title}</h1>
+          <p className="cx-hero__deck">{deck}</p>
+          {meta != null ? <div className="mt-3 flex items-center gap-2 flex-wrap">{meta}</div> : null}
+          {actions != null ? (
+            <div className="flex items-center gap-2 mt-4 flex-wrap">{actions}</div>
+          ) : null}
+        </div>
+
+        {kpis != null && kpis.length > 0 ? (
+          <dl
+            className={clsx(
+              'cx-hero__kpis',
+              kpiCols === 5 && 'cx-hero__kpis--5',
+              kpiCols === 4 && 'cx-hero__kpis--4',
+            )}
+          >
+            {kpis.map((kpi) => (
+              <div
+                key={kpi.label}
+                className={clsx('cx-hero__kpi', kpi.tone && `cx-hero__kpi--${kpi.tone}`)}
+              >
+                <dt className="cx-hero__kpi-label">{kpi.label}</dt>
+                <dd>
+                  <div className="cx-hero__kpi-value">{kpi.value}</div>
+                  {kpi.sub != null ? <div className="cx-hero__kpi-sub">{kpi.sub}</div> : null}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+export function EnterprisePosture({
+  label = 'Enterprise · evidence-first',
+  chips = ['Org-scoped data', 'Named approver on change', 'Audit export ready'],
+}: {
+  label?: string;
+  chips?: string[];
+}) {
+  return (
+    <div className="cx-posture">
+      <span className="text-[12px] font-medium text-emerald">{label}</span>
+      {chips.map((chip) => (
+        <span key={chip} className="cx-posture__chip">
+          {chip}
+        </span>
+      ))}
     </div>
   );
 }

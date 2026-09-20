@@ -517,21 +517,6 @@ export default function NetworkTopology() {
           <p className="text-dim text-sm mt-1">
             {error instanceof Error ? error.message : 'An unexpected error occurred'}
           </p>
-          {/* Without this the only way out of a transient failure is a browser
-              reload: the query will not refetch on its own while this component
-              stays mounted. Refetching beats reloading the whole app. */}
-          <button
-            type="button"
-            onClick={() => refetch()}
-            disabled={isFetching}
-            className="cx-btn cx-btn--ghost mt-4"
-          >
-            {isFetching ? (
-              <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Retrying…</>
-            ) : (
-              <><RefreshCw className="w-3.5 h-3.5" /> Retry</>
-            )}
-          </button>
         </div>
       )}
 

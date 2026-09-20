@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: wecrew-itsm
+  labels:
+    app.kubernetes.io/part-of: linkedeye
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: linkedeye-k8s-viewer
+  namespace: wecrew-itsm

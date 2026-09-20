@@ -9,7 +9,7 @@ import {
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../lib/api';
 import { useAuthStore } from '../../stores/authStore';
-import { Page } from '../ui/PageChrome';
+import { Page, EnterpriseHero, EnterprisePosture } from '../ui/PageChrome';
 
 const NAMESPACES = ['fs-linkedeye', 'kube-system', 'default'];
 const TABS = ['Overview', 'Pods', 'Deployments', 'Events', 'Services', 'Logs', 'Assets'] as const;
@@ -179,46 +179,46 @@ export default function K8sClusterDashboard() {
 
   return (
     <Page>
-      <div className="cx-hero">
-        <div className="flex items-start justify-between gap-6 flex-wrap">
-          <div className="min-w-0">
-            <span className="cx-eyebrow">Operate · kubernetes</span>
-            <h1 className="cx-hero__title">Kubernetes</h1>
-            <p className="cx-hero__deck">
-              {(ov?.org || selectedOrg?.name) ? `${ov?.org || selectedOrg?.name} — ` : ''}
-              {ov?.serverIp || selectedOrg?.serverIp || 'Select an organisation'}
-              {ov?.nodes?.[0]?.kubeletVersion ? ` · ${ov.nodes[0].kubeletVersion}` : ''}.
-            </p>
-          </div>
+      <EnterpriseHero
+        plane="observe"
+        domain="kubernetes"
+        title="Kubernetes"
+        deck={
+          (ov?.org || selectedOrg?.name)
+            ? `Org-scoped cluster evidence for ${ov?.org || selectedOrg?.name}${ov?.serverIp || selectedOrg?.serverIp ? ` · ${ov?.serverIp || selectedOrg?.serverIp}` : ''}${ov?.nodes?.[0]?.kubeletVersion ? ` · ${ov.nodes[0].kubeletVersion}` : ''}.`
+            : `${ov?.serverIp || selectedOrg?.serverIp || 'Select an organisation'}${ov?.nodes?.[0]?.kubeletVersion ? ` · ${ov.nodes[0].kubeletVersion}` : ''}.`
+        }
+        orgName={ov?.org || selectedOrg?.name}
+        env={ov?.serverIp || selectedOrg?.serverIp}
+        actions={
           <button type="button" onClick={() => refetchOv()} className="cx-hero__btn">
             <RefreshCw size={14} /> Refresh
           </button>
-        </div>
-        <dl className="cx-hero__kpis cx-hero__kpis--5 mt-6">
-          {ovLoading ? (
-            Array(5).fill(0).map((_, i) => (
-              <div key={i} className="cx-hero__kpi">
-                <dt className="cx-hero__kpi-label">—</dt>
-                <dd><div className="cx-hero__kpi-value">—</div></dd>
-              </div>
-            ))
-          ) : [
-            { label: 'Nodes', value: `${ov?.nodesReady ?? 0}/${ov?.nodeCount ?? 0}`, sub: 'ready' },
-            { label: 'Running', value: ov?.pods?.running ?? 0, sub: 'pods' },
-            { label: 'Pending', value: ov?.pods?.pending ?? 0, sub: 'pods', tone: (ov?.pods?.pending ?? 0) > 0 ? 'warn' : undefined },
-            { label: 'Failed', value: ov?.pods?.failed ?? 0, sub: 'pods', tone: (ov?.pods?.failed ?? 0) > 0 ? 'danger' : undefined },
-            { label: 'Total pods', value: ov?.pods?.total ?? 0, sub: 'in cluster' },
-          ].map((kpi) => (
-            <div key={kpi.label} className={`cx-hero__kpi${kpi.tone ? ` cx-hero__kpi--${kpi.tone}` : ''}`}>
-              <dt className="cx-hero__kpi-label">{kpi.label}</dt>
-              <dd>
-                <div className="cx-hero__kpi-value">{kpi.value}</div>
-                <div className="cx-hero__kpi-sub">{kpi.sub}</div>
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </div>
+        }
+        kpiCols={5}
+        kpis={
+          // An unreachable cluster must not read as a healthy empty one: branching
+          // on ovLoading alone rendered "Nodes 0/0 ready · Failed 0", which is a
+          // calm, confident lie. Errors get their own dashed state, and the
+          // message below says what to check.
+          ovLoading || ovErr
+            ? [
+                { label: 'Nodes', value: '—', sub: ovErr ? 'unreachable' : 'ready', tone: ovErr ? 'danger' : undefined },
+                { label: 'Running', value: '—', sub: 'pods' },
+                { label: 'Pending', value: '—', sub: 'pods' },
+                { label: 'Failed', value: '—', sub: 'pods' },
+                { label: 'Total pods', value: '—', sub: ovErr ? 'no data' : 'in cluster' },
+              ]
+            : [
+                { label: 'Nodes', value: `${ov?.nodesReady ?? 0}/${ov?.nodeCount ?? 0}`, sub: 'ready' },
+                { label: 'Running', value: ov?.pods?.running ?? 0, sub: 'pods' },
+                { label: 'Pending', value: ov?.pods?.pending ?? 0, sub: 'pods', tone: (ov?.pods?.pending ?? 0) > 0 ? 'warn' : undefined },
+                { label: 'Failed', value: ov?.pods?.failed ?? 0, sub: 'pods', tone: (ov?.pods?.failed ?? 0) > 0 ? 'danger' : undefined },
+                { label: 'Total pods', value: ov?.pods?.total ?? 0, sub: 'in cluster' },
+              ]
+        }
+      />
+      <EnterprisePosture chips={['Org-scoped cluster', 'Evidence-first workloads', 'Audit export ready']} />
 
       <nav className="cx-crumb" aria-label="Breadcrumb">
         <Link to="/dashboard">Operations</Link>

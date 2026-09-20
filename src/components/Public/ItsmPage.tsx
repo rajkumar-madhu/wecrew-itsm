@@ -75,7 +75,7 @@ export default function ItsmPage() {
           <SectionIntro
             eyebrow="AI, on a leash"
             title="Intelligence that argues its case"
-            deck="Copilot summarises an incident, recalls similar ones and suggests a next step — always with the signals that led there. It writes to the incident record as evidence. It does not act on a production system, and it is not the thing that decides."
+            deck="AEGIS summarises an incident, recalls similar ones and suggests a next step — always with the signals that led there. It writes to the incident record as evidence. It does not act on a production system, and it is not the thing that decides."
           />
           <div className="flex flex-wrap gap-3 md:justify-end">
             <Link to="/security" className="cx-btn cx-btn--ghost">

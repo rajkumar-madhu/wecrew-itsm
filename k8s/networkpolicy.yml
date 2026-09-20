@@ -1,0 +1,109 @@
+# Ingress-only NetworkPolicies adapted to live labels in itsm-wecrew.
+# Pods use app: linkedeye-frontend|linkedeye-api|postgres|redis (not app.kubernetes.io/name).
+# No egress policies — those would block SMTP/Slack/external HTTPS.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: itsm-wecrew
+  labels:
+    app.kubernetes.io/part-of: linkedeye
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-frontend
+  namespace: itsm-wecrew
+  labels:
+    app.kubernetes.io/part-of: linkedeye
+spec:
+  podSelector:
+    matchLabels:
+      app: linkedeye-frontend
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-and-frontend-to-api
+  namespace: itsm-wecrew
+  labels:
+    app.kubernetes.io/part-of: linkedeye
+spec:
+  podSelector:
+    matchLabels:
+      app: linkedeye-api
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+        - podSelector:
+            matchLabels:
+              app: linkedeye-frontend
+      ports:
+        - protocol: TCP
+          port: 5000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-api-and-backup-to-postgres
+  namespace: itsm-wecrew
+  labels:
+    app.kubernetes.io/part-of: linkedeye
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: linkedeye-api
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: linkedeye-db-backup
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-api-to-redis
+  namespace: itsm-wecrew
+  labels:
+    app.kubernetes.io/part-of: linkedeye
+spec:
+  podSelector:
+    matchLabels:
+      app: redis
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: linkedeye-api
+      ports:
+        - protocol: TCP
+          port: 6379

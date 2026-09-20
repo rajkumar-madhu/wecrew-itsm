@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../../lib/api';
+import { useAuth } from '../../hooks/useAuth';
 import {
   useClusterHealth,
   useServerAnalysis,
@@ -36,7 +37,7 @@ import {
   useLogAnalysis,
   useAITips,
 } from '../../hooks/useAIAgent';
-import { Page } from '../ui/PageChrome';
+import { Page, EnterpriseHero, EnterprisePosture } from '../ui/PageChrome';
 
 /* ====================================================================
    SUBCOMPONENTS
@@ -917,6 +918,7 @@ export default function AIInsightsDashboard() {
   const [isSending, setIsSending] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [agentTab, setAgentTab] = useState<AgentTab>('tips');
+  const { isPlatformAdmin } = useAuth();
 
   // ── API Queries ──
 
@@ -1038,27 +1040,26 @@ export default function AIInsightsDashboard() {
 
   const isAnyLoading = statsLoading || classificationsLoading || suggestionsLoading;
 
-  const agentTabs: { key: AgentTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  const allAgentTabs: { key: AgentTab; label: string; icon: React.ComponentType<{ className?: string }>; platformOnly?: boolean }[] = [
     { key: 'tips', label: 'Tips & Health', icon: Zap },
-    { key: 'infrastructure', label: 'Infrastructure', icon: Server },
-    { key: 'database', label: 'Database', icon: Database },
-    { key: 'logs', label: 'Logs', icon: FileText },
+    { key: 'infrastructure', label: 'Infrastructure', icon: Server, platformOnly: true },
+    { key: 'database', label: 'Database', icon: Database, platformOnly: true },
+    { key: 'logs', label: 'Logs', icon: FileText, platformOnly: true },
   ];
+  // Infrastructure / Database / Logs analyse WeCrew's own platform; the API
+  // serves them to platform admins only.
+  const agentTabs = allAgentTabs.filter((t) => !t.platformOnly || isPlatformAdmin);
 
   return (
     <Page>
-      <div className="cx-hero">
-        <div className="flex items-start justify-between gap-6 flex-wrap">
-          <div className="min-w-0">
-            <span className="cx-eyebrow">Intelligence · AI</span>
-            <h1 className="cx-hero__title">AI insights</h1>
-            <p className="cx-hero__deck">
-              Analysis and recommendations attached to the same records as incidents and alerts — never an action taken on its own.
-            </p>
-          </div>
-          <span className="cx-pill cx-pill--ok">AI engine online</span>
-        </div>
-      </div>
+      <EnterpriseHero
+        plane="intelligence"
+        domain="AI"
+        title="AI insights"
+        deck="Org-scoped analysis and recommendations attached to the same records as incidents and alerts — evidence-first, never an action taken alone."
+        meta={<span className="cx-pill cx-pill--ok">AI engine online</span>}
+      />
+      <EnterprisePosture chips={['Org-scoped insights', 'Recommend only', 'Human approves action']} />
 
       <nav className="cx-crumb" aria-label="Breadcrumb">
         <Link to="/dashboard">Operations</Link>

@@ -420,7 +420,7 @@ export default function TeamList() {
             <h1 className="cx-hero__title">Teams</h1>
             <p className="cx-hero__deck">
               Who belongs where, who leads, and how much open work sits on each group. On-call and
-              escalation elsewhere in Argus attach to the teams held here.
+              escalation elsewhere in WeCrew attach to the teams held here.
             </p>
           </div>
           {canManage && (

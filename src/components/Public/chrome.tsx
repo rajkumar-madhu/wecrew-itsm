@@ -1,6 +1,6 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { clsx } from 'clsx';
-import { Check } from 'lucide-react';
+import { Check, ChevronDown } from 'lucide-react';
 
 /*
   Layout primitives shared by the public marketing pages.
@@ -98,5 +98,43 @@ export function CheckList({ items, className }: { items: readonly string[]; clas
 export function MicroLabel({ children }: { children: ReactNode }) {
   return (
     <span className="font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-dim">{children}</span>
+  );
+}
+
+/**
+ * Disclosure row for FAQ-style content. Uses <details>/<summary> so the answer
+ * is in the DOM for search and for anyone reading with assistive tech, and so
+ * it still opens with JavaScript disabled.
+ */
+export function Disclosure({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <details
+      className="group border-b border-steel py-4 last:border-b-0"
+      onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}
+    >
+      <summary className="flex cursor-pointer list-none items-start justify-between gap-4 text-[14px] font-medium text-ink marker:content-['']">
+        <span>{q}</span>
+        <ChevronDown
+          size={16}
+          strokeWidth={2}
+          aria-hidden
+          className={clsx('mt-0.5 shrink-0 text-dim transition-transform', open && 'rotate-180')}
+        />
+      </summary>
+      <p className="mt-2.5 max-w-3xl text-[13px] leading-relaxed text-muted">{a}</p>
+    </details>
+  );
+}
+
+/** Two-column label/value list for procurement-style facts. */
+export function FactRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid gap-1 border-b border-steel py-3 last:border-b-0 sm:grid-cols-[minmax(0,13rem)_1fr] sm:gap-4">
+      <dt className="font-mono text-[10.5px] font-medium uppercase tracking-[0.12em] text-dim sm:pt-0.5">
+        {label}
+      </dt>
+      <dd className="text-[13px] leading-relaxed text-ink">{value}</dd>
+    </div>
   );
 }

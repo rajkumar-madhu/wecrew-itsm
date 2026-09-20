@@ -4,7 +4,7 @@ import { Card, CheckList, Container, Section, SectionIntro } from './chrome';
 import { MODULES, PILOT_DAYS } from './site';
 
 /*
-  /modules — AlertMind, Copilot, NEXUS, AgentOS.
+  /modules — AlertMind, AEGIS, JobWatch, AgentOS.
 
   Each card's status comes from MODULES in site.ts: 'available' renders an
   "Available now" pill and routes to the pilot; 'contact' renders "Contact us"

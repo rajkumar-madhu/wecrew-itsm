@@ -52,6 +52,8 @@ export default function SettingsPage() {
   const user = useAuthStore((s) => s.user);
   const initials = user ? `${(user.firstName?.[0] || '').toUpperCase()}${(user.lastName?.[0] || '').toUpperCase()}` : 'U';
   const isAdmin = user?.role === 'ADMIN';
+  // Tenant management is for platform staff only; an org ADMIN manages just their own org.
+  const isPlatformAdmin = isAdmin && user?.isPlatformAdmin === true;
 
   // ── Profile state ──
   const [firstName, setFirstName] = useState(user?.firstName ?? '');
@@ -84,7 +86,7 @@ export default function SettingsPage() {
   }
 
   // ── Org data for admin ──
-  const { data: orgData } = useOrganizations();
+  const { data: orgData } = useOrganizations({}, { enabled: isPlatformAdmin });
   const orgs: any[] = orgData?.data || [];
   const createOrg = useCreateOrganization();
   const updateOrg = useUpdateOrganization();
@@ -146,7 +148,7 @@ export default function SettingsPage() {
     { id: 'security', label: 'Security', icon: Shield, desc: 'Password & MFA' },
     { id: 'notifications', label: 'Notifications', icon: Bell, desc: 'Alert preferences' },
     { id: 'appearance', label: 'Appearance', icon: Palette, desc: 'Theme & display' },
-    ...(isAdmin ? [{ id: 'organization', label: 'Organizations', icon: Building2, desc: 'Manage tenants' }] : []),
+    ...(isPlatformAdmin ? [{ id: 'organization', label: 'Organizations', icon: Building2, desc: 'Manage tenants' }] : []),
     { id: 'system', label: 'System', icon: Database, desc: 'Platform info' },
   ];
 
@@ -464,7 +466,7 @@ export default function SettingsPage() {
           )}
 
           {/* ── ORGANIZATIONS (Admin only) ── */}
-          {activeTab === 'organization' && isAdmin && (
+          {activeTab === 'organization' && isPlatformAdmin && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <Section title="Organizations" description={`Managing ${orgs.length} client organizations across environments`}>

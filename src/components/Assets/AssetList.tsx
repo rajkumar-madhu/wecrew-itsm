@@ -16,7 +16,7 @@ import {
   EyeOff,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { useAssets, useAssetCensus } from '../../hooks/useAssets';
+import { useAssets, useAssetCensus, useAssetStats } from '../../hooks/useAssets';
 import { useAuthStore } from '../../stores/authStore';
 import { Page, Toolbar } from '../ui/PageChrome';
 
@@ -113,13 +113,17 @@ function StatusBadge({ status }: { status: AssetStatus }) {
  */
 function EstateMap({
   assets,
+  total,
+  truncated,
   loading,
-  failed,
   onSelect,
 }: {
   assets: Asset[];
+  /** Org-wide count from the server, which may exceed the drawn cells. */
+  total?: number;
+  /** True when the census bound stopped short of `total`. */
+  truncated?: boolean;
   loading?: boolean;
-  failed?: boolean;
   onSelect: (id: string) => void;
 }) {
   const bands = useMemo(() => {
@@ -160,21 +164,6 @@ function EstateMap({
     );
   }
 
-  if (failed) {
-    return (
-      <div className="cx-estate">
-        <div className="cx-estate__head">
-          <span className="cx-listhead__count">
-            <span className="cx-listhead__count-value">The estate could not be read</span>
-            <span className="cx-listhead__count-meta">
-              an empty map here would claim the CMDB is empty — it is not saying that
-            </span>
-          </span>
-        </div>
-      </div>
-    );
-  }
-
   if (assets.length === 0) {
     return (
       <div className="cx-estate">
@@ -193,9 +182,15 @@ function EstateMap({
       <div className="cx-estate__head">
         <span className="cx-listhead__count">
           <span className="cx-listhead__count-value">
-            {assets.length} configuration item{assets.length === 1 ? '' : 's'}
+            {truncated
+              ? `${assets.length} of ${total ?? assets.length} configuration items`
+              : `${assets.length} configuration item${assets.length === 1 ? '' : 's'}`}
           </span>
-          <span className="cx-listhead__count-meta">across {bands.length} type{bands.length === 1 ? '' : 's'}</span>
+          <span className="cx-listhead__count-meta">
+            {truncated
+              ? `across ${bands.length} type${bands.length === 1 ? '' : 's'} · map capped, filter to narrow`
+              : `across ${bands.length} type${bands.length === 1 ? '' : 's'}`}
+          </span>
         </span>
         <span className="cx-window__legend">
           <span className="cx-window__key"><span className="cx-estate__cell cx-estate__cell--live pointer-events-none" /> Live</span>
@@ -207,6 +202,8 @@ function EstateMap({
           </span>
         </span>
       </div>
+    );
+  }
 
       {bands.map((band) => {
         const Icon = typeIcons[band.type] || Server;
@@ -268,57 +265,66 @@ export default function AssetList() {
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<AssetType | ''>('');
   const [statusFilter, setStatusFilter] = useState<AssetStatus | ''>('');
-  const hasFilters = Boolean(searchQuery || typeFilter || statusFilter);
+  const [monitoringFilter, setMonitoringFilter] = useState<'' | 'ON' | 'OFF'>('');
+
+  const hasFilters = Boolean(searchQuery || typeFilter || statusFilter || monitoringFilter);
 
   const clearFilters = () => {
     setSearchQuery('');
     setTypeFilter('');
     setStatusFilter('');
+    setMonitoringFilter('');
   };
 
   const queryFilters = useMemo(() => {
     const f: Record<string, string> = {};
     if (typeFilter) f.type = typeFilter;
     if (statusFilter) f.status = statusFilter;
+    if (monitoringFilter) f.monitoringEnabled = monitoringFilter === 'ON' ? 'true' : 'false';
     if (searchQuery.trim()) f.search = searchQuery.trim();
     return f;
-  }, [typeFilter, statusFilter, searchQuery]);
+  }, [typeFilter, statusFilter, monitoringFilter, searchQuery]);
 
   const { data: assetsResponse, isLoading } = useAssets(queryFilters);
 
   // The estate map is a census of everything, not of the current filter — a map
-  // that shrinks as you search stops being a map.
-  const {
-    data: estateResponse,
-    isLoading: estateLoading,
-    isError: estateFailed,
-  } = useAssetCensus<Asset>();
+  // that shrinks as you search stops being a map. It pages at the API's cap of
+  // 100; asking for more is a 400, not a bigger page (see lib/census.ts).
+  const { data: census, isLoading: estateLoading } = useAssetCensus<Asset>();
+
+  // The headline numbers come from /assets/stats, which aggregates server-side
+  // over the whole org. They stay exact even when the census bound truncates the
+  // map below, and they carry the lifecycle risk the CMDB is kept for.
+  const { data: statsResponse, isLoading: statsLoading } = useAssetStats();
 
   const assets: Asset[] = assetsResponse?.data ?? [];
   const totalCount = assetsResponse?.pagination?.total ?? assets.length;
-  const estate: Asset[] = useMemo(() => estateResponse?.items ?? [], [estateResponse]);
+  const estate: Asset[] = useMemo(() => census?.items ?? [], [census]);
+  const estateTruncated = Boolean(census?.truncated);
 
   const stats = useMemo(() => {
-    const live = estate.filter((a) => a.status === 'LIVE').length;
-    const maintenance = estate.filter((a) => a.status === 'MAINTENANCE').length;
-    const blind = estate.filter((a) => !a.monitoringEnabled).length;
-    const sites = new Set(estate.map((a) => a.dataCenter).filter(Boolean)).size;
-    // `total` is the server's count of the whole collection, so the headline
-    // stays honest even if the walk was capped part-way through.
-    return { total: estateResponse?.total ?? estate.length, live, maintenance, blind, sites };
-  }, [estate, estateResponse]);
+    const s = statsResponse?.data;
+    const byStatus: Array<{ status: string; _count: number }> = s?.byStatus ?? [];
+    const countOf = (status: string) =>
+      byStatus.find((r) => r.status === status)?._count ?? 0;
+    const total = s?.total ?? 0;
+    return {
+      total,
+      live: s?.liveCount ?? 0,
+      maintenance: countOf('MAINTENANCE'),
+      blind: Math.max(0, total - (s?.monitoringCoverage ?? 0)),
+      endOfLife: s?.eolWarnings ?? 0,
+    };
+  }, [statsResponse]);
 
-  // A failed census must not render as a row of zeros: "0 unmonitored items" is
-  // a reassuring statement of fact, and it would be a lie about a request that
-  // never landed.
-  const n = (value: number) => (estateFailed ? '—' : value);
+  const dash = (v: number) => (statsLoading ? '—' : v);
 
   const kpis = [
-    { label: 'Items', value: n(stats.total), sub: estateFailed ? 'census unavailable' : 'under management' },
-    { label: 'Live', value: n(stats.live), sub: 'serving traffic' },
-    { label: 'Maintenance', value: n(stats.maintenance), sub: 'alerts suppressed', tone: !estateFailed && stats.maintenance > 0 ? 'warn' : undefined },
-    { label: 'Unmonitored', value: n(stats.blind), sub: 'raise no alerts', tone: !estateFailed && stats.blind > 0 ? 'danger' : undefined },
-    { label: 'Datacenters', value: n(stats.sites), sub: 'distinct sites' },
+    { label: 'Items', value: dash(stats.total), sub: 'under management' },
+    { label: 'Live', value: dash(stats.live), sub: 'serving traffic' },
+    { label: 'Maintenance', value: dash(stats.maintenance), sub: 'alerts suppressed', tone: stats.maintenance > 0 ? 'warn' : undefined },
+    { label: 'Unmonitored', value: dash(stats.blind), sub: 'raise no alerts', tone: stats.blind > 0 ? 'danger' : undefined },
+    { label: 'End of life', value: dash(stats.endOfLife), sub: 'within 90 days', tone: stats.endOfLife > 0 ? 'warn' : undefined },
   ];
 
   return (
@@ -331,7 +337,7 @@ export default function AssetList() {
             <h1 className="cx-hero__title">Assets</h1>
             <p className="cx-hero__deck">
               The configuration items this organisation runs, what state each one is in, and which of
-              them monitoring cannot see. Incidents and alerts elsewhere in Argus attach to the records
+              them monitoring cannot see. Incidents and alerts elsewhere in WeCrew attach to the records
               held here.
             </p>
           </div>
@@ -341,6 +347,13 @@ export default function AssetList() {
                 {organization.environment}
               </span>
             )}
+            <button
+              type="button"
+              onClick={() => navigate('/assets/insights')}
+              className="cx-hero__btn cx-hero__btn--ghost"
+            >
+              Lifecycle insights
+            </button>
             <button type="button" onClick={() => navigate('/assets/create')} className="cx-hero__btn">
               <Plus size={14} strokeWidth={1.75} />
               Add an item
@@ -380,8 +393,9 @@ export default function AssetList() {
 
       <EstateMap
         assets={estate}
+        total={stats.total}
+        truncated={estateTruncated}
         loading={estateLoading}
-        failed={estateFailed}
         onSelect={(id) => navigate(`/assets/${id}`)}
       />
 
@@ -440,14 +454,16 @@ export default function AssetList() {
           ))}
         </select>
 
-        {/* The monitoring filter is deliberately absent. `listAssets`
-            destructures only type, status, search, ownerId, supportGroupId,
-            sortBy and sortOrder — `monitoringEnabled` was sent on the query
-            string and silently ignored, so the control returned an unchanged
-            list and read as "nothing matches that". Unmonitored items are still
-            surfaced, and more directly: the Unmonitored hero count and the
-            estate map's blind-spot band both derive from the census. Restore
-            this select when the API supports the parameter. */}
+        <select
+          aria-label="Filter by monitoring"
+          value={monitoringFilter}
+          onChange={(e) => setMonitoringFilter(e.target.value as '' | 'ON' | 'OFF')}
+          className={clsx('filter-select', monitoringFilter && 'filter-select--active')}
+        >
+          <option value="">Monitored or not</option>
+          <option value="ON">Monitoring on</option>
+          <option value="OFF">Monitoring off</option>
+        </select>
 
         {hasFilters && (
           <button
@@ -515,7 +531,7 @@ export default function AssetList() {
                       <td className="font-mono text-[12px] text-muted whitespace-nowrap">{asset.ipAddress || '—'}</td>
                       <td className="whitespace-nowrap text-[12px] text-muted">
                         {asset.location || '—'}
-                        {asset.dataCenter && <span className="block text-[11px] text-dim">{asset.dataCenter}</span>}
+                        {asset.datacenter && <span className="block text-[11px] text-dim">{asset.datacenter}</span>}
                       </td>
                       <td className="whitespace-nowrap">
                         {asset.monitoringEnabled ? (

@@ -44,6 +44,8 @@ export interface User {
   phone: string | null;
   avatar: string | null;
   role: Role;
+  /** Platform staff (cross-organization). False for a self-registered org ADMIN. */
+  isPlatformAdmin?: boolean;
   status: UserStatus;
   department: string | null;
   jobTitle: string | null;

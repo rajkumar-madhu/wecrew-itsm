@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
-import { fetchAllPages } from '../lib/pagination';
+import { fetchCensus, type Census } from '../lib/census';
+import type { ConfigurationItem } from '../types';
 
 export function useAssets(filters: Record<string, any> = {}) {
   return useQuery({
@@ -67,18 +68,16 @@ export function useAssetStats() {
 }
 
 /**
- * Every configuration item in the tenant, walked a page at a time.
- *
- * The estate map draws one selectable square per CI, so `/assets/stats` — which
- * returns counts, not records — cannot stand in for this. The previous single
- * request asked for `limit: 500`, which the API rejects outright (limit is
- * capped at 100), leaving the map and every hero KPI reading zero next to a
- * populated inventory table.
+ * Every configuration item, for the estate map — which draws one cell per CI and
+ * so cannot work from a single page. Bounded; see `lib/census.ts`. KPIs come from
+ * `useAssetStats()` instead, which is org-wide and exact regardless of the bound.
  */
-export function useAssetCensus<T = unknown>() {
+export function useAssetCensus<T = ConfigurationItem>() {
   return useQuery({
     queryKey: ['assets', 'census'],
-    queryFn: () => fetchAllPages<T>('/assets'),
+    queryFn: () => fetchCensus<T>('/assets'),
     staleTime: 60000,
   });
 }
+
+export type { Census };

@@ -28,11 +28,13 @@ export function useRealtime() {
     // Keyed on the whole 'changes' prefix, not just 'list', so the forward
     // window's schedule census refreshes with the register it sits above.
     s.on('change:created', () => {
-      queryClient.invalidateQueries({ queryKey: ['changes'] });
+      queryClient.invalidateQueries({ queryKey: ['changes', 'list'] });
+      queryClient.invalidateQueries({ queryKey: ['changes', 'census'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     });
     s.on('change:updated', (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ['changes'] });
+      queryClient.invalidateQueries({ queryKey: ['changes', 'list'] });
+      queryClient.invalidateQueries({ queryKey: ['changes', 'census'] });
       queryClient.invalidateQueries({ queryKey: ['changes', 'detail', data?.id] });
     });
 
@@ -74,6 +76,11 @@ export function useRealtime() {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     });
 
+    // Billing events
+    s.on('subscription:updated', () => {
+      queryClient.invalidateQueries({ queryKey: ['billing'] });
+    });
+
     return () => {
       s.off('incident:created');
       s.off('incident:updated');
@@ -87,6 +94,7 @@ export function useRealtime() {
       s.off('asset:updated');
       s.off('voice:call-completed');
       s.off('notification:new');
+      s.off('subscription:updated');
     };
   }, [socket, queryClient]);
 }

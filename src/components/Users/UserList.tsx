@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import {
   UserPlus, Search, X, ChevronLeft, ChevronRight, Shield,
-  ShieldOff, ShieldQuestion, Pencil, Lock, Unlock, MoreHorizontal, Trash2, KeyRound,
+  ShieldOff, Pencil, Lock, Unlock, MoreHorizontal, Trash2, KeyRound,
   AlertTriangle, Building2, Clock,
   Mail,
 } from 'lucide-react';
@@ -195,20 +195,15 @@ export default function UserList() {
     return c;
   }, [census]);
 
-  const locked = census.filter((u) => u.status === 'LOCKED').length;
+  const locked = users.filter((u) => u.status === 'LOCKED').length;
+  const mfaOff = users.filter((u) => !u.mfaEnabled).length;
   const admins = roleCounts.ADMIN || 0;
 
-  const censusPending = censusLoading || censusFailed;
-  const c = (value: number) => (censusPending ? '—' : value);
-
   const kpis = [
-    { label: 'Users', value: isLoading ? '—' : (censusData?.total ?? totalCount), sub: 'in this organisation' },
-    { label: 'Admins', value: c(admins), sub: 'can change who else can' },
-    { label: 'Locked', value: c(locked), sub: 'cannot sign in', tone: !censusPending && locked > 0 ? 'danger' : undefined },
-    // `listUsers` does not select `mfaEnabled`, so every record arrives without
-    // it and counting falsy values would report the whole organisation as
-    // unprotected. Report the gap instead of inventing the number.
-    { label: 'MFA off', value: '—', sub: 'not reported by the API' },
+    { label: 'Users', value: isLoading ? '—' : totalCount, sub: 'in this organisation' },
+    { label: 'Admins', value: isLoading ? '—' : admins, sub: 'can change who else can' },
+    { label: 'Locked', value: isLoading ? '—' : locked, sub: 'cannot sign in', tone: locked > 0 ? 'danger' : undefined },
+    { label: 'MFA off', value: isLoading ? '—' : mfaOff, sub: 'password only', tone: mfaOff > 0 ? 'warn' : undefined },
     { label: 'On this page', value: isLoading ? '—' : users.length, sub: `page ${page} of ${totalPages}` },
   ];
 
@@ -383,15 +378,9 @@ export default function UserList() {
                         </span>
                       </td>
                       <td>
-                        {/* `listUsers` omits `mfaEnabled` from its select, so the
-                            field is absent rather than false. Showing the "off"
-                            badge for everyone reads as a finding about the user
-                            when it is a gap in the payload. */}
-                        {user.mfaEnabled === undefined
-                          ? <span title="MFA status not reported by the API" className="text-graphite"><ShieldQuestion size={15} strokeWidth={1.75} /></span>
-                          : user.mfaEnabled
-                            ? <span title="MFA on" className="text-emerald"><Shield size={15} strokeWidth={1.75} /></span>
-                            : <span title="MFA off" className="text-coral"><ShieldOff size={15} strokeWidth={1.75} /></span>}
+                        {user.mfaEnabled
+                          ? <span title="MFA on" className="text-emerald"><Shield size={15} strokeWidth={1.75} /></span>
+                          : <span title="MFA off" className="text-coral"><ShieldOff size={15} strokeWidth={1.75} /></span>}
                       </td>
                       <td>
                         <span className="flex items-center justify-end gap-0.5">
@@ -436,7 +425,7 @@ export default function UserList() {
               <button
                 type="button"
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
+                disabled={page >= totalPages}
                 aria-label="Next page"
                 className="p-1.5 rounded text-muted hover:text-ink hover:bg-[color:var(--argus-elevated)] disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
               >

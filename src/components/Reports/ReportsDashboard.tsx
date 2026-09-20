@@ -15,7 +15,7 @@ import {
 import { Link } from 'react-router-dom';
 import api from '../../lib/api';
 import { useAuthStore } from '../../stores/authStore';
-import { Page } from '../ui/PageChrome';
+import { Page, EnterpriseHero, EnterprisePosture } from '../ui/PageChrome';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -952,16 +952,18 @@ export default function ReportsDashboard() {
 
   return (
     <Page>
-      <div className="cx-hero">
-        <div className="flex items-start justify-between gap-6 flex-wrap">
-          <div className="min-w-0">
-            <span className="cx-eyebrow">Intelligence · analytics</span>
-            <h1 className="cx-hero__title">Reports</h1>
-            <p className="cx-hero__deck">
-              {heroOrgName ? `${heroOrgName} — ` : ''}Operational intelligence across incidents, SLA, teams and changes.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
+      <EnterpriseHero
+        plane="intelligence"
+        domain="analytics"
+        title="Reports"
+        deck={
+          heroOrgName
+            ? `Org-scoped operational intelligence for ${heroOrgName} — incidents, SLA, teams and changes.`
+            : 'Org-scoped operational intelligence across incidents, SLA, teams and changes.'
+        }
+        orgName={heroOrgName}
+        actions={
+          <>
             {(['7d', '30d', '90d'] as Period[]).map((p) => (
               <button key={p} type="button" onClick={() => setPeriod(p)} className={period === p ? 'cx-hero__btn' : 'cx-hero__btn cx-hero__btn--ghost'}>
                 {p}
@@ -970,9 +972,10 @@ export default function ReportsDashboard() {
             <button type="button" onClick={handleExport} className="cx-hero__btn">
               <Download size={14} /> Export PDF
             </button>
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
+      <EnterprisePosture chips={['Org-scoped analytics', 'Evidence-first exports', 'Audit trail ready']} />
 
       <nav className="cx-crumb" aria-label="Breadcrumb">
         <Link to="/dashboard">Operations</Link>

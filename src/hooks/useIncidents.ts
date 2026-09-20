@@ -86,3 +86,38 @@ export function useEscalationLogs(id: string, enabled: boolean = true) {
     retry: 1,
   });
 }
+
+export function useDeleteIncident() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await api.delete(`/incidents/${id}`);
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.all }),
+  });
+}
+
+export function useLinkProblem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      problemId,
+      linkType = 'RELATED',
+      notes,
+    }: {
+      id: string;
+      problemId: string;
+      linkType?: 'CAUSED_BY' | 'RELATED' | 'SYMPTOM_OF';
+      notes?: string;
+    }) => {
+      const { data } = await api.post(`/incidents/${id}/problems`, { problemId, linkType, notes });
+      return data;
+    },
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: keys.detail(v.id) });
+      qc.invalidateQueries({ queryKey: keys.all });
+    },
+  });
+}

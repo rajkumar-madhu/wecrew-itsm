@@ -10,7 +10,7 @@ import {
   CheckCircle2, XCircle, ArrowUpDown, Database,
   Gauge, Layers, MonitorDot, Unplug, Cable, RotateCcw,
 } from 'lucide-react';
-import { Page, Segmented } from '../ui/PageChrome';
+import { Page, Segmented, EnterpriseHero, EnterprisePosture } from '../ui/PageChrome';
 
 // ── Types ──
 interface GrafanaPanel { id: number; title: string; type: string; gridPos: { x: number; y: number; w: number; h: number } }
@@ -231,17 +231,19 @@ export default function MetricsDashboard() {
 
   return (
     <Page>
-      <div className="cx-hero">
-        <div className="flex items-start justify-between gap-6 flex-wrap">
-          <div className="min-w-0">
-            <span className="cx-eyebrow">Operate · telemetry</span>
-            <h1 className="cx-hero__title">Metrics</h1>
-            <p className="cx-hero__deck">
-              {heroOrgName ? `${heroOrgName} — ` : ''}Prometheus CPU, memory, disk and Grafana panels
-              {orgServerIp ? ` · ${orgServerIp}` : ''}.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
+      <EnterpriseHero
+        plane="observe"
+        domain="telemetry"
+        title="Metrics"
+        deck={
+          heroOrgName
+            ? `Org-scoped Prometheus and Grafana evidence for ${heroOrgName}${orgServerIp ? ` · ${orgServerIp}` : ''}.`
+            : `Org-scoped Prometheus CPU, memory, disk and Grafana panels${orgServerIp ? ` · ${orgServerIp}` : ''}.`
+        }
+        orgName={heroOrgName}
+        env={orgServerIp}
+        actions={
+          <>
             {TIME_RANGES.map((tr) => (
               <button
                 key={tr.value}
@@ -255,26 +257,18 @@ export default function MetricsDashboard() {
             <button type="button" onClick={handleRefresh} className="cx-hero__btn cx-hero__btn--ghost" title="Refresh">
               <RefreshCw className={`w-4 h-4 ${infra.isFetching ? 'animate-spin' : ''}`} />
             </button>
-          </div>
-        </div>
-        <dl className="cx-hero__kpis cx-hero__kpis--5 mt-6">
-          {[
-            { label: 'CPU', value: `${cpu.avgUsagePct}%`, sub: `${cpu.totalCores} cores`, tone: cpu.avgUsagePct > 85 ? 'danger' : cpu.avgUsagePct > 70 ? 'warn' : undefined },
-            { label: 'Memory', value: `${mem.usedPct}%`, sub: `${mem.usedGB} / ${mem.totalGB} GB`, tone: mem.usedPct > 85 ? 'danger' : mem.usedPct > 70 ? 'warn' : undefined },
-            { label: 'Disk', value: `${disk.avgUsedPct}%`, sub: `${disk.perNode.length} mounts` },
-            { label: 'Network RX', value: net.totalRx, sub: `TX ${net.totalTx}` },
-            { label: 'Alerts', value: alerts.length, sub: 'firing', tone: alerts.length > 0 ? 'danger' : undefined },
-          ].map((kpi) => (
-            <div key={kpi.label} className={`cx-hero__kpi${kpi.tone ? ` cx-hero__kpi--${kpi.tone}` : ''}`}>
-              <dt className="cx-hero__kpi-label">{kpi.label}</dt>
-              <dd>
-                <div className="cx-hero__kpi-value">{kpi.value}</div>
-                <div className="cx-hero__kpi-sub">{kpi.sub}</div>
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </div>
+          </>
+        }
+        kpiCols={5}
+        kpis={[
+          { label: 'CPU', value: `${cpu.avgUsagePct}%`, sub: `${cpu.totalCores} cores`, tone: cpu.avgUsagePct > 85 ? 'danger' : cpu.avgUsagePct > 70 ? 'warn' : undefined },
+          { label: 'Memory', value: `${mem.usedPct}%`, sub: `${mem.usedGB} / ${mem.totalGB} GB`, tone: mem.usedPct > 85 ? 'danger' : mem.usedPct > 70 ? 'warn' : undefined },
+          { label: 'Disk', value: `${disk.avgUsedPct}%`, sub: `${disk.perNode.length} mounts` },
+          { label: 'Network RX', value: net.totalRx, sub: `TX ${net.totalTx}` },
+          { label: 'Alerts', value: alerts.length, sub: 'firing', tone: alerts.length > 0 ? 'danger' : undefined },
+        ]}
+      />
+      <EnterprisePosture chips={['Org-scoped telemetry', 'Evidence-first panels', 'Audit export ready']} />
 
       <nav className="cx-crumb" aria-label="Breadcrumb">
         <Link to="/dashboard">Operations</Link>

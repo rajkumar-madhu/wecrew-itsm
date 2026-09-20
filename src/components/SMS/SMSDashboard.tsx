@@ -14,7 +14,8 @@ import {
 } from 'lucide-react';
 import { useSMSLogs, useSMSStats, useSMSProviders, useSendSMS } from '../../hooks/useSMS';
 import type { SMSLog, SMSProvider } from '../../types';
-import { Page, Toolbar, Panel } from '../ui/PageChrome';
+import { Page, Toolbar, Panel, EnterpriseHero, EnterprisePosture } from '../ui/PageChrome';
+import type { EnterpriseKpi } from '../ui/PageChrome';
 
 function ProviderBadge({ provider }: { provider: SMSProvider }) {
   const tone: Record<SMSProvider, 'alert' | 'ok' | 'warn'> = {
@@ -100,7 +101,7 @@ export default function SMSDashboard() {
   };
 
   const failed = stats?.failed ?? 0;
-  const kpis = [
+  const kpis: EnterpriseKpi[] = [
     { label: 'Messages', value: stats?.total ?? '—', sub: 'on record' },
     { label: 'Sent', value: stats?.sent ?? '—', sub: 'outbound delivered' },
     { label: 'Failed', value: failed, sub: 'did not leave the gateway', tone: failed > 0 ? 'danger' : undefined },
@@ -110,33 +111,21 @@ export default function SMSDashboard() {
 
   return (
     <Page>
-      <div className="cx-hero">
-        <div className="flex items-start justify-between gap-6 flex-wrap">
-          <div className="min-w-0">
-            <span className="cx-eyebrow">Respond · communications</span>
-            <h1 className="cx-hero__title">SMS</h1>
-            <p className="cx-hero__deck">
-              Outbound pages and inbound replies across Twilio, MSG91 and Kaleyra. A failed send
-              on this page is a pager that never rang.
-            </p>
-          </div>
+      <EnterpriseHero
+        plane="respond"
+        domain="communications"
+        title="SMS"
+        deck="Org-scoped outbound pages and inbound replies across Twilio, MSG91 and Kaleyra. A failed send is a pager that never rang."
+        actions={
           <button type="button" onClick={() => setShowSendForm(!showSendForm)} className="cx-hero__btn">
             <Send size={14} strokeWidth={1.75} />
             Send an SMS
           </button>
-        </div>
-        <dl className="cx-hero__kpis cx-hero__kpis--5 mt-6">
-          {kpis.map((kpi) => (
-            <div key={kpi.label} className={clsx('cx-hero__kpi', kpi.tone && `cx-hero__kpi--${kpi.tone}`)}>
-              <dt className="cx-hero__kpi-label">{kpi.label}</dt>
-              <dd>
-                <div className="cx-hero__kpi-value">{kpi.value}</div>
-                <div className="cx-hero__kpi-sub">{kpi.sub}</div>
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </div>
+        }
+        kpiCols={5}
+        kpis={kpis}
+      />
+      <EnterprisePosture chips={['Org-scoped delivery', 'Evidence on every send', 'Audit export ready']} />
 
       <nav className="cx-crumb" aria-label="Breadcrumb">
         <Link to="/dashboard">Operations</Link>

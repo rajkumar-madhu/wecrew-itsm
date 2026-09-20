@@ -12,7 +12,7 @@ import {
   CalendarRange,
   AlertTriangle,
 } from 'lucide-react';
-import { useChanges, useChangeSchedule } from '../../hooks/useChanges';
+import { useChanges, useChangeCensus } from '../../hooks/useChanges';
 import { Page, Toolbar } from '../ui/PageChrome';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -295,6 +295,8 @@ export default function ChangeList() {
   };
 
   // The register — one page of whatever the reader has filtered to.
+  // Param names are the server's: `riskLevel` (not `risk`) and `sortOrder`
+  // (not `sortDir`); both are dropped silently by the controller if misnamed.
   const { data, isLoading, isError } = useChanges({
     page,
     limit: pageSize,
@@ -302,8 +304,21 @@ export default function ChangeList() {
     state: selectedState || undefined,
     type: selectedType || undefined,
     riskLevel: selectedRisk || undefined,
-    sortBy: SORT_FIELD_TO_API[sortField],
+    sortBy: sortField,
     sortOrder: sortDir,
+  });
+
+  // The window and the hero counts describe the whole schedule, not the current
+  // filter — a forward window that moved every time someone typed in the search
+  // box would answer nobody's question. Paged at the API's cap of 100 rather
+  // than requested in one oversized page, which the API rejects with a 400.
+  // Forward window needs upcoming work first. Sorting asc without a lower
+  // bound pulled the oldest 1,200 planned starts on large tenants and left
+  // the window empty. plannedFrom is filtered on plannedStartDate server-side.
+  const { data: census } = useChangeCensus<Change>({
+    sortBy: 'plannedStartDate',
+    sortOrder: 'asc',
+    plannedFrom: startOfDay(new Date()).toISOString(),
   });
 
   // The window and the hero counts describe the whole schedule, not the current
@@ -314,12 +329,10 @@ export default function ChangeList() {
   const changes: Change[] = useMemo(() => (data?.data || []).map(asChange), [data]);
   const pagination = data?.pagination;
   const totalItems = pagination?.total ?? changes.length;
-  const totalPages = pagination?.pages ?? Math.max(1, Math.ceil(totalItems / pageSize));
+  const totalPages = pagination?.totalPages ?? Math.max(1, Math.ceil(totalItems / pageSize));
 
-  const schedule: Change[] = useMemo(
-    () => (scheduleData?.items || []).map(asChange),
-    [scheduleData]
-  );
+  const schedule: Change[] = useMemo(() => census?.items ?? [], [census]);
+  const scheduleTruncated = Boolean(census?.truncated);
 
   const upcoming = useMemo(() => {
     const from = startOfDay(new Date());
@@ -375,17 +388,12 @@ export default function ChangeList() {
       : <ChevronDown size={12} className="text-signal" />;
   };
 
-  // These five describe the whole register, so they are only as good as the
-  // schedule census. If that request failed, say so rather than report zero
-  // emergency changes to someone deciding whether to go home.
-  const n = (value: number) => (scheduleFailed ? '—' : value);
-
   const kpis = [
-    { label: 'Open', value: n(stats.live), sub: scheduleFailed ? 'schedule unavailable' : 'not yet run' },
-    { label: 'Awaiting approval', value: n(stats.awaiting), sub: 'needs a CAB decision', tone: !scheduleFailed && stats.awaiting > 0 ? 'warn' : undefined },
-    { label: 'Lands this week', value: n(stats.thisWeek), sub: 'next 7 days' },
-    { label: 'Implementing', value: n(stats.implementing), sub: 'running now' },
-    { label: 'Emergency', value: n(stats.emergency), sub: 'bypassed the calendar', tone: !scheduleFailed && stats.emergency > 0 ? 'danger' : undefined },
+    { label: 'Open', value: stats.live, sub: 'not yet run' },
+    { label: 'Awaiting approval', value: stats.awaiting, sub: 'needs a CAB decision', tone: stats.awaiting > 0 ? 'warn' : undefined },
+    { label: 'Lands this week', value: stats.thisWeek, sub: 'next 7 days' },
+    { label: 'Implementing', value: stats.implementing, sub: 'running now' },
+    { label: 'Emergency', value: stats.emergency, sub: 'bypassed the calendar', tone: stats.emergency > 0 ? 'danger' : undefined },
   ];
 
   return (
@@ -439,6 +447,10 @@ export default function ChangeList() {
           <p className="cx-sectionhead__deck">
             The next {WINDOW_DAYS} days of the schedule. Each rule is one change, placed on the day it
             starts and coloured by risk. Select a rule to open the change.
+            {scheduleTruncated && (
+              <> The schedule is larger than this view reads in one pass, so the window may omit the
+              furthest-out changes.</>
+            )}
           </p>
         </div>
       </div>

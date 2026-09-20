@@ -14,7 +14,8 @@ import {
   usePdServices, usePdEscalationPolicies, usePdStats,
   useConnectPagerDuty, useDisconnectPagerDuty, useValidatePdKey,
 } from '../../hooks/usePagerDuty';
-import { Page, Panel, Segmented, PrimaryButton } from '../ui/PageChrome';
+import { Page, Panel, Segmented, PrimaryButton, EnterpriseHero, EnterprisePosture } from '../ui/PageChrome';
+import type { EnterpriseKpi } from '../ui/PageChrome';
 
 type Tab = 'overview' | 'incidents' | 'services' | 'oncall' | 'policies' | 'settings';
 
@@ -127,15 +128,13 @@ function SetupWizard({ onConnect }: { onConnect: () => void }) {
 
   return (
     <Page>
-      <div className="cx-hero">
-        <div className="min-w-0">
-          <span className="cx-eyebrow">Operate · integrations</span>
-          <h1 className="cx-hero__title">Connect PagerDuty</h1>
-          <p className="cx-hero__deck">
-            Enter your PagerDuty API key to sync services, incidents, and on-call schedules with WeCrew.
-          </p>
-        </div>
-      </div>
+      <EnterpriseHero
+        plane="operate"
+        domain="integrations"
+        title="Connect PagerDuty"
+        deck="Org-scoped PagerDuty link — sync services, incidents, and on-call schedules into WeCrew with evidence on every sync."
+      />
+      <EnterprisePosture chips={['Org-scoped credentials', 'Named connector', 'Audit export ready']} />
 
       <nav className="cx-crumb" aria-label="Breadcrumb">
         <Link to="/dashboard">Operations</Link>
@@ -380,7 +379,7 @@ export default function PagerDutyDashboard() {
     return <SetupWizard onConnect={() => refetchStatus()} />;
   }
 
-  const kpis = [
+  const kpis: EnterpriseKpi[] = [
     { label: 'Triggered', value: stats?.triggered ?? triggeredCount, sub: 'active incidents', tone: triggeredCount > 0 ? 'danger' : undefined },
     { label: 'Acknowledged', value: stats?.acknowledged ?? ackedCount, sub: 'being worked', tone: ackedCount > 0 ? 'warn' : undefined },
     { label: 'Resolved (7d)', value: stats?.resolved ?? 0, sub: 'last 7 days' },
@@ -390,38 +389,26 @@ export default function PagerDutyDashboard() {
 
   return (
     <Page>
-      <div className="cx-hero">
-        <div className="flex items-start justify-between gap-6 flex-wrap">
-          <div className="min-w-0">
-            <span className="cx-eyebrow">Operate · integrations</span>
-            <h1 className="cx-hero__title">PagerDuty</h1>
-            <p className="cx-hero__deck">
-              Incidents, services, on-call and escalation policies synced from PagerDuty.
-              {statusData?.accountName ? ` Account: ${statusData.accountName}.` : ''}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="cx-pill cx-pill--ok">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald animate-pulse" /> Connected
-            </span>
-            <button type="button" onClick={() => refetchOverview()} className="cx-hero__btn">
-              <RefreshCw size={14} className={overviewLoading ? 'animate-spin' : ''} strokeWidth={1.75} />
-              Sync now
-            </button>
-          </div>
-        </div>
-        <dl className="cx-hero__kpis cx-hero__kpis--5 mt-6">
-          {kpis.map((kpi) => (
-            <div key={kpi.label} className={clsx('cx-hero__kpi', kpi.tone && `cx-hero__kpi--${kpi.tone}`)}>
-              <dt className="cx-hero__kpi-label">{kpi.label}</dt>
-              <dd>
-                <div className="cx-hero__kpi-value">{kpi.value}</div>
-                <div className="cx-hero__kpi-sub">{kpi.sub}</div>
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </div>
+      <EnterpriseHero
+        plane="operate"
+        domain="integrations"
+        title="PagerDuty"
+        deck={
+          statusData?.accountName
+            ? `Org-scoped incidents, services, on-call and escalation synced from PagerDuty · ${statusData.accountName}.`
+            : 'Org-scoped incidents, services, on-call and escalation policies synced from PagerDuty.'
+        }
+        meta={<span className="cx-pill cx-pill--ok"><span className="w-1.5 h-1.5 rounded-full bg-emerald animate-pulse" /> Connected</span>}
+        actions={
+          <button type="button" onClick={() => refetchOverview()} className="cx-hero__btn">
+            <RefreshCw size={14} className={overviewLoading ? 'animate-spin' : ''} strokeWidth={1.75} />
+            Sync now
+          </button>
+        }
+        kpiCols={5}
+        kpis={kpis}
+      />
+      <EnterprisePosture chips={['Org-scoped sync', 'Evidence on every incident', 'Audit export ready']} />
 
       <nav className="cx-crumb" aria-label="Breadcrumb">
         <Link to="/dashboard">Operations</Link>

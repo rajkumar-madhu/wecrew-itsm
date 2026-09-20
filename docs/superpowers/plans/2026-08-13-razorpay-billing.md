@@ -2159,7 +2159,7 @@ These are **not code** and block go-live:
 
 1. **Enable Subscriptions** on the Razorpay account (not on by default).
 2. **Create the Starter plan** in the Razorpay dashboard: yearly, ₹30,000, then put its `plan_...` id in `RAZORPAY_STARTER_PLAN_ID` and re-run `node scripts/seed-plans.js`.
-3. **Register the webhook** at `https://<host>/api/v1/webhooks/razorpay` with events `subscription.activated`, `subscription.charged`, `subscription.pending`, `subscription.halted`, `subscription.cancelled`, `subscription.completed`; copy the signing secret into `RAZORPAY_WEBHOOK_SECRET`.
-4. **Expose the host** — add a `HostSNI(...)` rule to the host Traefik config and an nginx `Ingress` in-cluster, per `/root/CLAUDE.md`.
+3. **Register the webhook** at `https://incident.api.wecrew.in/api/v1/webhooks/razorpay` (API host; its ingress routes `/` straight to `linkedeye-api`) with events `subscription.activated`, `subscription.charged`, `subscription.pending`, `subscription.halted`, `subscription.cancelled`, `subscription.completed`; copy the signing secret into `RAZORPAY_WEBHOOK_SECRET`.
+4. **Expose the host** — `incident.wecrew.in` / `incident.api.wecrew.in` are already in `k8s/wecrew-itsm/90-ingress.yaml`, and `FRONTEND_URL=https://incident.wecrew.in` (reminder-email billing links) is in `10-config.yaml`; nothing new to expose unless another host is used.
 5. **Rotate the test keys** before switching to live keys; they were shared in a chat transcript.
 6. **Confirm GST treatment** — decide whether ₹30,000 is tax-inclusive before creating the live plan, since the plan amount cannot be edited afterwards.

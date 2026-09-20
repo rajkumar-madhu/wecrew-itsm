@@ -5,7 +5,7 @@ import {
   Clock, User, AlertTriangle, LayoutGrid, List, Loader2,
 } from 'lucide-react';
 import { clsx } from 'clsx';
-import { useChangeSchedule } from '../../hooks/useChanges';
+import { useChangeCensus } from '../../hooks/useChanges';
 import { Page, Toolbar, Segmented } from '../ui/PageChrome';
 
 interface Change {
@@ -83,13 +83,22 @@ export default function ChangeCalendar() {
   const [view, setView] = useState<'month' | 'week'>('month');
   const [selected, setSelected] = useState<Change | null>(null);
 
-  // `limit: 500` was refused outright — the API caps limit at 100 — so the grid
-  // was empty for every month. The schedule census walks the pages instead.
-  const { data, isLoading, isError } = useChangeSchedule();
+  // Bound the census to the visible month (±1 for week spill) on
+  // plannedStartDate — an unbounded asc sort quietly under-counted large
+  // tenants, and createdAt dateFrom would miss rescheduled work.
+  const plannedFrom = useMemo(() => new Date(year, month - 1, 1).toISOString(), [year, month]);
+  const plannedTo = useMemo(() => new Date(year, month + 2, 0, 23, 59, 59, 999).toISOString(), [year, month]);
+  const { data: census, isLoading } = useChangeCensus({
+    sortBy: 'plannedStartDate',
+    sortOrder: 'asc',
+    plannedFrom,
+    plannedTo,
+  });
   const changes: Change[] = useMemo(
-    () => (data?.items || []).map(asCalChange),
-    [data]
+    () => (census?.items ?? []).map(asCalChange),
+    [census],
   );
+  const truncated = Boolean(census?.truncated);
 
   const monthCells = useMemo(() => {
     const firstDow = new Date(year, month, 1).getDay();
@@ -199,6 +208,12 @@ export default function ChangeCalendar() {
           ))}
         </dl>
       </div>
+
+      {truncated && (
+        <p className="cx-posture cx-posture--warn mx-0 text-sm text-ink" role="status">
+          More than {census?.items?.length ?? 0} changes fall in this range — the grid may omit some marks.
+        </p>
+      )}
 
       <nav className="cx-crumb" aria-label="Breadcrumb">
         <Link to="/dashboard">Operations</Link>
@@ -314,11 +329,7 @@ export default function ChangeCalendar() {
       {changes.length === 0 && !isLoading && (
         <div className="flex flex-col items-center justify-center py-12">
           <GitBranch className="w-8 h-8 text-graphite mb-3" strokeWidth={1.75} />
-          {/* An empty grid after a failed fetch would assert there is nothing
-              scheduled, which is a different claim from "we could not ask". */}
-          <p className="text-sm text-dim">
-            {isError ? 'The change schedule could not be loaded' : 'No scheduled changes found'}
-          </p>
+          <p className="text-sm text-dim">No scheduled changes found</p>
         </div>
       )}
 
