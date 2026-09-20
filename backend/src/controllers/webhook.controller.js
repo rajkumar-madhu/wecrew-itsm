@@ -158,31 +158,10 @@ async function alertmanagerWebhook(req, res, next) {
     const results = [];
     for (const a of incoming) {
       const alertId = a.labels?.alertname + ':' + (a.labels?.instance || a.fingerprint || Date.now());
-      // alertId is unique per organization, never on its own.
-      const existing = await prisma.alert.findFirst({
-        where: { alertId, ...(auth.orgId ? { organizationId: auth.orgId } : {}) },
-      });
-
-      // A token-authenticated sender may only touch its own org's alerts.
-      if (existing && auth.orgId && existing.organizationId !== auth.orgId) {
-        results.push({ alertId, action: 'skipped-foreign' });
-        continue;
-      }
-
-      if (a.status === 'resolved' && existing) {
-        await prisma.alert.update({ where: { id: existing.id }, data: { status: 'RESOLVED', resolvedAt: new Date() } });
-        emitToAll('alert:resolved', { id: existing.id, name: existing.name });
-        results.push({ alertId, action: 'resolved' });
-      } else if (!existing) {
-        const severity = (a.labels?.severity || 'warning').toUpperCase();
-        const configItemId = await resolveInstanceToConfigItem(a.labels?.instance);
-
-        // Resolve organization: the webhook token, else (legacy) ?orgId= param, alert labels, or instance IP
-        let organizationId = auth.orgId;
-        const instanceIp = (a.labels?.instance || '').split(':')[0];
-        if (auth.legacy) {
-
-        // Priority 1: explicit ?orgId= or ?orgSlug= query parameter (same as Grafana webhook)
+      // Resolve tenant BEFORE any lookup — never find by alertId alone.
+      let organizationId = auth.orgId;
+      const instanceIp = (a.labels?.instance || '').split(':')[0];
+      if (auth.legacy && !organizationId) {
         const qOrgId = req.query.orgId || req.query.org_id;
         const qOrgSlug = req.query.orgSlug || req.query.org_slug;
         if (qOrgId) {
@@ -193,26 +172,36 @@ async function alertmanagerWebhook(req, res, next) {
           const org = await prisma.organization.findUnique({ where: { slug: qOrgSlug } });
           if (org) organizationId = org.id;
         }
-
-        // Priority 2: org_slug / organization / client label in the alert
         const orgSlug = a.labels?.org_slug || a.labels?.organization || a.labels?.client || '';
         if (!organizationId && orgSlug) {
           const org = await prisma.organization.findUnique({ where: { slug: orgSlug } });
           if (org) organizationId = org.id;
         }
-
-        // Priority 3: match instance IP against org serverIp
         if (!organizationId && instanceIp) {
           const org = await prisma.organization.findFirst({ where: { serverIp: instanceIp } });
           if (org) organizationId = org.id;
         }
-
-        // Priority 4: match source IP of the webhook request (reuse sourceIp from blocklist check above)
         if (!organizationId && sourceIp) {
           const org = await prisma.organization.findFirst({ where: { serverIp: sourceIp } });
           if (org) organizationId = org.id;
         }
-        } // end legacy org resolution
+      }
+      if (!organizationId) {
+        results.push({ alertId, action: 'skipped-no-org' });
+        continue;
+      }
+
+      const existing = await prisma.alert.findFirst({
+        where: { alertId, organizationId },
+      });
+
+      if (a.status === 'resolved' && existing) {
+        await prisma.alert.update({ where: { id: existing.id }, data: { status: 'RESOLVED', resolvedAt: new Date() } });
+        emitToAll('alert:resolved', { id: existing.id, name: existing.name });
+        results.push({ alertId, action: 'resolved' });
+      } else if (!existing) {
+        const severity = (a.labels?.severity || 'warning').toUpperCase();
+        const configItemId = await resolveInstanceToConfigItem(a.labels?.instance);
 
         // ── "Ok" / recovery alert detection ──────────────────
         // Alert names like CPUOk, LoadOk, diskOk, LoginOk are recovery notifications
@@ -227,8 +216,7 @@ async function alertmanagerWebhook(req, res, next) {
             const staleWarnings = await prisma.alert.updateMany({
               where: {
                 status: 'FIRING',
-                // Never resolve another tenant's alerts that merely share a name/IP.
-                organizationId: organizationId || null,
+                organizationId,
                 AND: [
                   { name: { contains: basePattern, mode: 'insensitive' } },
                   { name: { contains: instanceIp } },
@@ -256,9 +244,9 @@ async function alertmanagerWebhook(req, res, next) {
             labels: JSON.stringify(a.labels),
             annotations: JSON.stringify(a.annotations),
             firedAt: a.startsAt ? new Date(a.startsAt) : new Date(),
+            organizationId,
             ...(isRecoveryAlert && { resolvedAt: new Date() }),
             ...(configItemId && { configItemId }),
-            ...(organizationId && { organizationId }),
           },
         });
 
@@ -343,7 +331,8 @@ async function grafanaWebhook(req, res, next) {
 
     const { title, state, message, ruleName, ruleUrl, evalMatches } = req.body;
 
-    // Resolve org: ?orgId= param, or ?orgSlug=, or match by source IP
+    // Resolve org: token first; legacy may use ?orgId= / ?orgSlug= / source IP.
+    // Never look up or write alerts without a resolved organizationId.
     let organizationId = auth.orgId;
     const qOrgId = req.query.orgId || req.query.org_id;
     const qOrgSlug = req.query.orgSlug || req.query.org_slug;
@@ -360,9 +349,11 @@ async function grafanaWebhook(req, res, next) {
       if (org) organizationId = org.id;
     }
 
+    if (!organizationId) return error(res, 'Could not resolve organization for webhook', 400);
+
     if (state === 'alerting') {
       const alertId = `grafana:${ruleName || title}`;
-      const existing = await prisma.alert.findFirst({ where: { alertId, ...(organizationId && { organizationId }) } });
+      const existing = await prisma.alert.findFirst({ where: { alertId, organizationId } });
 
       if (!existing) {
         const alert = await prisma.alert.create({
@@ -424,7 +415,7 @@ async function grafanaWebhook(req, res, next) {
       }
     } else if (state === 'ok') {
       const alertId = `grafana:${ruleName || title}`;
-      const existing = await prisma.alert.findFirst({ where: { alertId, status: 'FIRING', ...(organizationId && { organizationId }) } });
+      const existing = await prisma.alert.findFirst({ where: { alertId, status: 'FIRING', organizationId } });
       if (existing) {
         await prisma.alert.update({ where: { id: existing.id }, data: { status: 'RESOLVED', resolvedAt: new Date() } });
         emitToAll('alert:resolved', { id: existing.id, name: existing.name });

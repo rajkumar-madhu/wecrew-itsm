@@ -70,16 +70,35 @@ async function receiveWebhook(req, res, next) {
     const results = [];
     for (const a of incoming) {
       const alertId = a.labels?.alertname + ':' + (a.labels?.instance || a.fingerprint || Date.now());
-      // alertId is unique per organization, never on its own.
-      const existing = await prisma.alert.findFirst({
-        where: { alertId, ...(auth.orgId ? { organizationId: auth.orgId } : {}) },
-      });
-
-      // A token-authenticated sender may only touch its own org's alerts.
-      if (existing && auth.orgId && existing.organizationId !== auth.orgId) {
-        results.push({ alertId, action: 'skipped-foreign' });
+      // Resolve the tenant BEFORE any lookup — an unscoped findFirst on alertId
+      // alone can resolve or mutate another org's row.
+      let orgId = auth.orgId;
+      const rawInstance = a.labels?.instance || '';
+      const instanceIp = rawInstance.split(':')[0];
+      if (auth.legacy && !orgId) {
+        const qOrgId = req.query.orgId || req.query.org_id;
+        const qOrgSlug = req.query.orgSlug || req.query.org_slug;
+        if (qOrgId) {
+          const org = await prisma.organization.findUnique({ where: { id: qOrgId }, select: { id: true } });
+          if (org) orgId = org.id;
+        }
+        if (!orgId && qOrgSlug) {
+          const org = await prisma.organization.findUnique({ where: { slug: qOrgSlug }, select: { id: true } });
+          if (org) orgId = org.id;
+        }
+        if (!orgId && instanceIp) {
+          const matchedOrg = await prisma.organization.findFirst({ where: { serverIp: instanceIp }, select: { id: true } });
+          if (matchedOrg) orgId = matchedOrg.id;
+        }
+      }
+      if (!orgId) {
+        results.push({ alertId, action: 'skipped-no-org' });
         continue;
       }
+
+      const existing = await prisma.alert.findFirst({
+        where: { alertId, organizationId: orgId },
+      });
 
       if (a.status === 'resolved' && existing) {
         await prisma.alert.update({ where: { id: existing.id }, data: { status: 'RESOLVED', resolvedAt: new Date() } });
@@ -87,15 +106,6 @@ async function receiveWebhook(req, res, next) {
         results.push({ alertId, action: 'resolved' });
       } else if (!existing) {
         const configItemId = await resolveInstanceToConfigItem(a.labels?.instance);
-
-        // Try to resolve org from Prometheus instance IP (strip port if present)
-        let orgId = auth.orgId;
-        const rawInstance = a.labels?.instance || '';
-        const instanceIp = rawInstance.split(':')[0];
-        if (auth.legacy && instanceIp) {
-          const matchedOrg = await prisma.organization.findFirst({ where: { serverIp: instanceIp }, select: { id: true } });
-          if (matchedOrg) orgId = matchedOrg.id;
-        }
 
         const alert = await prisma.alert.create({
           data: {
@@ -109,8 +119,8 @@ async function receiveWebhook(req, res, next) {
             labels: JSON.stringify(a.labels),
             annotations: JSON.stringify(a.annotations),
             firedAt: a.startsAt ? new Date(a.startsAt) : new Date(),
+            organizationId: orgId,
             ...(configItemId && { configItemId }),
-            ...(orgId && { organizationId: orgId }),
           },
         });
         emitToAll('alert:fired', { id: alert.id, name: alert.name, severity: alert.severity });

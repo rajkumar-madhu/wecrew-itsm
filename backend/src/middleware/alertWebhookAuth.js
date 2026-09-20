@@ -2,10 +2,10 @@
 // WeCrew ITSM — Inbound alert webhook authentication
 //
 // A per-org token (?token= or `Authorization: Bearer`) identifies the org by
-// itself. Without one, callers fall back to their legacy org resolution
-// (?orgId / ?orgSlug / labels / IP) so existing senders keep working — but
-// anyone can name any org that way, so set ALERT_WEBHOOK_REQUIRE_TOKEN=true
-// once every sender carries a token (GET /api/v1/integrations/alert-webhook).
+// itself. Legacy mode (?orgId / ?orgSlug / labels / IP) is OFF by default —
+// anyone can name any tenant that way. Set ALERT_WEBHOOK_ALLOW_LEGACY=true
+// only while migrating senders; GET /api/v1/integrations/alert-webhook issues
+// the token every sender should carry.
 // ═══════════════════════════════════════════════════════════
 
 const { prisma } = require('../config/database');
@@ -28,7 +28,11 @@ async function authenticateAlertWebhook(req) {
     if (!org || !org.isActive) return { error: 'Invalid webhook token' };
     return { orgId: org.id, legacy: false };
   }
-  if (process.env.ALERT_WEBHOOK_REQUIRE_TOKEN === 'true') return { error: 'Webhook token required' };
+  // Secure by default. Opt in to the old unauthenticated resolver only while
+  // every Alertmanager/Grafana sender is being given a token.
+  if (process.env.ALERT_WEBHOOK_ALLOW_LEGACY !== 'true') {
+    return { error: 'Webhook token required' };
+  }
   logger.warn('[Webhook] alert webhook without token from %s — legacy org resolution', sourceIp(req));
   return { orgId: null, legacy: true };
 }

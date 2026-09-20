@@ -105,7 +105,12 @@ async function handleWebhook(req, res) {
     const sub = await findSubscription(entity, organizationId);
 
     if (!sub) {
+      // Race with subscribe()'s write: ask Razorpay to retry when we have an
+      // org hint. Orphan events with no notes are permanently ignored.
       logger.warn(`[billing] webhook ${event.event} for unknown subscription ${entity.id}`);
+      if (organizationId) {
+        return res.status(500).json({ success: false, unmatched: true });
+      }
       await markProcessed(eventId).catch(() => {});
       return res.status(200).json({ success: true, unmatched: true });
     }

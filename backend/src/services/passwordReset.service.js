@@ -51,12 +51,18 @@ async function requestReset(email) {
   ]);
 
   const link = `${config.frontendUrl.replace(/\/+$/, '')}/reset-password?token=${encodeURIComponent(raw)}`;
-  await sendEmail(user.email, 'Reset your WeCrew ITSM password', `
+  // Swallow send failures so the HTTP answer stays identical for known vs
+  // unknown addresses (no 500-based enumeration).
+  try {
+    await sendEmail(user.email, 'Reset your WeCrew ITSM password', `
     <p>Hi ${escapeHtml(user.firstName || 'there')},</p>
     <p>Someone asked to reset the password for your WeCrew ITSM account. If it was you, use the link below —
     it works once and expires in 30 minutes.</p>
     <p><a href="${link}">Reset your password</a></p>
     <p>If you didn't ask for this, you can ignore this email; your password has not changed.</p>`);
+  } catch (err) {
+    logger.error(`[auth] password reset email failed for user ${user.id}: ${err.message}`);
+  }
   logger.info(`[auth] password reset requested for user ${user.id}`);
 }
 
@@ -70,11 +76,16 @@ async function resetPassword(rawToken, newPassword) {
   if (!token.user || token.user.status === 'INACTIVE') return false;
 
   const hashed = await bcrypt.hash(newPassword, SALT_ROUNDS);
-  await prisma.$transaction([
-    // Claim the token first: updateMany with usedAt: null makes a concurrent
-    // second use of the same link change nothing.
-    prisma.passwordResetToken.updateMany({ where: { id: token.id, usedAt: null }, data: { usedAt: new Date() } }),
-    prisma.user.update({
+  // Interactive transaction so the claim gates the password write: a concurrent
+  // second use sees updateMany count 0 and aborts before changing the hash.
+  const ok = await prisma.$transaction(async (tx) => {
+    const claimed = await tx.passwordResetToken.updateMany({
+      where: { id: token.id, usedAt: null },
+      data: { usedAt: new Date() },
+    });
+    if (claimed.count !== 1) return false;
+
+    await tx.user.update({
       where: { id: token.userId },
       data: {
         password: hashed,
@@ -83,12 +94,14 @@ async function resetPassword(rawToken, newPassword) {
         lockedUntil: null,
         ...(token.user.status === 'LOCKED' ? { status: 'ACTIVE' } : {}),
       },
-    }),
-    prisma.passwordResetToken.deleteMany({ where: { userId: token.userId, id: { not: token.id } } }),
-    prisma.session.deleteMany({ where: { userId: token.userId } }),
-  ]);
-  logger.info(`[auth] password reset completed for user ${token.userId}`);
-  return true;
+    });
+    await tx.passwordResetToken.deleteMany({ where: { userId: token.userId, id: { not: token.id } } });
+    await tx.session.deleteMany({ where: { userId: token.userId } });
+    return true;
+  });
+
+  if (ok) logger.info(`[auth] password reset completed for user ${token.userId}`);
+  return ok;
 }
 
 module.exports = { requestReset, resetPassword, hashToken, TOKEN_TTL_MS };

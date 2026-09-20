@@ -203,6 +203,10 @@ async function refresh(req, res, next) {
     const decoded = verifyRefreshToken(token);
     const session = await prisma.session.findFirst({ where: { refreshToken: token, userId: decoded.id } });
     if (!session) return error(res, 'Invalid session', 401);
+    if (session.expiresAt && session.expiresAt.getTime() < Date.now()) {
+      await prisma.session.delete({ where: { id: session.id } }).catch(() => {});
+      return error(res, 'Session expired', 401);
+    }
 
     const user = await prisma.user.findUnique({ where: { id: decoded.id } });
     if (!user || user.status !== 'ACTIVE') return error(res, 'User inactive', 401);

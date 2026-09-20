@@ -5,10 +5,14 @@ const mockPrisma = {
   user: { findUnique: jest.fn(), update: jest.fn((a) => a) },
   passwordResetToken: {
     findFirst: jest.fn(), findUnique: jest.fn(),
-    create: jest.fn((a) => a), deleteMany: jest.fn((a) => a), updateMany: jest.fn((a) => a),
+    create: jest.fn((a) => a), deleteMany: jest.fn((a) => a),
+    updateMany: jest.fn(async () => ({ count: 1 })),
   },
   session: { deleteMany: jest.fn((a) => a) },
-  $transaction: jest.fn(async (ops) => ops),
+  $transaction: jest.fn(async (ops) => {
+    if (typeof ops === 'function') return ops(mockPrisma);
+    return Promise.all(ops);
+  }),
 };
 const mockSend = jest.fn(async () => {});
 jest.mock('../../config/database', () => ({ prisma: mockPrisma }));
@@ -81,5 +85,12 @@ describe('resetPassword', () => {
     expect(userUpdate.loginAttempts).toBe(0);
     expect(mockPrisma.session.deleteMany).toHaveBeenCalledWith({ where: { userId: 'u1' } });
     expect(mockPrisma.passwordResetToken.updateMany.mock.calls[0][0].where).toEqual({ id: 't1', usedAt: null });
+  });
+
+  it('rejects a concurrent second claim of the same token', async () => {
+    mockPrisma.passwordResetToken.findUnique.mockResolvedValue(live());
+    mockPrisma.passwordResetToken.updateMany.mockResolvedValueOnce({ count: 0 });
+    expect(await resetPassword('raw-token-value-xxxxxxxx', 'NewPass123')).toBe(false);
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
   });
 });

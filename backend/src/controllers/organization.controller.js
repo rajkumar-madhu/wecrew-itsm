@@ -5,6 +5,7 @@
 const { prisma } = require('../config/database');
 const { success, error, paginate, paginationMeta } = require('../utils/helpers');
 const logger = require('../utils/logger');
+const { startTrial } = require('../services/billing.service');
 
 // GET /api/v1/organizations — List all orgs (ADMIN only)
 async function listOrganizations(req, res, next) {
@@ -62,6 +63,7 @@ async function createOrganization(req, res, next) {
     const org = await prisma.organization.create({
       data: { name, slug, environment: environment || 'PROD', serverIp, fqdn, description },
     });
+    await startTrial(prisma, org.id);
     logger.info(`Organization created: ${name} (${slug}) by ${req.user.email}`);
     return success(res, org, 201);
   } catch (err) { next(err); }

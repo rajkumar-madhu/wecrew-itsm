@@ -46,7 +46,7 @@ const INCLUDE_DETAIL = {
 // GET /api/v1/changes
 async function listChanges(req, res, next) {
   try {
-    const { type, state, riskLevel, category, assignedToId, assignmentGroupId, search, dateFrom, dateTo, sortBy, sortOrder } = req.query;
+    const { type, state, riskLevel, category, assignedToId, assignmentGroupId, search, dateFrom, dateTo, plannedFrom, plannedTo, sortBy, sortOrder } = req.query;
     const { skip, take, page, limit } = paginate(req.query.page, req.query.limit);
 
     const where = {};
@@ -63,7 +63,13 @@ async function listChanges(req, res, next) {
         { number: { contains: search, mode: 'insensitive' } },
       ];
     }
-    if (dateFrom || dateTo) {
+    // plannedFrom/To filter the schedule window; dateFrom/To stay on createdAt
+    // for the register's "raised between" filter.
+    if (plannedFrom || plannedTo) {
+      where.plannedStartDate = {};
+      if (plannedFrom) where.plannedStartDate.gte = new Date(plannedFrom);
+      if (plannedTo) where.plannedStartDate.lte = new Date(plannedTo);
+    } else if (dateFrom || dateTo) {
       where.createdAt = {};
       if (dateFrom) where.createdAt.gte = new Date(dateFrom);
       if (dateTo) where.createdAt.lte = new Date(dateTo);

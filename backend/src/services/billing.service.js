@@ -31,15 +31,28 @@ function countBillableSeats(organizationId) {
 }
 
 async function getAccessState(organizationId) {
-  const sub = await prisma.subscription.findUnique({ where: { organizationId } });
+  let sub = await prisma.subscription.findUnique({ where: { organizationId } });
 
-  // Pre-existing orgs have no Subscription row. Fail OPEN — failing closed
-  // would lock out every legacy customer the moment this deploys.
+  // No row = unpaid / never provisioned. Fail CLOSED so staff-created orgs
+  // cannot silently get permanent free write access. Lazy-start a trial so
+  // legacy tenants that pre-date billing are not locked out on deploy — the
+  // create is raced safely via the unique organizationId constraint.
   if (!sub) {
-    return {
-      tier: 'NONE', status: 'NONE', isReadOnly: false, daysRemaining: null,
-      trialEndsAt: null, currentPeriodEnd: null, seatsUsed: 0, seatLimit: null,
-    };
+    try {
+      sub = await startTrial(prisma, organizationId);
+    } catch (err) {
+      if (err.code === 'P2002') {
+        sub = await prisma.subscription.findUnique({ where: { organizationId } });
+      } else {
+        throw err;
+      }
+    }
+    if (!sub) {
+      return {
+        tier: 'NONE', status: 'NONE', isReadOnly: true, daysRemaining: null,
+        trialEndsAt: null, currentPeriodEnd: null, seatsUsed: 0, seatLimit: null,
+      };
+    }
   }
 
   const now = Date.now();
@@ -47,6 +60,8 @@ async function getAccessState(organizationId) {
   const periodExpired = sub.status === 'CANCELLED'
     && (!sub.currentPeriodEnd || sub.currentPeriodEnd.getTime() < now);
 
+  // PAST_DUE stays writable so the customer can reach /billing and update the
+  // mandate; HALTED/EXPIRED/ended-trial are read-only.
   const isReadOnly = trialExpired
     || sub.status === 'HALTED'
     || sub.status === 'EXPIRED'

@@ -28,7 +28,11 @@ function res() {
 }
 const next = (e) => { throw e; };
 
-beforeEach(() => { jest.clearAllMocks(); delete process.env.ALERT_WEBHOOK_REQUIRE_TOKEN; });
+beforeEach(() => {
+  jest.clearAllMocks();
+  delete process.env.ALERT_WEBHOOK_REQUIRE_TOKEN;
+  delete process.env.ALERT_WEBHOOK_ALLOW_LEGACY;
+});
 
 describe('alertmanager webhook', () => {
   const body = { alerts: [{ status: 'resolved', labels: { alertname: 'CPU', instance: '10.0.0.1' } }] };
@@ -40,22 +44,24 @@ describe('alertmanager webhook', () => {
     expect(r.status).toHaveBeenCalledWith(401);
   });
 
-  it('requires a token when ALERT_WEBHOOK_REQUIRE_TOKEN=true', async () => {
-    process.env.ALERT_WEBHOOK_REQUIRE_TOKEN = 'true';
+  it('requires a token by default (legacy off)', async () => {
     const r = res();
     await ctrl.alertmanagerWebhook({ headers: {}, query: { orgId: 'victim' }, body, socket: {} }, r, next);
     expect(r.status).toHaveBeenCalledWith(401);
     expect(mockPrisma.alert.findFirst).not.toHaveBeenCalled();
   });
 
-  it('does not let a token holder resolve another org\'s alert', async () => {
+  it('scopes alert lookups to the token org', async () => {
     mockPrisma.organization.findUnique.mockResolvedValue({ id: 'acme', isActive: true });
-    // A stale row from before the lookup was scoped: the handler must still skip it.
-    mockPrisma.alert.findFirst.mockResolvedValue({ id: 'a1', organizationId: 'victim', name: 'CPU' });
+    mockPrisma.alert.findFirst.mockResolvedValue({ id: 'a1', organizationId: 'acme', name: 'CPU' });
+    mockPrisma.alert.update.mockResolvedValue({});
     const r = res();
     await ctrl.alertmanagerWebhook({ headers: {}, query: { token: 'whk_acme' }, body, socket: {} }, r, next);
-    expect(mockPrisma.alert.update).not.toHaveBeenCalled();
-    expect(r.json.mock.calls[0][0].data.results[0].action).toBe('skipped-foreign');
+    expect(mockPrisma.alert.findFirst.mock.calls[0][0].where).toEqual({
+      alertId: 'CPU:10.0.0.1',
+      organizationId: 'acme',
+    });
+    expect(mockPrisma.alert.update).toHaveBeenCalled();
   });
 });
 
