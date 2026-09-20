@@ -6,7 +6,6 @@ import type { Change } from '../types';
 const keys = {
   all: ['changes'] as const,
   list: (f: any) => [...keys.all, 'list', f] as const,
-  schedule: ['changes', 'schedule'] as const,
   detail: (id: string) => [...keys.all, 'detail', id] as const,
   census: (f: Record<string, unknown>) => [...keys.all, 'census', f] as const,
 };
@@ -21,27 +20,6 @@ export function useChanges(filters: Record<string, any> = {}) {
       return data;
     },
     staleTime: 30000,
-  });
-}
-
-/**
- * The whole change schedule, ordered by planned start, walked a page at a time.
- *
- * Feeds the forward window and the hero counts, which describe the entire
- * register rather than the current filter. Two things were wrong with the
- * single-request version: `limit: 250` is refused by the API (limit is capped at
- * 100), and the sort key was sent as `sortDir`, which `listChanges` does not
- * read — it destructures `sortOrder`, so the ordering silently fell back to
- * `createdAt desc` and the "next 14 days" slice could miss the nearest changes.
- */
-export function useChangeSchedule<T = unknown>() {
-  return useQuery({
-    queryKey: keys.schedule,
-    queryFn: () =>
-      fetchAllPages<T>('/changes', {
-        params: { sortBy: 'plannedStartDate', sortOrder: 'asc' },
-      }),
-    staleTime: 60000,
   });
 }
 

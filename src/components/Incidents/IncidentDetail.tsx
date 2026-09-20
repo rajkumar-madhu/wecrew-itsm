@@ -16,6 +16,7 @@ import toast from 'react-hot-toast';
 import { useQuery } from '@tanstack/react-query';
 import { useIncident, useIncidentTimeline, useAddWorkNote, useUpdateIncident, useIncidentLiveContext, useEscalationLogs, useDeleteIncident, useLinkProblem } from '../../hooks/useIncidents';
 import { useTeams } from '../../hooks/useTeams';
+import { useUserCensus } from '../../hooks/useUsers';
 import { useProblems } from '../../hooks/useProblems';
 import IncidentReportGenerator from './IncidentReportGenerator';
 import api from '../../lib/api';

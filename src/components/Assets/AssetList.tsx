@@ -42,7 +42,7 @@ interface Asset {
   status: AssetStatus;
   ipAddress: string;
   location: string;
-  dataCenter: string;
+  datacenter: string;
   monitoringEnabled: boolean;
   description: string;
 }
@@ -202,8 +202,6 @@ function EstateMap({
           </span>
         </span>
       </div>
-    );
-  }
 
       {bands.map((band) => {
         const Icon = typeIcons[band.type] || Server;

@@ -36,38 +36,6 @@ interface Change {
 type SortField = 'number' | 'type' | 'state' | 'risk' | 'shortDescription' | 'plannedStartDate';
 type SortDir = 'asc' | 'desc';
 
-/**
- * This table's column names are not all Prisma's. `listChanges` builds its
- * `orderBy` straight from the `sortBy` it is handed, so sending the column key
- * `risk` asks Prisma to order by a field that does not exist.
- */
-const SORT_FIELD_TO_API: Record<SortField, string> = {
-  number: 'number',
-  type: 'type',
-  state: 'state',
-  risk: 'riskLevel',
-  shortDescription: 'shortDescription',
-  plannedStartDate: 'plannedStartDate',
-};
-
-/**
- * Normalise one change record from the API.
- *
- * Two fields do not arrive under the names this table uses: risk is `riskLevel`
- * on the model, and there is no `requestedBy` in the list payload at all — the
- * controller's include returns `createdBy` and `assignedTo`. `ChangeCalendar`
- * and `ChangeDetail` already carry the same `risk || riskLevel` fallback; doing
- * it once here keeps the rest of this file reading the shape it declares.
- */
-function asChange(raw: unknown): Change {
-  const r = (raw ?? {}) as Record<string, unknown>;
-  return {
-    ...(r as unknown as Change),
-    risk: (r.risk || r.riskLevel || 'MEDIUM') as Risk,
-    requestedBy: (r.requestedBy ?? r.createdBy ?? null) as Change['requestedBy'],
-  };
-}
-
 const ALL_STATES: ChangeState[] = ['DRAFT', 'SUBMITTED', 'APPROVED', 'SCHEDULED', 'IMPLEMENTING', 'COMPLETED', 'CANCELLED'];
 const ALL_TYPES: ChangeType[] = ['NORMAL', 'STANDARD', 'EMERGENCY'];
 const ALL_RISKS: Risk[] = ['HIGH', 'MEDIUM', 'LOW'];
@@ -321,12 +289,7 @@ export default function ChangeList() {
     plannedFrom: startOfDay(new Date()).toISOString(),
   });
 
-  // The window and the hero counts describe the whole schedule, not the current
-  // filter — a forward window that moved every time someone typed in the search
-  // box would answer nobody's question.
-  const { data: scheduleData, isError: scheduleFailed } = useChangeSchedule();
-
-  const changes: Change[] = useMemo(() => (data?.data || []).map(asChange), [data]);
+  const changes: Change[] = data?.data || [];
   const pagination = data?.pagination;
   const totalItems = pagination?.total ?? changes.length;
   const totalPages = pagination?.totalPages ?? Math.max(1, Math.ceil(totalItems / pageSize));

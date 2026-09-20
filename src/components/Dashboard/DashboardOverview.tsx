@@ -41,26 +41,6 @@ const BRAND_BLUE = '#2b4cff';
 const BRAND_BLUE_SOFT = '#8fa0ff';
 
 /* ===================================================================
-   DASHBOARD PAYLOAD TYPES
-   Shapes returned by /dashboard/stats and /dashboard/sla-compliance.
-   =================================================================== */
-type GroupCount = number | Record<string, number>;
-interface CategoryGroup { category?: string | null; _count?: GroupCount }
-interface StateGroup { state?: string | null; _count?: GroupCount }
-interface BreakdownRow { label: string; count: number; pct: number }
-interface SlaBucket { percentage?: number; total?: number; breached?: number; met?: number }
-interface SlaPriorityRow { priority: string; value: number; total: number; breached: number }
-interface SlaLegacyRow { priority?: string; label?: string; value?: number; compliance?: number; total?: number; breached?: number }
-interface SlaResponse {
-  overall?: number;
-  byPriority?: SlaLegacyRow[];
-  P1?: SlaBucket; P2?: SlaBucket; P3?: SlaBucket; P4?: SlaBucket;
-}
-
-const BRAND_BLUE = '#2b4cff';
-const BRAND_BLUE_SOFT = '#8fa0ff';
-
-/* ===================================================================
    HELPERS
    =================================================================== */
 function mapPriority(priority: string | number | undefined): string {
