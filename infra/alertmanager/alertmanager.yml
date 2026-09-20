@@ -1,4 +1,4 @@
-# LinkedEye ITSM — Alertmanager Configuration
+# WeCrew ITSM — Alertmanager Configuration
 global:
   resolve_timeout: 5m
 

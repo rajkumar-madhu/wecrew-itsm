@@ -39,7 +39,7 @@ async function dispatchEvent(eventType, payload) {
           .createHmac('sha256', wh.secret)
           .update(body)
           .digest('hex');
-        headers['X-LinkedEye-Signature'] = `sha256=${sig}`;
+        headers['X-WeCrew-Signature'] = `sha256=${sig}`;
       }
 
       try {

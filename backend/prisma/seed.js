@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Database Seed Script
+// WeCrew ITSM — Database Seed Script
 // Run: npx prisma db seed
 // ═══════════════════════════════════════════════════════════
 
@@ -8,28 +8,28 @@ const bcrypt = require('bcryptjs');
 const { v4: uuid } = require('uuid');
 
 const prisma = new PrismaClient();
-const PASSWORD = 'LinkedEye@2026';
+const PASSWORD = 'Wecrew@2026';
 
 function daysAgo(d) { return new Date(Date.now() - d * 86400000); }
 function hoursAgo(h) { return new Date(Date.now() - h * 3600000); }
 function minsAgo(m) { return new Date(Date.now() - m * 60000); }
 
 async function main() {
-  console.log('Seeding LinkedEye database...');
+  console.log('Seeding WeCrew ITSM database...');
   const hash = await bcrypt.hash(PASSWORD, 12);
 
   // ── Users ───────────────────────────────────────────
   const users = [
-    { id: uuid(), email: 'rajkumar@santhira.com', password: hash, firstName: 'Rajkumar', lastName: 'M', role: 'ADMIN', department: 'Platform Engineering', jobTitle: 'Platform Admin', skills: ['kubernetes', 'terraform', 'prometheus'] },
-    { id: uuid(), email: 'priya@santhira.com', password: hash, firstName: 'Priya', lastName: 'S', role: 'MANAGER', department: 'DevOps', jobTitle: 'DevOps Manager', skills: ['docker', 'ci-cd', 'ansible'] },
-    { id: uuid(), email: 'arun@santhira.com', password: hash, firstName: 'Arun', lastName: 'K', role: 'MANAGER', department: 'DBA', jobTitle: 'DBA Lead', skills: ['postgresql', 'mongodb', 'redis'] },
-    { id: uuid(), email: 'kavitha@santhira.com', password: hash, firstName: 'Kavitha', lastName: 'R', role: 'ENGINEER', department: 'Platform Engineering', jobTitle: 'SRE Engineer', skills: ['kubernetes', 'golang', 'prometheus'] },
-    { id: uuid(), email: 'mohan@santhira.com', password: hash, firstName: 'Mohan', lastName: 'V', role: 'ENGINEER', department: 'DevOps', jobTitle: 'DevOps Engineer', skills: ['terraform', 'aws', 'docker'] },
-    { id: uuid(), email: 'deepa@santhira.com', password: hash, firstName: 'Deepa', lastName: 'L', role: 'ENGINEER', department: 'AI/ML', jobTitle: 'ML Engineer', skills: ['python', 'pytorch', 'ollama'] },
-    { id: uuid(), email: 'ravi@santhira.com', password: hash, firstName: 'Ravi', lastName: 'P', role: 'ENGINEER', department: 'Network', jobTitle: 'Network Engineer', skills: ['cisco', 'juniper', 'bgp'] },
-    { id: uuid(), email: 'anitha@santhira.com', password: hash, firstName: 'Anitha', lastName: 'G', role: 'OPERATOR', department: 'NOC', jobTitle: 'NOC Operator', skills: ['monitoring', 'triage'] },
-    { id: uuid(), email: 'suresh@santhira.com', password: hash, firstName: 'Suresh', lastName: 'T', role: 'OPERATOR', department: 'NOC', jobTitle: 'NOC Operator', skills: ['monitoring', 'incident-triage'] },
-    { id: uuid(), email: 'viewer@santhira.com', password: hash, firstName: 'Demo', lastName: 'Viewer', role: 'VIEWER', department: 'Management', jobTitle: 'Executive', skills: [] },
+    { id: uuid(), email: 'rajkumar@wecrew.in', password: hash, firstName: 'Rajkumar', lastName: 'M', role: 'ADMIN', department: 'Platform Engineering', jobTitle: 'Platform Admin', skills: ['kubernetes', 'terraform', 'prometheus'] },
+    { id: uuid(), email: 'priya@wecrew.in', password: hash, firstName: 'Priya', lastName: 'S', role: 'MANAGER', department: 'DevOps', jobTitle: 'DevOps Manager', skills: ['docker', 'ci-cd', 'ansible'] },
+    { id: uuid(), email: 'arun@wecrew.in', password: hash, firstName: 'Arun', lastName: 'K', role: 'MANAGER', department: 'DBA', jobTitle: 'DBA Lead', skills: ['postgresql', 'mongodb', 'redis'] },
+    { id: uuid(), email: 'kavitha@wecrew.in', password: hash, firstName: 'Kavitha', lastName: 'R', role: 'ENGINEER', department: 'Platform Engineering', jobTitle: 'SRE Engineer', skills: ['kubernetes', 'golang', 'prometheus'] },
+    { id: uuid(), email: 'mohan@wecrew.in', password: hash, firstName: 'Mohan', lastName: 'V', role: 'ENGINEER', department: 'DevOps', jobTitle: 'DevOps Engineer', skills: ['terraform', 'aws', 'docker'] },
+    { id: uuid(), email: 'deepa@wecrew.in', password: hash, firstName: 'Deepa', lastName: 'L', role: 'ENGINEER', department: 'AI/ML', jobTitle: 'ML Engineer', skills: ['python', 'pytorch', 'ollama'] },
+    { id: uuid(), email: 'ravi@wecrew.in', password: hash, firstName: 'Ravi', lastName: 'P', role: 'ENGINEER', department: 'Network', jobTitle: 'Network Engineer', skills: ['cisco', 'juniper', 'bgp'] },
+    { id: uuid(), email: 'anitha@wecrew.in', password: hash, firstName: 'Anitha', lastName: 'G', role: 'OPERATOR', department: 'NOC', jobTitle: 'NOC Operator', skills: ['monitoring', 'triage'] },
+    { id: uuid(), email: 'suresh@wecrew.in', password: hash, firstName: 'Suresh', lastName: 'T', role: 'OPERATOR', department: 'NOC', jobTitle: 'NOC Operator', skills: ['monitoring', 'incident-triage'] },
+    { id: uuid(), email: 'viewer@wecrew.in', password: hash, firstName: 'Demo', lastName: 'Viewer', role: 'VIEWER', department: 'Management', jobTitle: 'Executive', skills: [] },
   ];
 
   for (const u of users) {
@@ -39,11 +39,11 @@ async function main() {
 
   // ── Teams ───────────────────────────────────────────
   const teams = [
-    { id: uuid(), name: 'Platform Engineering', description: 'Kubernetes, infra, SRE', managerId: users[0].id, email: 'platform@santhira.com', slackChannel: '#platform' },
-    { id: uuid(), name: 'DevOps', description: 'CI/CD, automation, deployments', managerId: users[1].id, email: 'devops@santhira.com', slackChannel: '#devops' },
-    { id: uuid(), name: 'DBA', description: 'Database administration', managerId: users[2].id, email: 'dba@santhira.com', slackChannel: '#dba' },
-    { id: uuid(), name: 'AI/ML Engineering', description: 'ML models, Ollama, Flowise', managerId: users[0].id, email: 'aiml@santhira.com', slackChannel: '#ai-ml' },
-    { id: uuid(), name: 'Network Operations', description: 'Network, firewall, DNS', managerId: users[1].id, email: 'network@santhira.com', slackChannel: '#network-ops' },
+    { id: uuid(), name: 'Platform Engineering', description: 'Kubernetes, infra, SRE', managerId: users[0].id, email: 'platform@wecrew.in', slackChannel: '#platform' },
+    { id: uuid(), name: 'DevOps', description: 'CI/CD, automation, deployments', managerId: users[1].id, email: 'devops@wecrew.in', slackChannel: '#devops' },
+    { id: uuid(), name: 'DBA', description: 'Database administration', managerId: users[2].id, email: 'dba@wecrew.in', slackChannel: '#dba' },
+    { id: uuid(), name: 'AI/ML Engineering', description: 'ML models, Ollama, Flowise', managerId: users[0].id, email: 'aiml@wecrew.in', slackChannel: '#ai-ml' },
+    { id: uuid(), name: 'Network Operations', description: 'Network, firewall, DNS', managerId: users[1].id, email: 'network@wecrew.in', slackChannel: '#network-ops' },
   ];
 
   for (const t of teams) { await prisma.team.upsert({ where: { id: t.id }, update: {}, create: t }); }
@@ -91,8 +91,8 @@ async function main() {
     { name: 'haproxy-lb', type: 'LOAD_BALANCER', status: 'LIVE', ipAddress: '10.0.0.100', hostname: 'lb.santhira.local', ownerId: users[6].id, supportGroupId: teams[4].id },
     { name: 'core-switch-01', type: 'NETWORK', status: 'LIVE', ipAddress: '10.0.0.1', hostname: 'core-sw-01.santhira.local', manufacturer: 'Cisco', model: 'Nexus 9000', ownerId: users[6].id, supportGroupId: teams[4].id },
     { name: 'firewall-01', type: 'NETWORK', status: 'LIVE', ipAddress: '10.0.0.2', hostname: 'fw-01.santhira.local', manufacturer: 'Palo Alto', model: 'PA-3260', ownerId: users[6].id, supportGroupId: teams[4].id },
-    { name: 'linkedeye-api', type: 'APPLICATION', status: 'LIVE', hostname: 'api.linkedeye.santhira.com', ownerId: users[0].id, supportGroupId: teams[0].id, monitoringEnabled: true },
-    { name: 'linkedeye-frontend', type: 'APPLICATION', status: 'LIVE', hostname: 'app.linkedeye.santhira.com', ownerId: users[0].id, supportGroupId: teams[0].id },
+    { name: 'linkedeye-api', type: 'APPLICATION', status: 'LIVE', hostname: 'api.itsm.wecrew.in', ownerId: users[0].id, supportGroupId: teams[0].id, monitoringEnabled: true },
+    { name: 'linkedeye-frontend', type: 'APPLICATION', status: 'LIVE', hostname: 'app.itsm.wecrew.in', ownerId: users[0].id, supportGroupId: teams[0].id },
     { name: 'grafana', type: 'APPLICATION', status: 'LIVE', ipAddress: '10.0.4.10', hostname: 'grafana.santhira.local', ownerId: users[0].id, supportGroupId: teams[0].id },
     { name: 'prometheus', type: 'APPLICATION', status: 'LIVE', ipAddress: '10.0.4.11', hostname: 'prometheus.santhira.local', ownerId: users[0].id, supportGroupId: teams[0].id },
     { name: 'vm-staging-01', type: 'VM', status: 'LIVE', ipAddress: '10.0.5.10', hostname: 'staging-01.santhira.local', cpu: '8 vCPU', memory: '16GB', ownerId: users[4].id, supportGroupId: teams[1].id },
@@ -126,7 +126,7 @@ async function main() {
     { shortDescription: 'Staging VM disk full', impact: 'INDIVIDUAL', urgency: 'LOW', priority: 'P4', state: 'CLOSED', category: 'Infrastructure', configItemId: ciRecords[14].id, assignedToId: users[4].id, assignmentGroupId: teams[1].id, resolvedAt: daysAgo(5), closedAt: daysAgo(4) },
     { shortDescription: 'Flowise workflow execution timeout', impact: 'TEAM', urgency: 'MEDIUM', priority: 'P3', state: 'IN_PROGRESS', category: 'AI/ML', assignedToId: users[5].id, assignmentGroupId: teams[3].id },
     { shortDescription: 'Firewall rule blocking legitimate traffic', impact: 'ENTERPRISE', urgency: 'CRITICAL', priority: 'P1', state: 'RESOLVED', category: 'Security', configItemId: ciRecords[9].id, assignedToId: users[6].id, assignmentGroupId: teams[4].id, resolvedAt: hoursAgo(6) },
-    { shortDescription: 'LinkedEye API 502 errors from ingress', impact: 'ENTERPRISE', urgency: 'HIGH', priority: 'P1', state: 'IN_PROGRESS', category: 'Application', configItemId: ciRecords[10].id, assignedToId: users[0].id, assignmentGroupId: teams[0].id },
+    { shortDescription: 'WeCrew API 502 errors from ingress', impact: 'ENTERPRISE', urgency: 'HIGH', priority: 'P1', state: 'IN_PROGRESS', category: 'Application', configItemId: ciRecords[10].id, assignedToId: users[0].id, assignmentGroupId: teams[0].id },
   ];
 
   let incNum = 1;
@@ -145,7 +145,7 @@ async function main() {
   // ── Changes ─────────────────────────────────────────
   const changeData = [
     { shortDescription: 'Upgrade K8s cluster to v1.29', type: 'NORMAL', state: 'SCHEDULED', riskLevel: 'HIGH', assignedToId: users[3].id, assignmentGroupId: teams[0].id, justification: 'Security patches and feature improvements', implementationPlan: '1. Drain nodes\n2. Upgrade control plane\n3. Upgrade workers\n4. Verify', rollbackPlan: 'Restore etcd snapshot', plannedStartDate: daysAgo(-2) },
-    { shortDescription: 'Deploy LinkedEye v2.1 release', type: 'NORMAL', state: 'APPROVAL', riskLevel: 'MEDIUM', assignedToId: users[4].id, assignmentGroupId: teams[1].id, gitRepoUrl: 'https://github.com/santhira/linkedeye', gitBranch: 'release/2.1' },
+    { shortDescription: 'Deploy WeCrew v2.1 release', type: 'NORMAL', state: 'APPROVAL', riskLevel: 'MEDIUM', assignedToId: users[4].id, assignmentGroupId: teams[1].id, gitRepoUrl: 'https://github.com/rajkumar-madhu/linkedeye', gitBranch: 'release/2.1' },
     { shortDescription: 'Add Ollama Qwen3-32B model', type: 'STANDARD', state: 'IMPLEMENTING', riskLevel: 'LOW', assignedToId: users[5].id, assignmentGroupId: teams[3].id, actualStartDate: hoursAgo(2) },
     { shortDescription: 'Emergency firewall rule fix', type: 'EMERGENCY', state: 'REVIEW', riskLevel: 'HIGH', assignedToId: users[6].id, assignmentGroupId: teams[4].id, actualStartDate: hoursAgo(6), actualEndDate: hoursAgo(5) },
     { shortDescription: 'PostgreSQL version upgrade 15→16', type: 'NORMAL', state: 'ASSESSMENT', riskLevel: 'HIGH', assignedToId: users[2].id, assignmentGroupId: teams[2].id },
@@ -238,7 +238,7 @@ async function main() {
   console.log(`  ✓ ${onCalls.length} on-call schedules`);
 
   console.log('\n✅ Seed complete!');
-  console.log(`   Login: rajkumar@santhira.com / ${PASSWORD}`);
+  console.log(`   Login: rajkumar@wecrew.in / ${PASSWORD}`);
 }
 
 main()

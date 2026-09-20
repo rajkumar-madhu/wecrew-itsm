@@ -24,7 +24,7 @@ async function main() {
 
   console.log('═══════════════════════════════════════════════════════════');
   console.log('  ARGUS ITSM — User Credentials');
-  console.log('  Default password (all seeded users): LinkedEye@2026');
+  console.log('  Default password (all seeded users): Wecrew@2026');
   console.log('═══════════════════════════════════════════════════════════\n');
 
   const orgNames = Object.keys(grouped).sort();

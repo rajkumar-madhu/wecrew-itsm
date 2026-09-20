@@ -21,8 +21,8 @@ agentforge/
 # Reference/blueprint files (not part of codebase)
 files (1)/
 sample-pagerduty/
-LinkedEye-ITSM-Pro.html
-LinkedEye-Complete-Documentation-Package.md
+WeCrew-ITSM-Pro.html
+WeCrew-Complete-Documentation-Package.md
 AgentForge.jsx
 santhira-root-ca.crt
 argus-integration-docs.html

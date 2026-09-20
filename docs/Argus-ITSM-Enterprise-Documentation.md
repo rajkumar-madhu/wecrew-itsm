@@ -119,7 +119,7 @@
 
 ## 1. Executive Summary
 
-Argus is an enterprise-grade IT Service Management (ITSM) platform developed by Santhira (Terv Pro Technology Pvt Ltd). The platform provides a unified command center for managing IT operations across multiple client organizations, replacing fragmented point tools with a single, AI-augmented platform that handles the full ITIL v4 service management lifecycle.
+Argus is an enterprise-grade IT Service Management (ITSM) platform developed by WeCrew. The platform provides a unified command center for managing IT operations across multiple client organizations, replacing fragmented point tools with a single, AI-augmented platform that handles the full ITIL v4 service management lifecycle.
 
 Argus serves 13 active client organizations — primarily financial institutions — providing incident management, change control, problem investigation, asset/CMDB tracking, alerting, on-call scheduling, and automated remediation. The platform ingests real-time telemetry from Prometheus and Grafana, performs AI-assisted root cause analysis using the Qwen3-32B large language model, and executes remediation actions autonomously on remote infrastructure via SSH tunneling.
 
@@ -2571,7 +2571,7 @@ A template with all required variables is available at `backend/.env.example`.
 
 **Document Classification:** Internal — Restricted
 **Next Review Date:** 2026-06-03
-**Document Owner:** Santhira Engineering Team
-**Platform:** Argus ITSM v2.0.0 (formerly LinkedEye)
+**Document Owner:** WeCrew Engineering Team
+**Platform:** Argus ITSM v2.0.0 (formerly WeCrew)
 **Prepared by:** Enterprise Documentation Team
-**Copyright:** © 2026 Santhira (Terv Pro Technology Pvt Ltd). All rights reserved.
+**Copyright:** © 2026 WeCrew. All rights reserved.

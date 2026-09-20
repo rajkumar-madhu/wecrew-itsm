@@ -1,5 +1,5 @@
 # ═══════════════════════════════════════════════════════════
-# LinkedEye ITSM Platform — Docker Compose
+# WeCrew ITSM Platform — Docker Compose
 # Full stack: API + Frontend + PostgreSQL + Redis + Observability
 # ═══════════════════════════════════════════════════════════
 
@@ -14,7 +14,7 @@ services:
     environment:
       POSTGRES_DB: linkedeye
       POSTGRES_USER: linkedeye
-      POSTGRES_PASSWORD: LinkedEye@2026
+      POSTGRES_PASSWORD: Wecrew@2026
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -55,7 +55,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 5000
-      DATABASE_URL: postgresql://linkedeye:LinkedEye@2026@postgres:5432/linkedeye?schema=public
+      DATABASE_URL: postgresql://linkedeye:Wecrew@2026@postgres:5432/linkedeye?schema=public
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:-linkedeye-jwt-secret-change-me}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-linkedeye-refresh-secret-change-me}
@@ -131,7 +131,7 @@ services:
     restart: unless-stopped
     environment:
       GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: LinkedEye@2026
+      GF_SECURITY_ADMIN_PASSWORD: Wecrew@2026
       GF_SERVER_ROOT_URL: http://localhost:3001
     volumes:
       - grafana_data:/var/lib/grafana

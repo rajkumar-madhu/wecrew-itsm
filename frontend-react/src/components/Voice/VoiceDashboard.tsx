@@ -62,7 +62,7 @@ const AGENT_LANGUAGES = [
 
 function AIAgentTab() {
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { id: 'welcome', role: 'assistant', text: "Hello! I'm Santhira, your IT incident management assistant. Click the microphone to speak, or type a message below.", timestamp: new Date() },
+    { id: 'welcome', role: 'assistant', text: "Hello! I'm WeCrew, your IT incident management assistant. Click the microphone to speak, or type a message below.", timestamp: new Date() },
   ]);
   const [isConnected, setIsConnected] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -95,10 +95,10 @@ function AIAgentTab() {
     audio.play().catch(() => playNext());
   }, []);
 
-  // Connect to Santhira voice agent (reconnects when language changes)
+  // Connect to WeCrew voice agent (reconnects when language changes)
   useEffect(() => {
     const voiceSocket = io(window.location.origin, {
-      path: '/santhira/socket.io/',
+      path: '/wecrew/socket.io/',
       transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionDelay: 2000,
@@ -113,7 +113,7 @@ function AIAgentTab() {
     voiceSocket.on('disconnect', () => setIsConnected(false));
 
     voiceSocket.on('session-ready', (data: { session_id: string }) => {
-      console.log('[Santhira] Session:', data.session_id);
+      console.log('[WeCrew] Session:', data.session_id);
     });
 
     voiceSocket.on('transcript', (data: { text: string }) => {
@@ -240,7 +240,7 @@ function AIAgentTab() {
             <Bot className="w-4 h-4 text-violet" />
           </div>
           <div>
-            <h3 className="text-sm font-display font-bold text-stone-900">Santhira AI Agent</h3>
+            <h3 className="text-sm font-display font-bold text-stone-900">WeCrew AI Agent</h3>
             <p className="text-[10px] text-stone-400">GPT-4.1 &middot; Real-time voice &middot; ITSM tools</p>
           </div>
         </div>
@@ -285,7 +285,7 @@ function AIAgentTab() {
                 'text-[10px] font-mono font-medium uppercase tracking-wider mb-1',
                 msg.role === 'user' ? 'text-white/60' : msg.role === 'system' ? 'text-crimson/60' : 'text-stone-400'
               )}>
-                {msg.role === 'user' ? 'You' : msg.role === 'system' ? 'System' : 'Santhira'}
+                {msg.role === 'user' ? 'You' : msg.role === 'system' ? 'System' : 'WeCrew'}
               </div>
               <span className="whitespace-pre-wrap">{msg.text}</span>
             </div>

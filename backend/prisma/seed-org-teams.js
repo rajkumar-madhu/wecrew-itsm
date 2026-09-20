@@ -41,7 +41,7 @@ const STAFF = {
 
 // ── 5 teams to create per org ────────────────────────────────
 const TEAM_DEFS = [
-  { key: 'le',         name: 'LE Team',         description: 'LinkedEye application support and maintenance', email: 'support@wecrew.in',     slackChannel: '#le-team'        },
+  { key: 'le',         name: 'LE Team',         description: 'WeCrew application support and maintenance', email: 'support@wecrew.in',     slackChannel: '#le-team'        },
   { key: 'devops',     name: 'DevOps Team',      description: 'DevOps, platform engineering, and K8s operations', email: 'support@wecrew.in', slackChannel: '#devops'          },
   { key: 'network',    name: 'Network Team',     description: 'Network devices, hardware, firewalls, and connectivity', email: 'support@wecrew.in', slackChannel: '#network-ops'  },
   { key: 'db',         name: 'DB Team',          description: 'Database administration and recovery', email: 'support@wecrew.in',         slackChannel: '#dba'             },

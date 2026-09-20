@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Database Health Check
+// WeCrew ITSM — Database Health Check
 // Outputs Prometheus metrics format for /metrics endpoint
 // ═══════════════════════════════════════════════════════════
 

@@ -22,4 +22,4 @@ nohup npm run dev -- --port 5174 --host 127.0.0.1 > /tmp/argus-frontend.log 2>&1
 sleep 4
 echo "UI:  http://127.0.0.1:5174/"
 echo "API: http://127.0.0.1:5001/api/v1"
-echo "Login: rajkumar@santhira.com / LinkedEye@2026"
+echo "Login: rajkumar@wecrew.in / Wecrew@2026"

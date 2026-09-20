@@ -1,12 +1,12 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Seed Team Members, Escalation Policies & On-Call Schedules
+// WeCrew ITSM — Seed Team Members, Escalation Policies & On-Call Schedules
 // ═══════════════════════════════════════════════════════════
 
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 const prisma = new PrismaClient();
 
-const PASSWORD = bcrypt.hashSync('LinkedEye@2026', 12);
+const PASSWORD = bcrypt.hashSync('Wecrew@2026', 12);
 
 // ── Team Members ────────────────────────────────────────
 const MEMBERS = [

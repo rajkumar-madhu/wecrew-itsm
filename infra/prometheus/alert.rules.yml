@@ -1,4 +1,4 @@
-# LinkedEye ITSM — Prometheus Alert Rules
+# WeCrew ITSM — Prometheus Alert Rules
 groups:
   - name: linkedeye-infrastructure
     rules:
@@ -63,7 +63,7 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "LinkedEye API error rate above 5%"
+          summary: "WeCrew API error rate above 5%"
           description: "Error rate: {{ $value | humanizePercentage }}"
 
       - alert: APIHighLatency
@@ -72,7 +72,7 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "LinkedEye API p95 latency above 2s"
+          summary: "WeCrew API p95 latency above 2s"
           description: "p95 latency: {{ $value }}s"
 
       - alert: KubePodCrashLooping

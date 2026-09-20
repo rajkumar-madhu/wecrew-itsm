@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DB: linkedeye
       POSTGRES_USER: linkedeye
-      POSTGRES_PASSWORD: LinkedEye@2026
+      POSTGRES_PASSWORD: Wecrew@2026
     volumes:
       - argus_postgres_data:/var/lib/postgresql/data
     ports:

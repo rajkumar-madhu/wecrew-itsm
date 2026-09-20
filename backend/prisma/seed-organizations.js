@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM — Seed: 16 Client Organizations
+// WeCrew ITSM — Seed: 16 Client Organizations
 // Run: node prisma/seed-organizations.js
 // ═══════════════════════════════════════════════════════════
 
@@ -29,7 +29,7 @@ const ORGANIZATIONS = [
 async function main() {
   console.log('Seeding 16 client organizations...\n');
 
-  const password = await bcrypt.hash('LinkedEye@2026', 12);
+  const password = await bcrypt.hash('Wecrew@2026', 12);
 
   for (const org of ORGANIZATIONS) {
     const created = await prisma.organization.upsert({
@@ -94,7 +94,7 @@ async function main() {
   }
 
   console.log('Done! All organizations seeded.');
-  console.log('Default password for all org admins: LinkedEye@2026');
+  console.log('Default password for all org admins: Wecrew@2026');
 }
 
 main()

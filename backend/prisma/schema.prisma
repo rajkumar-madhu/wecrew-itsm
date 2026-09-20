@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════
-// LinkedEye ITSM Platform — Complete Prisma Schema
+// WeCrew ITSM Platform — Complete Prisma Schema
 // Database: PostgreSQL | ORM: Prisma 5.x
-// © 2026 Santhira (Terv Pro Technology Pvt Ltd)
+// © 2026 WeCrew
 // Multi-Tenant: Organization-scoped data isolation
 // ═══════════════════════════════════════════════════════════
 

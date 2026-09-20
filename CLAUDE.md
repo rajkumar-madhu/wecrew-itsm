@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Argus** (formerly LinkedEye) is an enterprise ITSM (IT Service Management) platform built by Santhira (Terv Pro Technology Pvt Ltd). It manages Incidents, Changes, Problems, Assets/CMDB, Alerts, Teams, On-Call, and integrates with Prometheus, Grafana, Loki, Slack, PagerDuty, and ServiceNow. The platform is multi-tenant with 13+ client organizations.
+**Argus** (formerly WeCrew) is an enterprise ITSM (IT Service Management) platform built by WeCrew. It manages Incidents, Changes, Problems, Assets/CMDB, Alerts, Teams, On-Call, and integrates with Prometheus, Grafana, Loki, Slack, PagerDuty, and ServiceNow. The platform is multi-tenant with 13+ client organizations.
 
 ## Tech Stack
 
@@ -25,7 +25,7 @@ cd backend
 npm install
 npx prisma generate          # Generate Prisma client
 npx prisma migrate dev       # Run migrations (local dev DB)
-npx prisma db seed           # Seed test data (password: LinkedEye@2026)
+npx prisma db seed           # Seed test data (password: Wecrew@2026)
 npm run dev                  # Start with nodemon on port 5000
 ```
 

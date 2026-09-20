@@ -75,7 +75,7 @@ async function main() {
   if (user) {
     console.log('User already exists:', user.email);
   } else {
-    const hash = await bcrypt.hash('LinkedEye@2026', 12);
+    const hash = await bcrypt.hash('Wecrew@2026', 12);
     user = await p.user.create({
       data: {
         email,
@@ -87,7 +87,7 @@ async function main() {
         organizationId: org.id,
       },
     });
-    console.log('Created user:', user.email, '(password: LinkedEye@2026)');
+    console.log('Created user:', user.email, '(password: Wecrew@2026)');
   }
 
   // 3. Create Integrations
@@ -153,7 +153,7 @@ async function main() {
   // Summary
   console.log('\n=== Contabo EU Onboarding Complete ===');
   console.log('Org ID:', org.id);
-  console.log('Admin:', email, '/ LinkedEye@2026');
+  console.log('Admin:', email, '/ Wecrew@2026');
   console.log('Integrations:', INTEGRATIONS.length);
   console.log('Teams:', DEFAULT_TEAMS.length);
   console.log('Server:', ORG.serverIp + ':' + SSH.sshPort, '(user:', SSH.sshUser + ')');

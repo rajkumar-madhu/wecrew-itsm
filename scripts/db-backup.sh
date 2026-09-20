@@ -1,6 +1,6 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════════
-# LinkedEye ITSM — Database Backup Script
+# WeCrew ITSM — Database Backup Script
 # Compatible with Kubernetes CronJob and standalone execution
 # ═══════════════════════════════════════════════════════════
 
@@ -48,8 +48,8 @@ send_slack() {
       -d "{
         \"attachments\": [{
           \"color\": \"${color}\",
-          \"text\": \"${emoji} *LinkedEye DB Backup* — ${message}\",
-          \"footer\": \"LinkedEye ITSM | $(hostname)\",
+          \"text\": \"${emoji} *WeCrew DB Backup* — ${message}\",
+          \"footer\": \"WeCrew ITSM | $(hostname)\",
           \"ts\": $(date +%s)
         }]
       }" > /dev/null 2>&1 || true
@@ -119,7 +119,7 @@ cleanup_old_backups() {
 }
 
 # ── Main ──
-log "Starting LinkedEye database backup..."
+log "Starting WeCrew database backup..."
 log "Database: ${DB_NAME}@${DB_HOST}:${DB_PORT}"
 
 mkdir -p "$BACKUP_DIR"

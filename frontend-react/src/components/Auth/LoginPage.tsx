@@ -220,7 +220,7 @@ export default function LoginPage() {
                 type="email"
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); setError(''); }}
-                placeholder="rajkumar@santhira.com"
+                placeholder="rajkumar@wecrew.in"
                 className="w-full px-3.5 py-2.5 text-[13px] text-stone-900 bg-white border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all placeholder:text-stone-400"
                 autoFocus
                 autoComplete="email"

@@ -6,7 +6,7 @@
 | **Document ID** | ARG-TEC-006 |
 | **Version** | 1.0 |
 | **Date** | 2026-03-03 |
-| **Author** | Enterprise Documentation — Santhira (Terv Pro Technology Pvt Ltd) |
+| **Author** | Enterprise Documentation — WeCrew |
 | **Classification** | INTERNAL |
 | **Distribution** | IT Operations, Platform Engineering, Incident Management, DevOps |
 | **Reviewed By** | Platform Architecture Team |
@@ -69,7 +69,7 @@
 
 ## 1. Executive Summary
 
-Argus is an enterprise IT Service Management (ITSM) platform developed by Santhira (Terv Pro Technology Pvt Ltd) for large-scale, multi-tenant environments. Three subsystems govern the intelligence and operations lifecycle of the platform: Root Cause Analysis (RCA), Incident Ticket Lifecycle management, and Completed Analysis reporting.
+Argus is an enterprise IT Service Management (ITSM) platform developed by WeCrew for large-scale, multi-tenant environments. Three subsystems govern the intelligence and operations lifecycle of the platform: Root Cause Analysis (RCA), Incident Ticket Lifecycle management, and Completed Analysis reporting.
 
 The RCA subsystem combines a 17-entry Alert Knowledge Base (KEDB) with an AI engine backed by Ollama Qwen3-32B to provide structured, confidence-scored root cause determinations for Problem records. The AI reads alert patterns from linked incidents, matches them against the KEDB, constructs a structured prompt, and returns categorized analysis including evidence chains, workarounds, permanent fixes, and blast radius assessments.
 
@@ -1871,7 +1871,7 @@ The `IncidentReportBuilder` class in `backend/src/controllers/incident-report.co
 | Version | 1.0 |
 | Next Review | 2026-06-03 |
 | Classification | INTERNAL |
-| Owner | Platform Engineering — Santhira (Terv Pro Technology Pvt Ltd) |
+| Owner | Platform Engineering — WeCrew |
 
 **Source Files Referenced:**
 

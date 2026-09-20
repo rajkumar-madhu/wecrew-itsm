@@ -14,10 +14,10 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - linkedeye.santhira.com
+        - itsm.wecrew.in
       secretName: linkedeye-tls
   rules:
-    - host: linkedeye.santhira.com
+    - host: itsm.wecrew.in
       http:
         paths:
           - path: /api

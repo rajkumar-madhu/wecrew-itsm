@@ -8,8 +8,8 @@ metadata:
 data:
   NODE_ENV: "production"
   PORT: "5000"
-  FRONTEND_URL: "https://linkedeye.santhira.com"
-  CORS_ORIGINS: "https://linkedeye.santhira.com"
+  FRONTEND_URL: "https://itsm.wecrew.in"
+  CORS_ORIGINS: "https://itsm.wecrew.in"
   PROMETHEUS_URL: "http://prometheus-server.monitoring.svc.cluster.local:9090"
   LOKI_URL: "http://loki.monitoring.svc.cluster.local:3100"
   GRAFANA_URL: "http://grafana.monitoring.svc.cluster.local:3000"

@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════
--- LinkedEye ITSM — Full-Text Search & Performance Indexes
+-- WeCrew ITSM — Full-Text Search & Performance Indexes
 -- Run manually: psql $DATABASE_URL -f add-indexes.sql
 -- ═══════════════════════════════════════════════════════════
 

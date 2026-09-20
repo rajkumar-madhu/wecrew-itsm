@@ -10,9 +10,9 @@ const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 const prisma = new PrismaClient();
 
-const PASSWORD = bcrypt.hashSync('LinkedEye@2026', 12);
+const PASSWORD = bcrypt.hashSync('Wecrew@2026', 12);
 
-// ── Real people from the Finspot/Santhira team ──────────────
+// ── Real people from the Finspot/WeCrew team ──────────────
 const PEOPLE = [
   {
     email: 'rajkumar.madhu@rmadhu.in',
@@ -58,7 +58,7 @@ const PEOPLE = [
     role: 'ENGINEER',
     jobTitle: 'LE App Engineer',
     department: 'LE Application',
-    skills: ['LinkedEye', 'Application Support', 'MySQL', 'PostgreSQL', 'DR Data Sync'],
+    skills: ['WeCrew', 'Application Support', 'MySQL', 'PostgreSQL', 'DR Data Sync'],
     team: 'LE Team',
     teamRole: 'MEMBER',
   },
@@ -105,7 +105,7 @@ const PEOPLE = [
 const TEAMS = [
   {
     name: 'LE Team',
-    description: 'LinkedEye application support and maintenance team',
+    description: 'WeCrew application support and maintenance team',
     email: 'support@wecrew.in',
     slackChannel: '#le-team',
   },

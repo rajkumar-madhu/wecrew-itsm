@@ -80,7 +80,7 @@ const config = {
     port: parseInt(process.env.SMTP_PORT, 10) || 587,
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
-    from: process.env.EMAIL_FROM || 'noreply@linkedeye.santhira.com',
+    from: process.env.EMAIL_FROM || 'noreply@itsm.wecrew.in',
   },
 
   ai: {
