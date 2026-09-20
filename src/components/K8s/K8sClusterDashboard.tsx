@@ -197,13 +197,17 @@ export default function K8sClusterDashboard() {
         }
         kpiCols={5}
         kpis={
-          ovLoading
+          // An unreachable cluster must not read as a healthy empty one: branching
+          // on ovLoading alone rendered "Nodes 0/0 ready · Failed 0", which is a
+          // calm, confident lie. Errors get their own dashed state, and the
+          // message below says what to check.
+          ovLoading || ovErr
             ? [
-                { label: 'Nodes', value: '—', sub: 'ready' },
+                { label: 'Nodes', value: '—', sub: ovErr ? 'unreachable' : 'ready', tone: ovErr ? 'danger' : undefined },
                 { label: 'Running', value: '—', sub: 'pods' },
                 { label: 'Pending', value: '—', sub: 'pods' },
                 { label: 'Failed', value: '—', sub: 'pods' },
-                { label: 'Total pods', value: '—', sub: 'in cluster' },
+                { label: 'Total pods', value: '—', sub: ovErr ? 'no data' : 'in cluster' },
               ]
             : [
                 { label: 'Nodes', value: `${ov?.nodesReady ?? 0}/${ov?.nodeCount ?? 0}`, sub: 'ready' },

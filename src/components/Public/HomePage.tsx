@@ -3,10 +3,17 @@ import {
   ArrowRight, Boxes, Brain, Building2, GitPullRequest, Radar, ShieldCheck, Siren, Timer, PhoneCall,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { Card, CheckList, Container, Section, SectionIntro } from './chrome';
+import { Card, CheckList, Container, Disclosure, FactRow, Section, SectionIntro } from './chrome';
 import {
+  AUDIENCES,
   CAPABILITIES,
   COMPANY,
+  DOC_LINKS,
+  HOME_FAQ,
+  ITIL_PRACTICES,
+  MEASURES,
+  PLATFORM_FACTS,
+  PRACTICE_STATE_LABEL,
   HOME_EXAMPLE_INCIDENT,
   HOME_HERO,
   HOW_IT_WORKS,
@@ -139,6 +146,31 @@ export default function HomePage() {
         </ul>
       </Section>
 
+      {/* Who it is for — enterprise buyers self-select before they read features */}
+      <Section>
+        <SectionIntro
+          eyebrow="Who runs this"
+          title="Three desks, one record"
+          deck="The same incident record serves a provider running many customers, a platform team drowning in alerts, and the lead who has to report on both."
+        />
+        <div className="mt-8 grid gap-4 md:grid-cols-3">
+          {AUDIENCES.map((aud) => (
+            <Card key={aud.key} className="flex flex-col">
+              <p className="cx-eyebrow">{aud.role}</p>
+              <h3 className="mt-2 font-display text-[17px] font-semibold leading-snug text-ink">{aud.job}</h3>
+              <p className="mt-2.5 flex-1 text-[13px] leading-relaxed text-muted">{aud.body}</p>
+              <Link
+                to={aud.to}
+                className="mt-4 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-signal hover:underline"
+              >
+                {aud.linkLabel}
+                <ArrowRight size={13} strokeWidth={2} aria-hidden />
+              </Link>
+            </Card>
+          ))}
+        </div>
+      </Section>
+
       {/* Capability showcase */}
       <Section className="border-y border-steel bg-obsidian">
         <SectionIntro
@@ -188,6 +220,78 @@ export default function HomePage() {
           Connect your first alert source
           <ArrowRight size={14} strokeWidth={2} aria-hidden />
         </Link>
+      </Section>
+
+      {/* ITIL practice coverage — stated honestly, including what is NOT built */}
+      <Section className="border-y border-steel bg-obsidian">
+        <SectionIntro
+          eyebrow="Practice coverage"
+          title="Which ITIL 4 practices this actually implements"
+          deck="Including the ones it does not. A coverage matrix you can check beats a claim you cannot — take this into your evaluation and hold us to it."
+        />
+        <div className="mt-8 overflow-hidden rounded border border-steel bg-void">
+          <table className="w-full border-collapse text-left">
+            <caption className="sr-only">ITIL 4 practice coverage</caption>
+            <thead>
+              <tr className="border-b border-steel">
+                <th scope="col" className="px-4 py-3 font-mono text-[10.5px] font-medium uppercase tracking-[0.12em] text-dim">
+                  Practice
+                </th>
+                <th scope="col" className="px-4 py-3 font-mono text-[10.5px] font-medium uppercase tracking-[0.12em] text-dim">
+                  Status
+                </th>
+                <th scope="col" className="hidden px-4 py-3 font-mono text-[10.5px] font-medium uppercase tracking-[0.12em] text-dim sm:table-cell">
+                  What that means
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {ITIL_PRACTICES.map((row) => (
+                <tr key={row.practice} className="border-b border-steel last:border-b-0">
+                  <th scope="row" className="px-4 py-3 align-top text-[13px] font-medium text-ink">
+                    {row.practice}
+                    <span className="mt-1 block text-[12px] font-normal leading-relaxed text-muted sm:hidden">
+                      {row.note}
+                    </span>
+                  </th>
+                  <td className="whitespace-nowrap px-4 py-3 align-top">
+                    <span
+                      className={
+                        row.state === 'core'
+                          ? 'cx-pill cx-pill--ok'
+                          : row.state === 'partial'
+                            ? 'cx-pill cx-pill--warn'
+                            : 'cx-pill cx-pill--neutral'
+                      }
+                    >
+                      {PRACTICE_STATE_LABEL[row.state]}
+                    </span>
+                  </td>
+                  <td className="hidden px-4 py-3 align-top text-[12.5px] leading-relaxed text-muted sm:table-cell">
+                    {row.note}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Section>
+
+      {/* What you can measure — instrumentation, not claimed outcomes */}
+      <Section>
+        <SectionIntro
+          eyebrow="Reporting"
+          title="What you will be able to measure"
+          deck="These are the measures the platform reports from your own records. We publish no benchmark numbers of our own — the only ones worth anything are the ones your estate produces."
+        />
+        <dl className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {MEASURES.map((m) => (
+            <div key={m.metric} className="rounded border border-steel bg-obsidian p-4">
+              <dt className="font-display text-[15px] font-semibold text-ink">{m.metric}</dt>
+              <dd className="mt-1.5 text-[12.5px] leading-relaxed text-muted">{m.body}</dd>
+            </div>
+          ))}
+        </dl>
       </Section>
 
       {/* Multi-tenant + security */}
@@ -268,6 +372,75 @@ export default function HomePage() {
           Compare plans
           <ArrowRight size={14} strokeWidth={2} aria-hidden />
         </Link>
+      </Section>
+
+      {/* Procurement facts — the answers security review asks for first */}
+      <Section className="border-y border-steel bg-obsidian">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+          <SectionIntro
+            eyebrow="The details"
+            title="Answers your security review will ask for"
+            deck="Short, checkable facts about deployment, data and access — so an evaluation can start from something concrete instead of a discovery call."
+          />
+          <dl className="rounded border border-steel bg-void px-5 py-2">
+            {PLATFORM_FACTS.map((f) => (
+              <FactRow key={f.label} label={f.label} value={f.value} />
+            ))}
+          </dl>
+        </div>
+        <Link
+          to="/security"
+          className="mt-6 inline-flex items-center gap-1.5 text-[13px] font-medium text-signal hover:underline"
+        >
+          <ShieldCheck size={14} strokeWidth={1.75} aria-hidden />
+          Full security posture
+        </Link>
+      </Section>
+
+      {/* Documentation — the product is documented, and the docs are public */}
+      <Section>
+        <SectionIntro
+          eyebrow="Documentation"
+          title="Read the docs before you talk to anyone"
+          deck="The webhook format, the API, the tenancy header and the billing rules are all written down and public. Nothing behind this page needs a sales call to understand."
+        />
+        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {DOC_LINKS.map((doc) => (
+            <Link
+              key={doc.to}
+              to={doc.to}
+              className="group flex flex-col rounded border border-steel bg-obsidian p-4 transition-colors hover:border-signal/50"
+            >
+              <h3 className="font-display text-[15px] font-semibold text-ink">{doc.title}</h3>
+              <p className="mt-1.5 flex-1 text-[12.5px] leading-relaxed text-muted">{doc.body}</p>
+              <span className="mt-3 inline-flex items-center gap-1 text-[12.5px] font-medium text-signal">
+                Open
+                <ArrowRight
+                  size={13}
+                  strokeWidth={2}
+                  aria-hidden
+                  className="transition-transform group-hover:translate-x-0.5"
+                />
+              </span>
+            </Link>
+          ))}
+        </div>
+      </Section>
+
+      {/* FAQ */}
+      <Section className="border-y border-steel bg-obsidian">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+          <SectionIntro
+            eyebrow="Questions"
+            title="The six we are asked every time"
+            deck="If yours is not here, ask it directly — you will get the same answer either way."
+          />
+          <div className="rounded border border-steel bg-void px-5 py-1">
+            {HOME_FAQ.map((item) => (
+              <Disclosure key={item.q} q={item.q} a={item.a} />
+            ))}
+          </div>
+        </div>
       </Section>
 
       {/* Final CTA */}

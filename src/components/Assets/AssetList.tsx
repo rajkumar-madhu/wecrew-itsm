@@ -16,7 +16,7 @@ import {
   EyeOff,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { useAssets } from '../../hooks/useAssets';
+import { useAssets, useAssetCensus, useAssetStats } from '../../hooks/useAssets';
 import { useAuthStore } from '../../stores/authStore';
 import { Page, Toolbar } from '../ui/PageChrome';
 
@@ -113,10 +113,16 @@ function StatusBadge({ status }: { status: AssetStatus }) {
  */
 function EstateMap({
   assets,
+  total,
+  truncated,
   loading,
   onSelect,
 }: {
   assets: Asset[];
+  /** Org-wide count from the server, which may exceed the drawn cells. */
+  total?: number;
+  /** True when the census bound stopped short of `total`. */
+  truncated?: boolean;
   loading?: boolean;
   onSelect: (id: string) => void;
 }) {
@@ -176,9 +182,15 @@ function EstateMap({
       <div className="cx-estate__head">
         <span className="cx-listhead__count">
           <span className="cx-listhead__count-value">
-            {assets.length} configuration item{assets.length === 1 ? '' : 's'}
+            {truncated
+              ? `${assets.length} of ${total ?? assets.length} configuration items`
+              : `${assets.length} configuration item${assets.length === 1 ? '' : 's'}`}
           </span>
-          <span className="cx-listhead__count-meta">across {bands.length} type{bands.length === 1 ? '' : 's'}</span>
+          <span className="cx-listhead__count-meta">
+            {truncated
+              ? `across ${bands.length} type${bands.length === 1 ? '' : 's'} · map capped, filter to narrow`
+              : `across ${bands.length} type${bands.length === 1 ? '' : 's'}`}
+          </span>
         </span>
         <span className="cx-window__legend">
           <span className="cx-window__key"><span className="cx-estate__cell cx-estate__cell--live pointer-events-none" /> Live</span>
@@ -274,27 +286,43 @@ export default function AssetList() {
   const { data: assetsResponse, isLoading } = useAssets(queryFilters);
 
   // The estate map is a census of everything, not of the current filter — a map
-  // that shrinks as you search stops being a map.
-  const { data: estateResponse, isLoading: estateLoading } = useAssets({ limit: 500 });
+  // that shrinks as you search stops being a map. It pages at the API's cap of
+  // 100; asking for more is a 400, not a bigger page (see lib/census.ts).
+  const { data: census, isLoading: estateLoading } = useAssetCensus<Asset>();
+
+  // The headline numbers come from /assets/stats, which aggregates server-side
+  // over the whole org. They stay exact even when the census bound truncates the
+  // map below, and they carry the lifecycle risk the CMDB is kept for.
+  const { data: statsResponse, isLoading: statsLoading } = useAssetStats();
 
   const assets: Asset[] = assetsResponse?.data ?? [];
   const totalCount = assetsResponse?.pagination?.total ?? assets.length;
-  const estate: Asset[] = useMemo(() => estateResponse?.data ?? [], [estateResponse]);
+  const estate: Asset[] = useMemo(() => census?.items ?? [], [census]);
+  const estateTruncated = Boolean(census?.truncated);
 
   const stats = useMemo(() => {
-    const live = estate.filter((a) => a.status === 'LIVE').length;
-    const maintenance = estate.filter((a) => a.status === 'MAINTENANCE').length;
-    const blind = estate.filter((a) => !a.monitoringEnabled).length;
-    const sites = new Set(estate.map((a) => a.datacenter).filter(Boolean)).size;
-    return { total: estate.length, live, maintenance, blind, sites };
-  }, [estate]);
+    const s = statsResponse?.data;
+    const byStatus: Array<{ status: string; _count: number }> = s?.byStatus ?? [];
+    const countOf = (status: string) =>
+      byStatus.find((r) => r.status === status)?._count ?? 0;
+    const total = s?.total ?? 0;
+    return {
+      total,
+      live: s?.liveCount ?? 0,
+      maintenance: countOf('MAINTENANCE'),
+      blind: Math.max(0, total - (s?.monitoringCoverage ?? 0)),
+      endOfLife: s?.eolWarnings ?? 0,
+    };
+  }, [statsResponse]);
+
+  const dash = (v: number) => (statsLoading ? '—' : v);
 
   const kpis = [
-    { label: 'Items', value: stats.total, sub: 'under management' },
-    { label: 'Live', value: stats.live, sub: 'serving traffic' },
-    { label: 'Maintenance', value: stats.maintenance, sub: 'alerts suppressed', tone: stats.maintenance > 0 ? 'warn' : undefined },
-    { label: 'Unmonitored', value: stats.blind, sub: 'raise no alerts', tone: stats.blind > 0 ? 'danger' : undefined },
-    { label: 'Datacenters', value: stats.sites, sub: 'distinct sites' },
+    { label: 'Items', value: dash(stats.total), sub: 'under management' },
+    { label: 'Live', value: dash(stats.live), sub: 'serving traffic' },
+    { label: 'Maintenance', value: dash(stats.maintenance), sub: 'alerts suppressed', tone: stats.maintenance > 0 ? 'warn' : undefined },
+    { label: 'Unmonitored', value: dash(stats.blind), sub: 'raise no alerts', tone: stats.blind > 0 ? 'danger' : undefined },
+    { label: 'End of life', value: dash(stats.endOfLife), sub: 'within 90 days', tone: stats.endOfLife > 0 ? 'warn' : undefined },
   ];
 
   return (
@@ -317,6 +345,13 @@ export default function AssetList() {
                 {organization.environment}
               </span>
             )}
+            <button
+              type="button"
+              onClick={() => navigate('/assets/insights')}
+              className="cx-hero__btn cx-hero__btn--ghost"
+            >
+              Lifecycle insights
+            </button>
             <button type="button" onClick={() => navigate('/assets/create')} className="cx-hero__btn">
               <Plus size={14} strokeWidth={1.75} />
               Add an item
@@ -354,7 +389,13 @@ export default function AssetList() {
         </div>
       </div>
 
-      <EstateMap assets={estate} loading={estateLoading} onSelect={(id) => navigate(`/assets/${id}`)} />
+      <EstateMap
+        assets={estate}
+        total={stats.total}
+        truncated={estateTruncated}
+        loading={estateLoading}
+        onSelect={(id) => navigate(`/assets/${id}`)}
+      />
 
       {/* ── Inventory ── */}
       <div className="cx-sectionhead">

@@ -23,7 +23,16 @@ export default function ForgotPasswordPage() {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: clean }),
       });
       if (res.status === 429) throw new Error('Too many attempts. Wait a few minutes and try again.');
-      if (!res.ok && res.status !== 400) throw new Error('Something went wrong. Please try again.');
+      // A 400 is the server rejecting the address itself. The client only checks
+      // for an "@", so `john@company` reaches here and must not be answered with
+      // "a reset link is on its way" for a request that was never accepted.
+      // Enumeration safety comes from the server answering 200 whether or not the
+      // account exists — not from swallowing validation errors.
+      if (res.status === 400) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || 'That does not look like a valid email address.');
+      }
+      if (!res.ok) throw new Error('Something went wrong. Please try again.');
       setSent(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');

@@ -18,9 +18,13 @@ const newPassword = () => crypto.randomBytes(14).toString('base64url').slice(0, 
     return;
   }
   const org = await prisma.organization.create({ data: { name: 'WeCrew', slug: 'wecrew', environment: 'PROD' } });
+  // Cross-org access needs BOTH role === 'ADMIN' and isPlatformAdmin === true —
+  // see isPlatformAdmin() in backend/src/middleware/tenant.js. A plain ADMIN with
+  // organizationId: null resolves to NO_TENANT ({ organizationId: { in: [] } })
+  // and sees nothing at all, which is what "all orgs" used to produce here.
   const admins = [
-    { email: 'admin@wecrew.in', firstName: 'WeCrew', lastName: 'Admin', organizationId: org.id },
-    { email: 'rajkumarmadhu2024@gmail.com', firstName: 'rajkumar', lastName: 'madhu', organizationId: null },
+    { email: 'admin@wecrew.in', firstName: 'WeCrew', lastName: 'Admin', organizationId: org.id, isPlatformAdmin: false },
+    { email: 'rajkumarmadhu2024@gmail.com', firstName: 'rajkumar', lastName: 'madhu', organizationId: null, isPlatformAdmin: true },
   ];
   const out = [];
   for (const a of admins) {
@@ -32,7 +36,11 @@ const newPassword = () => crypto.randomBytes(14).toString('base64url').slice(0, 
       data: { action: 'USER_BOOTSTRAPPED', entityType: 'User', entityId: user.id,
         newData: { email: user.email, role: 'ADMIN', reason: 'wecrew-itsm fresh database bootstrap' } },
     });
-    out.push({ email: user.email, scope: a.organizationId ? 'WeCrew org' : 'all orgs', password });
+    out.push({
+      email: user.email,
+      scope: a.isPlatformAdmin ? 'all orgs (platform admin)' : 'WeCrew org',
+      password,
+    });
   }
   console.log(JSON.stringify({ organization: org.slug, admins: out }, null, 1));
 })()

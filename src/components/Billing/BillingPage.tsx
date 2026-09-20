@@ -43,19 +43,49 @@ declare global {
 function loadCheckout(): Promise<RazorpayCtor> {
   if (window.Razorpay) return Promise.resolve(window.Razorpay);
   return new Promise((resolve, reject) => {
-    const done = () => (window.Razorpay ? resolve(window.Razorpay) : reject(new Error('Razorpay checkout did not initialise')));
-    const fail = () => reject(new Error('Could not load Razorpay checkout'));
+    const settle = (fn: () => void) => {
+      clearTimeout(timer);
+      fn();
+    };
+    const done = () =>
+      settle(() =>
+        window.Razorpay
+          ? resolve(window.Razorpay)
+          : reject(new Error('Razorpay checkout did not initialise')),
+      );
+    const fail = (node: HTMLScriptElement) =>
+      settle(() => {
+        // Drop the dead tag. A failed <script> that stays in the DOM makes the
+        // next attempt take the `existing` branch below and wait on load/error
+        // events that already fired — the promise would never settle, leaving
+        // every Upgrade button disabled until a full page reload.
+        node.remove();
+        reject(new Error('Could not load Razorpay checkout'));
+      });
+
     const existing = document.querySelector<HTMLScriptElement>(`script[src="${CHECKOUT_SRC}"]`);
-    if (existing) {
-      existing.addEventListener('load', done);
-      existing.addEventListener('error', fail);
+    const node = existing ?? document.createElement('script');
+
+    // A tag left by an in-flight attempt is fine to wait on; one whose load
+    // already completed without defining Razorpay is not, so retry from scratch.
+    if (existing && existing.dataset.loaded === 'true') {
+      settle(() => reject(new Error('Razorpay checkout did not initialise')));
+      existing.remove();
       return;
     }
-    const s = document.createElement('script');
-    s.src = CHECKOUT_SRC;
-    s.onload = done;
-    s.onerror = fail;
-    document.body.appendChild(s);
+
+    const timer = window.setTimeout(() => fail(node), 15000);
+
+    node.addEventListener('load', () => {
+      node.dataset.loaded = 'true';
+      done();
+    });
+    node.addEventListener('error', () => fail(node));
+
+    if (!existing) {
+      node.src = CHECKOUT_SRC;
+      document.body.appendChild(node);
+    }
   });
 }
 

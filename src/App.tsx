@@ -32,6 +32,7 @@ const ProblemDetail = lazy(() => import('./components/Problems/ProblemDetail'));
 const AlertList = lazy(() => import('./components/Alerts/AlertList'));
 const AssetList = lazy(() => import('./components/Assets/AssetList'));
 const AssetCreate = lazy(() => import('./components/Assets/AssetCreate'));
+const AssetDashboard = lazy(() => import('./components/Assets/AssetDashboard'));
 const AssetDetail = lazy(() => import('./components/Assets/AssetDetail'));
 const IntegrationHub = lazy(() => import('./components/Integrations/IntegrationHub'));
 const TeamList = lazy(() => import('./components/Teams/TeamList'));
@@ -180,6 +181,9 @@ export default function App() {
         <Route path="/alerts" element={<Suspense fallback={<LoadingFallback />}><AlertList /></Suspense>} />
         <Route path="/assets" element={<Suspense fallback={<LoadingFallback />}><AssetList /></Suspense>} />
         <Route path="/assets/create" element={<Suspense fallback={<LoadingFallback />}><AssetCreate /></Suspense>} />
+        {/* Lifecycle analytics: EOL, warranty, cost and monitoring coverage. Static
+            segment, so it outranks /assets/:id regardless of order. */}
+        <Route path="/assets/insights" element={<Suspense fallback={<LoadingFallback />}><AssetDashboard /></Suspense>} />
         <Route path="/assets/:id" element={<Suspense fallback={<LoadingFallback />}><AssetDetail /></Suspense>} />
         <Route path="/network" element={<Suspense fallback={<LoadingFallback />}><NetworkTopology /></Suspense>} />
         <Route path="/metrics" element={<Suspense fallback={<LoadingFallback />}><MetricsDashboard /></Suspense>} />

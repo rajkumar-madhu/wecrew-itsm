@@ -153,22 +153,42 @@ export default function LogExplorer() {
             </button>
           </div>
         </div>
+        {/* The four severity tiles narrow the stream — clicking "Errors 37" is the
+            fastest way through 4,000 lines, so they are buttons, not read-outs.
+            Clicking the active one clears the filter. "Shown" is a read-out. */}
         <dl className="cx-hero__kpis cx-hero__kpis--5 mt-6">
-          {[
-            { label: 'Errors', value: counts.error, sub: 'in this window', tone: counts.error > 0 ? 'danger' : undefined },
-            { label: 'Warnings', value: counts.warn, sub: 'in this window', tone: counts.warn > 0 ? 'warn' : undefined },
-            { label: 'Info', value: counts.info, sub: 'in this window' },
-            { label: 'Debug', value: counts.debug, sub: 'in this window' },
-            { label: 'Shown', value: filteredLogs.length, sub: 'after filters' },
-          ].map((kpi) => (
-            <div key={kpi.label} className={`cx-hero__kpi${kpi.tone ? ` cx-hero__kpi--${kpi.tone}` : ''}`}>
-              <dt className="cx-hero__kpi-label">{kpi.label}</dt>
-              <dd>
-                <div className="cx-hero__kpi-value">{kpi.value}</div>
-                <div className="cx-hero__kpi-sub">{kpi.sub}</div>
-              </dd>
-            </div>
-          ))}
+          {([
+            { label: 'Errors', sev: 'error', value: counts.error, tone: counts.error > 0 ? 'danger' : undefined },
+            { label: 'Warnings', sev: 'warn', value: counts.warn, tone: counts.warn > 0 ? 'warn' : undefined },
+            { label: 'Info', sev: 'info', value: counts.info, tone: undefined },
+            { label: 'Debug', sev: 'debug', value: counts.debug, tone: undefined },
+          ] as const).map((kpi) => {
+            const active = severityFilter === kpi.sev;
+            return (
+              <button
+                key={kpi.label}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setSeverityFilter(active ? null : kpi.sev)}
+                className={`cx-hero__kpi text-left transition-colors${kpi.tone ? ` cx-hero__kpi--${kpi.tone}` : ''}${active ? ' ring-1 ring-signal' : ''}`}
+              >
+                <dt className="cx-hero__kpi-label">{kpi.label}</dt>
+                <dd>
+                  <div className="cx-hero__kpi-value">{kpi.value}</div>
+                  <div className="cx-hero__kpi-sub">
+                    {active ? 'filtering — click to clear' : 'in this window'}
+                  </div>
+                </dd>
+              </button>
+            );
+          })}
+          <div className="cx-hero__kpi">
+            <dt className="cx-hero__kpi-label">Shown</dt>
+            <dd>
+              <div className="cx-hero__kpi-value">{filteredLogs.length}</div>
+              <div className="cx-hero__kpi-sub">after filters</div>
+            </dd>
+          </div>
         </dl>
       </div>
 

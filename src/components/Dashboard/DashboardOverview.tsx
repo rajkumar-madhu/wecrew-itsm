@@ -16,7 +16,7 @@ import { useAlerts } from '../../hooks/useAlerts';
 import { useAssets } from '../../hooks/useAssets';
 import { useChanges } from '../../hooks/useChanges';
 import { useTeams } from '../../hooks/useTeams';
-import { useOnCallOverview } from '../../hooks/useOnCall';
+import { useOnCallOverview, type OnCallScheduleRow } from '../../hooks/useOnCall';
 import { useAuthStore } from '../../stores/authStore';
 import { EnterpriseHero, EnterprisePosture } from '../ui/PageChrome';
 
@@ -407,7 +407,30 @@ export default function DashboardOverview() {
   const teams: any[] = teamsData?.data ?? [];
 
   /* ── On-Call ── */
-  const onCallTeams: any[] = onCallData?.data ?? [];
+  // /teams/on-call/overview returns { schedules, stats } — not an array. Reading
+  // `.data` as a list made `.length` undefined, which zeroed the KPI and made the
+  // roster strip below unreachable.
+  const onCallSchedules: OnCallScheduleRow[] = onCallData?.data?.schedules ?? [];
+  const onCallStats = onCallData?.data?.stats;
+
+  // One entry per team, primary responder first (the server already orders
+  // isPrimary desc, so the first hit per team is the primary when there is one).
+  const onCallTeams = useMemo(() => {
+    const byTeam = new Map<string, any>();
+    for (const sched of onCallSchedules) {
+      const teamId = sched.team?.id ?? sched.teamId;
+      if (!teamId || byTeam.has(teamId)) continue;
+      byTeam.set(teamId, {
+        id: teamId,
+        teamName: sched.team?.name,
+        user: sched.user,
+        isPrimary: sched.isPrimary,
+      });
+    }
+    return Array.from(byTeam.values());
+  }, [onCallSchedules]);
+
+  const teamsCovered = onCallStats?.teamsCovered ?? onCallTeams.length;
 
   /* ── Infra metrics ── */
   const { data: infraData } = useQuery({
@@ -463,7 +486,7 @@ export default function DashboardOverview() {
     { label: 'Changes', value: openChanges, sub: 'open', tone: '', to: '/changes' },
     { label: 'Assets', value: totalAssets, sub: 'cmdb', tone: '', to: '/assets' },
     { label: 'SLA', value: `${slaCompliance || 0}%`, sub: 'compliance', tone: '', to: '/sla' },
-    { label: 'On-call', value: onCallTeams.length, sub: 'teams', tone: '', to: '/oncall' },
+    { label: 'On-call', value: teamsCovered, sub: 'teams covered', tone: teamsCovered === 0 ? 'warn' : '', to: '/oncall' },
   ];
 
   const openQueue = incidentRows.filter((inc) => inc.status !== 'resolved');
@@ -675,10 +698,9 @@ export default function DashboardOverview() {
           </div>
           <div className="flex gap-3 px-[18px] py-3 overflow-x-auto">
             {onCallTeams.map((team: any, i: number) => {
-              const primary = team.currentOnCall?.primary;
-              const name = primary?.user?.firstName
-                ? `${primary.user.firstName} ${primary.user.lastName || ''}`.trim()
-                : (team.currentOnCall?.name || 'Unassigned');
+              const name = team.user?.firstName
+                ? `${team.user.firstName} ${team.user.lastName || ''}`.trim()
+                : 'Unassigned';
               return (
                 <button
                   key={team.id || i}
@@ -689,7 +711,10 @@ export default function DashboardOverview() {
                   <AvatarCircle name={name} idx={i} size="sm" />
                   <div>
                     <p className="text-[11px] font-semibold text-ink">{name}</p>
-                    <p className="text-[10px] text-dim">{team.name || `Team ${i + 1}`}</p>
+                    <p className="text-[10px] text-dim">
+                      {team.teamName || `Team ${i + 1}`}
+                      {team.isPrimary ? ' · primary' : ''}
+                    </p>
                   </div>
                   <span className="ml-1 relative flex h-2 w-2 flex-shrink-0">
                     <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-emerald opacity-60" />

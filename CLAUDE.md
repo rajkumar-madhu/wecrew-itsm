@@ -20,10 +20,9 @@ there. `README.md` in this repo is the untouched Vite template; ignore it.
 
 ## Commands
 
-Scripts are in `package.json` (`dev` serves on :5174 and proxies `/api` + `/socket.io` to the backend on
-:5001). There is no test runner, no CI config, and no formatter — `npm run build` (which typechecks) plus
-`npm run lint` is the whole verification story. Path alias `@/*` → `src/*` is configured in both
-`vite.config.ts` and `tsconfig.app.json`, but the codebase uses relative imports throughout.
+There is no test runner, no CI config, and no formatter — `npm run build` (which typechecks) plus
+`npm run lint` is the whole verification story. The `@/*` → `src/*` path alias is configured but unused;
+the codebase uses relative imports throughout.
 
 ## Architecture
 
@@ -195,5 +194,21 @@ renders **static demo data** from `src/data/gprc.ts` — there is no GPRC backen
   It returns 503 until a `voice-agent` Service exists in namespace `voice`. When re-adding the widget:
   point it at `voice.wecrew.in`, **rotate the old key** (it was public in page source across three
   sites), and inject credentials at runtime rather than as inline `data-*` attributes.
+- **`limit` above 100 is a 400, not a bigger page.** The API's `validatePagination` caps `limit` at 100 and
+  *rejects* anything larger instead of clamping, so a view asking for `limit: 500` gets no data at all —
+  which renders as a confident row of zeros above a table that is showing real records. Views that draw
+  one mark per record (estate map, change forward window, change calendar) use `fetchCensus` in
+  `src/lib/census.ts`, which pages at the cap, fans the rest out in parallel and reports `truncated` so
+  the UI can say so. Aggregate KPIs should come from a `/stats` endpoint where one exists (`/assets/stats`
+  does; `/changes` has none) — a census is for the marks, not the numbers. New census query keys must also
+  be registered in `useRealtime.ts`.
+- Server filter names are not always the UI's: changes filter on `riskLevel` (not `risk`) and sort with
+  `sortOrder` (not `sortDir`); a misnamed param is dropped silently, not rejected. The list envelope's page
+  count is `pagination.totalPages` (not `.pages`).
+- The full-page auth flows (`LoginPage`, `SignupPage`) share `src/components/Auth/AuthShell.tsx`; the
+  smaller ones (forgot/reset) share `AuthCard.tsx`. The dark rail in `AuthShell` sets its colours inline on
+  purpose — see the Cascade trap above before converting them to utility classes.
+- Self-service signup is gated server-side by `config.selfServiceSignup` and answers **403 with a specific
+  message** when closed. `SignupPage` treats that as a designed state (offers the pilot route), not an error.
 - Several hooks and components are typed with `any` (filters, mutation inputs, socket payloads) even though
   `src/types/index.ts` holds full Prisma-matching interfaces and enums. Prefer those types in new code.

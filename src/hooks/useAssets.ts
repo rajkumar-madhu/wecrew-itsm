@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
+import { fetchCensus, type Census } from '../lib/census';
+import type { ConfigurationItem } from '../types';
 
 export function useAssets(filters: Record<string, any> = {}) {
   return useQuery({
@@ -64,3 +66,18 @@ export function useAssetStats() {
     staleTime: 60000,
   });
 }
+
+/**
+ * Every configuration item, for the estate map — which draws one cell per CI and
+ * so cannot work from a single page. Bounded; see `lib/census.ts`. KPIs come from
+ * `useAssetStats()` instead, which is org-wide and exact regardless of the bound.
+ */
+export function useAssetCensus<T = ConfigurationItem>() {
+  return useQuery({
+    queryKey: ['assets', 'census'],
+    queryFn: () => fetchCensus<T>('/assets'),
+    staleTime: 60000,
+  });
+}
+
+export type { Census };

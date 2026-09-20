@@ -10,6 +10,10 @@ data:
   OLLAMA_URL: ''
   PORT: '5000'
   PROMETHEUS_URL: http://vmsingle-vm.monitoring.svc.cluster.local:8428
+  # Without this the backend falls back to redis://localhost:6379 (see
+  # backend src/config/env.js), which inside the API pod points at nothing —
+  # the Redis Deployment lives at the `redis` Service from 25-redis.yaml.
+  REDIS_URL: redis://redis:6379
   SLACK_DEFAULT_CHANNEL: '#incidents'
   SMTP_HOST: smtp.gmail.com
   SMTP_PORT: '587'

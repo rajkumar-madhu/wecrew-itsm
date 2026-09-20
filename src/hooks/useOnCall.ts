@@ -1,11 +1,29 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
+import { fetchCensus } from '../lib/census';
+
+/**
+ * An on-call schedule row as the API returns it — not a domain type.
+ * `/teams/on-call/overview` includes `team`; `/on-call/history` does not, so
+ * that field is optional here.
+ */
+export interface OnCallScheduleRow {
+  id: string;
+  teamId: string;
+  userId: string;
+  isPrimary: boolean;
+  startTime: string;
+  endTime: string;
+  user?: { id: string; firstName?: string; lastName?: string };
+  team?: { id: string; name?: string };
+}
 
 const keys = {
   overview: ['oncall', 'overview'] as const,
   schedules: (teamId: string) => ['oncall', 'schedules', teamId] as const,
   escalation: (teamId: string) => ['oncall', 'escalation', teamId] as const,
   history: (teamId: string, page?: number) => ['oncall', 'history', teamId, page] as const,
+  roster: (teamId: string) => ['oncall', 'roster', teamId] as const,
 };
 
 export function useOnCallOverview() {
@@ -66,5 +84,28 @@ export function useCreateOnCallSchedule() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['oncall'] });
     },
+  });
+}
+
+/**
+ * A team's whole rota, for the week coverage ribbon.
+ *
+ * `/teams/on-call/overview` and `/teams/{id}/on-call` both filter to
+ * `startTime <= now <= endTime` — they answer "who holds the pager right now".
+ * Drawing a 168-hour week from them reported almost every hour as uncovered
+ * even for a team with clean 24x7 cover. `/on-call/history` is the only
+ * endpoint that returns the roster unfiltered by date.
+ */
+export function useOnCallRoster(teamId: string) {
+  return useQuery({
+    queryKey: keys.roster(teamId),
+    queryFn: () =>
+      fetchCensus<OnCallScheduleRow>(
+        `/teams/${teamId}/on-call/history`,
+        {},
+        (d) => (d as { schedules?: OnCallScheduleRow[] })?.schedules ?? [],
+      ),
+    staleTime: 60000,
+    enabled: !!teamId,
   });
 }

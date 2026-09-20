@@ -7,7 +7,19 @@ metadata:
   namespace: wecrew-itsm
 spec:
   progressDeadlineSeconds: 600
-  replicas: 2
+  # PINNED TO 1 UNTIL SOCKET.IO IS MULTI-PROCESS.
+  #
+  # Socket.IO rooms are per-process. `emitToUser` reaches only the clients held
+  # by the pod that handled the write, so with 2+ replicas and no shared adapter
+  # roughly half of every realtime event (incident updates, subscription:updated)
+  # is silently dropped — and sticky sessions do NOT fix it, because the emit
+  # originates on the writing pod, not the client's pod.
+  #
+  # To go back to 2+: wire @socket.io/redis-adapter (already in the backend's
+  # package.json, and Redis is deployed at the `redis` Service in 25-redis.yaml)
+  # in the backend's socket setup, then raise this and the HPA's maxReplicas
+  # together.
+  replicas: 1
   revisionHistoryLimit: 10
   selector:
     matchLabels:
@@ -103,7 +115,9 @@ metadata:
   name: linkedeye-api-hpa
   namespace: wecrew-itsm
 spec:
-  maxReplicas: 3
+  # Held at 1 for the same reason as the Deployment's replicas above: scaling out
+  # silently drops realtime events until the Socket.IO Redis adapter is wired.
+  maxReplicas: 1
   metrics:
   - resource:
       name: cpu

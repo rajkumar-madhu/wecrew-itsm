@@ -1546,20 +1546,51 @@ export default function IncidentList() {
         onAssign={() => setShowBulkAssign(true)}
         onEscalate={async () => {
           const ids = Array.from(selectedIds);
-          const eligible = incidents.filter(
-            (i) => ids.includes(i.id) && !['RESOLVED', 'CLOSED', 'ESCALATED'].includes(i.state),
-          );
-          if (eligible.length === 0) {
+          if (ids.length === 0) return;
+
+          // Selection survives pagination, so `incidents` (this page only) is not
+          // the selection. Filtering against it silently dropped everything picked
+          // on another page while the toast still claimed success. Rows we can see
+          // are pre-filtered by state; rows we cannot are sent and judged by the
+          // server, and the toast reports what actually happened.
+          const visible = new Map(incidents.map((i) => [i.id, i]));
+          const terminal = ['RESOLVED', 'CLOSED', 'ESCALATED'];
+          const skipped = ids.filter((id) => {
+            const inc = visible.get(id);
+            return inc ? terminal.includes(inc.state) : false;
+          });
+          const attempt = ids.filter((id) => !skipped.includes(id));
+
+          if (attempt.length === 0) {
             toast.error('No selected incidents can be escalated');
             return;
           }
+
           setBulkBusy(true);
           try {
-            await Promise.all(
-              eligible.map((i) => updateIncident.mutateAsync({ id: i.id, data: { state: 'ESCALATED' } })),
+            const results = await Promise.allSettled(
+              attempt.map((id) => updateIncident.mutateAsync({ id, data: { state: 'ESCALATED' } })),
             );
-            toast.success(`Escalated ${eligible.length} incident${eligible.length === 1 ? '' : 's'}`);
-            setSelectedIds(new Set());
+            const ok = results.filter((r) => r.status === 'fulfilled').length;
+            const failed = results.length - ok;
+
+            if (ok > 0) {
+              const notes = [
+                failed > 0 ? `${failed} failed` : null,
+                skipped.length > 0 ? `${skipped.length} already closed or escalated` : null,
+              ].filter(Boolean);
+              toast.success(
+                `Escalated ${ok} incident${ok === 1 ? '' : 's'}` +
+                  (notes.length ? ` · ${notes.join(' · ')}` : ''),
+              );
+            } else {
+              toast.error('Bulk escalate failed for every selected incident');
+            }
+
+            // Keep anything that did not go through, so a partial failure is
+            // visible and retryable rather than silently cleared.
+            const failedIds = attempt.filter((_, idx) => results[idx].status === 'rejected');
+            setSelectedIds(new Set(failedIds));
           } catch (err: any) {
             toast.error(err?.response?.data?.error || err?.message || 'Bulk escalate failed');
           } finally {

@@ -5,7 +5,7 @@ import {
   Clock, User, AlertTriangle, LayoutGrid, List, Loader2,
 } from 'lucide-react';
 import { clsx } from 'clsx';
-import { useChanges } from '../../hooks/useChanges';
+import { useChangeCensus } from '../../hooks/useChanges';
 import { Page, Toolbar, Segmented } from '../ui/PageChrome';
 
 interface Change {
@@ -83,8 +83,18 @@ export default function ChangeCalendar() {
   const [view, setView] = useState<'month' | 'week'>('month');
   const [selected, setSelected] = useState<Change | null>(null);
 
-  const { data, isLoading } = useChanges({ limit: 500, page: 1 });
-  const changes: Change[] = (data?.data || []).map(asCalChange);
+  // The calendar places one mark per change across a month, so it needs the whole
+  // set — paged at the API's cap of 100. A single `limit: 500` request is
+  // rejected with a 400 (validatePagination does not clamp), which rendered an
+  // empty grid and a row of zeros. See lib/census.ts.
+  const { data: census, isLoading } = useChangeCensus({
+    sortBy: 'plannedStartDate',
+    sortOrder: 'asc',
+  });
+  const changes: Change[] = useMemo(
+    () => (census?.items ?? []).map(asCalChange),
+    [census],
+  );
 
   const monthCells = useMemo(() => {
     const firstDow = new Date(year, month, 1).getDay();

@@ -18,6 +18,8 @@ import {
   useOnCallSchedules,
   useEscalationPolicies,
   useOnCallHistory,
+  useOnCallRoster,
+  type OnCallScheduleRow,
 } from '../../hooks/useOnCall';
 import { Page, Panel, Toolbar, EnterpriseHero, EnterprisePosture } from '../ui/PageChrome';
 import type { EnterpriseKpi } from '../ui/PageChrome';
@@ -214,6 +216,8 @@ export default function OnCallDashboard() {
   const { data: schedulesData } = useOnCallSchedules(activeTeamId);
   const { data: escalationData } = useEscalationPolicies(activeTeamId);
   const { data: historyData } = useOnCallHistory(activeTeamId);
+  // The ribbon needs the whole rota, not just who is on duty this second.
+  const { data: rosterCensus, isLoading: rosterLoading } = useOnCallRoster(activeTeamId);
 
   const overview = overviewData?.data;
   const schedules: any[] = schedulesData?.data || [];
@@ -221,7 +225,11 @@ export default function OnCallDashboard() {
   const recentIncidents: any[] = historyData?.data?.recentIncidents || [];
 
   const stats = overview?.stats || { activeResponders: 0, teamsCovered: 0, openCritical: 0, totalSchedules: 0 };
-  const allOnCall: any[] = overview?.schedules || [];
+
+  // `overview.schedules` is now-only (startTime <= now <= endTime), so it cannot
+  // describe a week. The ribbon reads the selected team's full rota instead.
+  const teamRoster: OnCallScheduleRow[] = useMemo(() => rosterCensus?.items ?? [], [rosterCensus]);
+  const activeTeamName = teams.find((t: any) => t.id === activeTeamId)?.name;
 
   const primarySchedules = schedules.filter((s: any) => s.isPrimary);
   const secondarySchedules = schedules.filter((s: any) => !s.isPrimary);
@@ -251,7 +259,7 @@ export default function OnCallDashboard() {
 
   const coverageMatrix = useMemo(() => {
     const matrix: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
-    for (const sched of allOnCall) {
+    for (const sched of teamRoster) {
       const start = new Date(sched.startTime);
       const end = new Date(sched.endTime);
       for (let d = 0; d < 7; d++) {
@@ -263,20 +271,24 @@ export default function OnCallDashboard() {
       }
     }
     return matrix;
-  }, [allOnCall, weekDates]);
+  }, [teamRoster, weekDates]);
 
   const uncoveredHours = useMemo(() => coverageMatrix.flat().filter((n) => n === 0).length, [coverageMatrix]);
 
-  const isLoadingAny = teamsLoading || overviewLoading;
+  const isLoadingAny = teamsLoading || overviewLoading || rosterLoading;
 
   const kpis: EnterpriseKpi[] = [
     { label: 'On duty', value: stats.activeResponders, sub: 'holding a pager now' },
     { label: 'Teams covered', value: stats.teamsCovered, sub: `of ${teams.length || '—'} teams` },
     {
+      // Scoped to the selected team and the displayed week — the ribbon below
+      // shows exactly these hours, so the number and the picture always agree.
       label: 'Uncovered hours',
-      value: uncoveredHours,
-      sub: 'this week',
-      tone: uncoveredHours > 0 ? 'danger' : undefined,
+      value: rosterLoading ? '—' : uncoveredHours,
+      sub: activeTeamName
+        ? `${activeTeamName}, ${weekOffset === 0 ? 'this week' : 'week shown'}`
+        : 'select a team',
+      tone: !rosterLoading && uncoveredHours > 0 ? 'danger' : undefined,
     },
     {
       label: 'Open P1/P2',

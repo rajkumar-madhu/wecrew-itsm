@@ -12,7 +12,7 @@ import {
   CalendarRange,
   AlertTriangle,
 } from 'lucide-react';
-import { useChanges } from '../../hooks/useChanges';
+import { useChanges, useChangeCensus } from '../../hooks/useChanges';
 import { Page, Toolbar } from '../ui/PageChrome';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -263,32 +263,35 @@ export default function ChangeList() {
   };
 
   // The register — one page of whatever the reader has filtered to.
+  // Param names are the server's: `riskLevel` (not `risk`) and `sortOrder`
+  // (not `sortDir`); both are dropped silently by the controller if misnamed.
   const { data, isLoading, isError } = useChanges({
     page,
     limit: pageSize,
     search: search || undefined,
     state: selectedState || undefined,
     type: selectedType || undefined,
-    risk: selectedRisk || undefined,
+    riskLevel: selectedRisk || undefined,
     sortBy: sortField,
-    sortDir,
+    sortOrder: sortDir,
   });
 
   // The window and the hero counts describe the whole schedule, not the current
   // filter — a forward window that moved every time someone typed in the search
-  // box would answer nobody's question.
-  const { data: scheduleData } = useChanges({
-    limit: 250,
+  // box would answer nobody's question. Paged at the API's cap of 100 rather
+  // than requested in one oversized page, which the API rejects with a 400.
+  const { data: census } = useChangeCensus<Change>({
     sortBy: 'plannedStartDate',
-    sortDir: 'asc',
+    sortOrder: 'asc',
   });
 
   const changes: Change[] = data?.data || [];
   const pagination = data?.pagination;
   const totalItems = pagination?.total ?? changes.length;
-  const totalPages = pagination?.pages ?? Math.max(1, Math.ceil(totalItems / pageSize));
+  const totalPages = pagination?.totalPages ?? Math.max(1, Math.ceil(totalItems / pageSize));
 
-  const schedule: Change[] = useMemo(() => scheduleData?.data || [], [scheduleData]);
+  const schedule: Change[] = useMemo(() => census?.items ?? [], [census]);
+  const scheduleTruncated = Boolean(census?.truncated);
 
   const upcoming = useMemo(() => {
     const from = startOfDay(new Date());
@@ -403,6 +406,10 @@ export default function ChangeList() {
           <p className="cx-sectionhead__deck">
             The next {WINDOW_DAYS} days of the schedule. Each rule is one change, placed on the day it
             starts and coloured by risk. Select a rule to open the change.
+            {scheduleTruncated && (
+              <> The schedule is larger than this view reads in one pass, so the window may omit the
+              furthest-out changes.</>
+            )}
           </p>
         </div>
       </div>

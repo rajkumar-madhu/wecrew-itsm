@@ -45,6 +45,7 @@ const navGroups: { label: string; items: NavItem[] }[] = [
     items: [
       { to: '/alerts', icon: Bell, label: 'Alerts' },
       { to: '/assets', icon: Server, label: 'CMDB / Assets' },
+      { to: '/assets/insights', icon: Server, label: 'Asset lifecycle' },
       { to: '/network', icon: Network, label: 'Network' },
       { to: '/metrics', icon: Activity, label: 'Metrics' },
       { to: '/apm', icon: Activity, label: 'Service health', badge: 'Live' },

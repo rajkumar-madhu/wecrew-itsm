@@ -27,10 +27,12 @@ export function useRealtime() {
     // Change events
     s.on('change:created', () => {
       queryClient.invalidateQueries({ queryKey: ['changes', 'list'] });
+      queryClient.invalidateQueries({ queryKey: ['changes', 'census'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     });
     s.on('change:updated', (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['changes', 'list'] });
+      queryClient.invalidateQueries({ queryKey: ['changes', 'census'] });
       queryClient.invalidateQueries({ queryKey: ['changes', 'detail', data?.id] });
     });
 

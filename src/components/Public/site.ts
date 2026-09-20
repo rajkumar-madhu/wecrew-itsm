@@ -435,6 +435,156 @@ export const PILOT_STEPS = [
   `Days 8–${PILOT_DAYS} — review SLA attainment and the audit trail together, then decide.`,
 ] as const;
 
+// ── Enterprise buyer content (home page) ──────────────────
+//
+// The rule for everything below is the same rule as the rest of this file:
+// describe what the product DOES, never what it has supposedly achieved. No
+// customer names, no logo wall, no "40% faster" bars. An enterprise buyer is
+// better served by an accurate coverage matrix than by a statistic they cannot
+// audit — and a claim we cannot substantiate is the fastest way to lose one.
+
+/** Who the platform is bought by, and the job each buyer is doing. */
+export const AUDIENCES = [
+  {
+    key: 'msp',
+    role: 'Managed service providers',
+    job: 'Run one desk across many customers without letting their estates touch.',
+    body:
+      'Each customer is an organization with its own alert webhook, assets, SLAs and audit history. Your engineers work across all of them from one queue; the customer sees only their own.',
+    to: '/security',
+    linkLabel: 'How isolation works',
+  },
+  {
+    key: 'platform',
+    role: 'Internal platform teams',
+    job: 'Turn monitoring noise into incidents someone actually owns.',
+    body:
+      'Alertmanager and Grafana point at a webhook; correlation collapses the storm; the incident opens already naming the service, the host and the on-call engineer who now owns it.',
+    to: '/docs#alert-webhooks',
+    linkLabel: 'Connect an alert source',
+  },
+  {
+    key: 'servicedesk',
+    role: 'Service desk and IT leads',
+    job: 'Report on SLA attainment and change success with evidence behind it.',
+    body:
+      'Response and resolution clocks per policy, approvals recorded against named people, and an audit trail that exports — so the monthly review is a query, not a reconstruction.',
+    to: '/itsm',
+    linkLabel: 'See the ITSM core',
+  },
+] as const;
+
+/**
+ * ITIL 4 practice coverage. `state` is deliberately honest: `core` ships today,
+ * `partial` works but is not the full practice, `roadmap` is not built yet.
+ * Do not promote a row without the feature actually existing.
+ */
+export type PracticeState = 'core' | 'partial' | 'roadmap';
+
+export const ITIL_PRACTICES: {
+  practice: string;
+  state: PracticeState;
+  note: string;
+}[] = [
+  { practice: 'Incident management', state: 'core', note: 'Intake, triage, ownership, resolution, post-incident review.' },
+  { practice: 'Monitoring & event management', state: 'core', note: 'Multi-source alert ingest, correlation, de-duplication, suppression.' },
+  { practice: 'Change enablement', state: 'core', note: 'Normal, standard and emergency changes with approval and a forward schedule.' },
+  { practice: 'Problem management', state: 'core', note: 'Problems and known errors linked to the incidents that raised them.' },
+  { practice: 'Service configuration management', state: 'core', note: 'CMDB with ownership, dependencies and per-item change history.' },
+  { practice: 'Service level management', state: 'core', note: 'Per-policy response and resolution clocks with breach-risk warnings.' },
+  { practice: 'Service desk', state: 'core', note: 'One queue, role-gated actions, work notes and an attributable timeline.' },
+  { practice: 'Service request management', state: 'partial', note: 'Request records exist; a full catalogue with fulfilment workflows is in design.' },
+  { practice: 'Knowledge management', state: 'partial', note: 'Articles attach to incidents and problems; authoring workflow is basic.' },
+  { practice: 'Continual improvement', state: 'partial', note: 'Attainment and trend reporting ship; a register of improvement items does not.' },
+  { practice: 'Release management', state: 'roadmap', note: 'Tracked as change records today; a dedicated release practice is not built.' },
+  { practice: 'Capacity & performance', state: 'roadmap', note: 'Metrics are read from your monitoring; capacity planning lives there, not here.' },
+];
+
+export const PRACTICE_STATE_LABEL: Record<PracticeState, string> = {
+  core: 'Ships today',
+  partial: 'Partial',
+  roadmap: 'Not yet built',
+};
+
+/**
+ * What the platform instruments. These are the measures it REPORTS — not
+ * results it claims on anyone's behalf. Phrase every one as a measurement.
+ */
+export const MEASURES = [
+  { metric: 'Time to acknowledge', body: 'From alert received to a named engineer accepting the page.' },
+  { metric: 'Time to resolve', body: 'From incident open to resolved, split by priority and by customer.' },
+  { metric: 'SLA attainment', body: 'Response and resolution targets met per policy, per period, with the breaches listed.' },
+  { metric: 'Change success rate', body: 'Changes implemented without a linked incident or rollback, by change type.' },
+  { metric: 'Alert-to-incident ratio', body: 'How much correlation is actually collapsing — the measure of whether paging is sane.' },
+  { metric: 'Unmonitored estate', body: 'Configuration items with monitoring switched off, which raise no alerts at all.' },
+];
+
+/** Procurement facts. Short, checkable answers to the questions security review asks first. */
+export const PLATFORM_FACTS: { label: string; value: string }[] = [
+  { label: 'Deployment', value: 'Your Kubernetes cluster, as ordinary manifests' },
+  { label: 'Data residency', value: 'Your database, in your cluster, under your backup policy' },
+  { label: 'Tenancy model', value: 'One deployment, many organizations, enforced server-side per request' },
+  { label: 'Authentication', value: 'Email and password with refresh tokens; OIDC via your identity provider' },
+  { label: 'Roles', value: 'Admin, Manager, Engineer, Operator, Viewer — enforced on the API, not just the UI' },
+  { label: 'Audit trail', value: 'Every state change, approval and automated run, queryable and exportable' },
+  { label: 'Alert intake', value: 'Per-organization webhook; Prometheus Alertmanager and Grafana supported today' },
+  { label: 'Paging channels', value: 'Voice, SMS, email and Slack; PagerDuty for onward routing' },
+  { label: 'Backups', value: 'Nightly dump with a weekly automated restore test into off-site storage' },
+  { label: 'Exit', value: 'Postgres dump plus audit export — your records leave in a format you can read' },
+];
+
+/** Buyer FAQ for the home page. Answers are short and commit to nothing unbuilt. */
+export const HOME_FAQ: { q: string; a: string }[] = [
+  {
+    q: 'Do we have to replace our monitoring?',
+    a: 'No. The platform is downstream of it. Prometheus, Alertmanager, Grafana and Loki keep doing their job; this is where their output becomes an owned, time-bound incident.',
+  },
+  {
+    q: 'Can one customer ever see another customer\'s data?',
+    a: 'No. Tenant scope is applied on the server for every request, not in the browser. A customer administrator is locked to their own organization; only platform staff can read across organizations.',
+  },
+  {
+    q: 'Where does our data actually live?',
+    a: 'In the Postgres database inside the cluster you deploy to. Nothing is copied to a vendor-run system, and your backup, retention and deletion policies are the ones that apply.',
+  },
+  {
+    q: 'What does the AI do, and what can it do on its own?',
+    a: 'It summarises an incident, recalls similar past ones and suggests next steps, always with the signals that produced the suggestion attached. It never changes a production system; a named person approves anything that does.',
+  },
+  {
+    q: 'How long does it take to get a real incident flowing?',
+    a: 'One alert source and one webhook URL, which is a day. The pilot is deliberately run alongside your current desk so nothing depends on it while you are still deciding.',
+  },
+  {
+    q: 'What happens if we stop?',
+    a: 'You take a database dump and an audit export and shut the namespace down. There is no proprietary store to extract from and nothing to unwind in your monitoring.',
+  },
+];
+
+/** Documentation entry points surfaced on the home page. */
+export const DOC_LINKS: { title: string; body: string; to: string }[] = [
+  {
+    title: 'Getting started',
+    body: 'Create an organization, invite your first engineers and set the roles that gate approvals.',
+    to: '/docs',
+  },
+  {
+    title: 'Alert webhooks',
+    body: 'The per-organization webhook URL, the token that identifies the customer, and the Alertmanager config that posts to it.',
+    to: '/docs#alert-webhooks',
+  },
+  {
+    title: 'API reference',
+    body: 'Authentication, the organization header, pagination and the endpoints behind every screen in the product.',
+    to: '/docs#api-overview',
+  },
+  {
+    title: 'Trial and billing',
+    body: 'What the trial includes, what happens when it lapses, and how seats are counted at renewal.',
+    to: '/docs#trial-billing',
+  },
+];
+
 export type FooterColumn = { title: string; links: { label: string; to: string }[] };
 
 export const FOOTER_COLUMNS: FooterColumn[] = [
