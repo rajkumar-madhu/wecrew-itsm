@@ -18,7 +18,7 @@ function applyTheme(theme: ThemeMode) {
   // Browser chrome (mobile address bar)
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) {
-    meta.setAttribute('content', theme === 'dark' ? '#0E1116' : '#F4F1EA');
+    meta.setAttribute('content', theme === 'dark' ? '#15131F' : '#F7F7FA');
   }
 }
 

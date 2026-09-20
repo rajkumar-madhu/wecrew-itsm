@@ -50,7 +50,7 @@ function clockDate() {
 // it is read across a lit room, not at a desk. So it takes the app's own dark
 // tokens as literals rather than a private navy scheme: same ink, same coral
 // alarm, same Fraunces numerals as every other page, just sized for distance.
-const INK          = '#0e1116';   // brand ink — board background
+const INK          = '#15131f';   // brand ink (--brand-ink) — board background
 const PANEL        = '#141820';   // panel background
 const CARD         = '#1a1f28';   // card surface
 const HOVER        = '#222835';

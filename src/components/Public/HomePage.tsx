@@ -229,8 +229,12 @@ export default function HomePage() {
           title="Which ITIL 4 practices this actually implements"
           deck="Including the ones it does not. A coverage matrix you can check beats a claim you cannot — take this into your evaluation and hold us to it."
         />
-        <div className="mt-8 overflow-hidden rounded border border-steel bg-void">
-          <table className="w-full border-collapse text-left">
+        {/* overflow-x-auto, not overflow-hidden: body{overflow-x:hidden} means an
+            over-wide table would be clipped with no way to reach the rest of it.
+            The note column is hidden below sm and repeated under the practice
+            name instead, so the table fits a 320px phone without scrolling. */}
+        <div className="mt-8 overflow-x-auto rounded border border-steel bg-void">
+          <table className="w-full min-w-[19rem] border-collapse text-left">
             <caption className="sr-only">ITIL 4 practice coverage</caption>
             <thead>
               <tr className="border-b border-steel">

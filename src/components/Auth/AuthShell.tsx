@@ -18,7 +18,9 @@ import { clsx } from 'clsx';
   reason — do not "tidy" these into plain utility classes.
 */
 
-const INK = '#0a0c10';
+// Matches --brand-ink. Hardcoded on purpose: the rail must stay dark even
+// under the light-mode compatibility shim at the end of index.css.
+const INK = '#15131f';
 
 export interface RailPoint {
   k: string;
