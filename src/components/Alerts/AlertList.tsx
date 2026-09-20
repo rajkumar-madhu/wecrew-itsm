@@ -266,6 +266,48 @@ export default function AlertList() {
         </div>
       </Toolbar>
 
+      <nav className="cx-crumb" aria-label="Breadcrumb">
+        <Link to="/dashboard">Operations</Link>
+        <span aria-hidden>/</span>
+        <span className="cx-crumb__current">Alerts</span>
+      </nav>
+
+      <Toolbar>
+        <div className="flex items-center gap-1.5 text-muted">
+          <Filter size={13} />
+          <span className="text-[10px] font-semibold uppercase tracking-widest">Filters</span>
+        </div>
+        <select value={severityFilter} onChange={(e) => setSeverityFilter(e.target.value as Severity | 'ALL')} className="filter-select">
+          <option value="ALL">All severities</option>
+          <option value="CRITICAL">Critical</option>
+          <option value="WARNING">Warning</option>
+          <option value="INFO">Info</option>
+        </select>
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as AlertStatus | 'ALL')} className="filter-select">
+          <option value="ALL">All statuses</option>
+          <option value="FIRING">Firing</option>
+          <option value="RESOLVED">Resolved</option>
+          <option value="ACKNOWLEDGED">Acknowledged</option>
+          <option value="SILENCED">Silenced</option>
+        </select>
+        <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value as AlertSource | 'ALL')} className="filter-select">
+          <option value="ALL">All sources</option>
+          <option value="PROMETHEUS">Prometheus</option>
+          <option value="GRAFANA">Grafana</option>
+          <option value="CUSTOM">Custom</option>
+        </select>
+        <div className="relative flex-1 min-w-[200px] max-w-md">
+          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-dim" />
+          <input
+            type="text"
+            placeholder="Search alerts by name, description, or CI..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="input-field pl-8 py-1.5 text-[13px]"
+          />
+        </div>
+      </Toolbar>
+
       {/* Loading State */}
       {alertsLoading && (
         <div className="rounded-xl p-12 text-center mt-4" style={{ background: 'var(--argus-elevated)', border: '1px solid var(--argus-border)' }}>

@@ -9,6 +9,7 @@ import {
   Mail,
 } from 'lucide-react';
 import api from '../../lib/api';
+import { useUserCensus } from '../../hooks/useUsers';
 import { useAuthStore } from '../../stores/authStore';
 import { Page, Toolbar, GhostButton } from '../ui/PageChrome';
 import type { User, Role, UserStatus } from '../../types';
@@ -175,13 +176,24 @@ export default function UserList() {
   const handleEdit = (_u: User) => {};
   const handleToggleLock = (_u: User) => {};
 
-  // Compute role distribution for hero stats
+  // The hero counts claim to describe the organisation, so they cannot be
+  // derived from `users` — that is one filtered page of twenty. This census is
+  // deliberately unfiltered: narrowing the table to ENGINEERs should not report
+  // that the organisation has no admins.
+  const {
+    data: censusData,
+    isLoading: censusLoading,
+    isError: censusFailed,
+  } = useUserCensus<User>();
+
+  const census: User[] = useMemo(() => censusData?.items ?? [], [censusData]);
+
   const roleCounts = useMemo(() => {
     const c: Record<string, number> = {};
     ALL_ROLES.forEach(r => { c[r] = 0; });
-    users.forEach(u => { c[u.role] = (c[u.role] || 0) + 1; });
+    census.forEach(u => { c[u.role] = (c[u.role] || 0) + 1; });
     return c;
-  }, [users]);
+  }, [census]);
 
   const locked = users.filter((u) => u.status === 'LOCKED').length;
   const mfaOff = users.filter((u) => !u.mfaEnabled).length;

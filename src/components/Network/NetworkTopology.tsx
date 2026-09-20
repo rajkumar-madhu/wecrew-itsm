@@ -14,6 +14,7 @@ import {
   Search,
   Filter,
   Loader2,
+  RefreshCw,
   AlertTriangle,
   ChevronDown,
   ChevronRight,
@@ -354,7 +355,7 @@ export default function NetworkTopology() {
   }, [typeFilter, statusFilter, searchQuery]);
 
   // Fetch assets via TanStack Query
-  const { data: assetsResponse, isLoading, isError, error } = useAssets(queryFilters);
+  const { data: assetsResponse, isLoading, isError, error, refetch, isFetching } = useAssets(queryFilters);
 
   // Extract assets from API response shape: { success, data, pagination }
   const assets: ConfigItem[] = assetsResponse?.data ?? [];

@@ -50,7 +50,10 @@ export interface User {
   department: string | null;
   jobTitle: string | null;
   timezone: string;
-  mfaEnabled: boolean;
+  /** Optional because `listUsers` omits it from its `select`: on records from
+   *  `/auth/users` the field is absent, not false. Treating it as a required
+   *  boolean is what let the Users page report every account as MFA-off. */
+  mfaEnabled?: boolean;
   skills: string[];
   lastLogin: string | null;
   createdAt: string;

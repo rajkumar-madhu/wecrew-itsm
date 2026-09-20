@@ -8,6 +8,7 @@ import {
   Server, Eye,
 } from 'lucide-react';
 import api from '../../lib/api';
+import { fetchAllPages } from '../../lib/pagination';
 import { Page, EnterpriseHero, EnterprisePosture } from '../ui/PageChrome';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -178,9 +179,12 @@ export default function NOCView() {
   useEffect(() => { const id = setInterval(() => setTick(t => t + 1), 30000); return () => clearInterval(id); }, []);
   useEffect(() => { const id = setInterval(() => setTimeTick(t => t + 1), 1000); return () => clearInterval(id); }, []);
 
+  // `limit=500` is refused by `validatePagination` (limit is capped at 100), so
+  // this returned a 400 and the board showed no firing alerts at all — the one
+  // thing a NOC wall exists to show. Walk the pages instead.
   const { data: alertResp, isLoading } = useQuery({
     queryKey: ['noc-alerts', tick],
-    queryFn: () => api.get('/alerts?limit=500&status=FIRING').then(r => r.data),
+    queryFn: () => fetchAllPages<Alert>('/alerts', { params: { status: 'FIRING' } }),
     staleTime: 25000,
   });
   const { data: oncallResp } = useQuery({
@@ -207,7 +211,7 @@ export default function NOCView() {
     staleTime: 30000,
   });
 
-  const alerts: Alert[] = alertResp?.data || [];
+  const alerts: Alert[] = alertResp?.items || [];
   const schedules: OnCallSchedule[] = oncallResp?.data?.schedules || [];
   const oncallStats = oncallResp?.data?.stats || {};
   const incidents = incidentResp?.data || [];
