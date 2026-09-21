@@ -14,21 +14,13 @@
 html.light {
   color-scheme: light;
   /* ── Brand primitives ──────────────────────────────────────
-     Observability-console palette: a purple brand hue over cool
-     neutral surfaces, with blue reserved for interactive text.
+     WeCrew palette: ink rail, paper workspace, blue primary.
+     Purple stays as a named primitive for rare accents only.
 
-     Everything below derives from these six. Each hue also carries an
-     `-rgb` channel triplet so translucent tints can be written as
-     rgba(var(--brand-*-rgb), a) instead of a hardcoded literal — the
-     old palette had eleven copies of one rgba() that all had to be
-     found by hand when the colour changed. Add the triplet whenever
-     you add a hue.
-
-     Roles, which the token NAMES no longer describe on their own:
-       --argus-coral   → brand / primary CTA / active nav   (purple)
+     Roles (token names are historical — ~40 components + cx-* use them):
+       --argus-coral   → brand / primary CTA / active nav   (blue)
        --argus-signal  → interactive text, links, focus     (blue)
-     The `coral` and `signal` names are kept because ~40 components and
-     every cx-* class reference them; renaming is a separate change. */
+     Both map to --brand-blue so primary actions read blue everywhere. */
   --brand-ink: #15131f;
   --brand-purple: #632ca6;
   --brand-purple-rgb: 99, 44, 166;
@@ -37,8 +29,8 @@ html.light {
   --brand-green: #12805c;
   --brand-paper: #f7f7fa;
   --brand-paper-2: #eeeef4;
-  /* Back-compat alias: --brand-coral was the old accent primitive. */
-  --brand-coral: var(--brand-purple);
+  /* Back-compat: --brand-coral is the primary accent (now blue). */
+  --brand-coral: var(--brand-blue);
   /* Surfaces — cool neutral console */
   --argus-void: var(--brand-paper);
   --argus-surface: #ffffff;
@@ -59,13 +51,13 @@ html.light {
   --argus-panel-shadow: 0 1px 2px rgba(21, 19, 31, 0.06), 0 12px 32px -18px rgba(21, 19, 31, 0.16);
   --argus-input-bg: #ffffff;
   --argus-input-border: #d5d5e2;
-  /* Interactive = blue; brand / CTA = purple. See the roles note above. */
+  /* Primary CTA + interactive chrome share brand blue. */
   --argus-signal: var(--brand-blue);
   --argus-signal-bright: #3f7ce8;
   --argus-signal-dim: rgba(var(--brand-blue-rgb), 0.08);
-  --argus-coral: var(--brand-purple);
-  --argus-coral-bright: #7c45c4;
-  --argus-coral-dim: rgba(var(--brand-purple-rgb), 0.1);
+  --argus-coral: var(--brand-blue);
+  --argus-coral-bright: #3f7ce8;
+  --argus-coral-dim: rgba(var(--brand-blue-rgb), 0.1);
   --argus-cyan: #0e7490;
   --argus-cyan-dim: rgba(14, 116, 144, 0.1);
   --argus-emerald: var(--brand-green);
@@ -91,7 +83,7 @@ html.light {
   --argus-nav-active: #ffffff;
   --argus-nav-icon: #8a867e;
   --argus-nav-icon-active: var(--brand-coral);
-  --argus-nav-active-bg: rgba(var(--brand-purple-rgb), 0.16);
+  --argus-nav-active-bg: rgba(var(--brand-blue-rgb), 0.16);
   --argus-nav-group: #8a867e;
   --argus-scrollbar: rgba(138, 134, 126, 0.35);
   --argus-rib: var(--brand-coral);
@@ -122,16 +114,16 @@ html.dark {
   --argus-overlay: rgba(0, 0, 0, 0.6);
   --argus-panel: #1c1930;
   --argus-panel-border: #2b2545;
-  --argus-panel-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 16px 40px -24px rgba(var(--brand-purple-rgb), 0.35);
+  --argus-panel-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 16px 40px -24px rgba(var(--brand-blue-rgb), 0.35);
   --argus-input-bg: var(--brand-ink);
   --argus-input-border: #342d52;
-  /* Both hues are lifted on dark so they keep contrast against #15131f. */
+  /* Lifted blues keep contrast against #15131f. */
   --argus-signal: #7ba2f5;
   --argus-signal-bright: #9dbaf8;
   --argus-signal-dim: rgba(123, 162, 245, 0.14);
-  --argus-coral: #b98ae4;
-  --argus-coral-bright: #cda8ee;
-  --argus-coral-dim: rgba(185, 138, 228, 0.16);
+  --argus-coral: #7ba2f5;
+  --argus-coral-bright: #9dbaf8;
+  --argus-coral-dim: rgba(123, 162, 245, 0.14);
   --argus-cyan: #38bdf8;
   --argus-cyan-dim: rgba(56, 189, 248, 0.12);
   --argus-emerald: #34d399;
@@ -143,10 +135,10 @@ html.dark {
   --argus-violet: #a78bfa;
   --argus-violet-dim: rgba(167, 139, 250, 0.12);
   --argus-shadow-card: 0 0 0 1px rgba(255, 255, 255, 0.04);
-  --argus-shadow-card-hover: 0 0 0 1px rgba(185, 138, 228, 0.3);
-  --argus-shadow-glow: 0 0 0 3px rgba(185, 138, 228, 0.3);
+  --argus-shadow-card-hover: 0 0 0 1px rgba(123, 162, 245, 0.3);
+  --argus-shadow-glow: 0 0 0 3px rgba(123, 162, 245, 0.3);
   --argus-grid: rgba(255, 255, 255, 0.03);
-  --argus-radial-brand: rgba(185, 138, 228, 0.1);
+  --argus-radial-brand: rgba(123, 162, 245, 0.1);
   --argus-bg-glow-1: transparent;
   --argus-bg-glow-2: transparent;
   --argus-nav-bg: #100e1a;
@@ -156,7 +148,7 @@ html.dark {
   --argus-nav-active: #ffffff;
   --argus-nav-icon: #6b7689;
   --argus-nav-icon-active: var(--brand-coral);
-  --argus-nav-active-bg: rgba(185, 138, 228, 0.18);
+  --argus-nav-active-bg: rgba(123, 162, 245, 0.18);
   --argus-nav-group: #6b7689;
   --argus-scrollbar: rgba(168, 164, 156, 0.3);
   --argus-rib: var(--brand-coral);

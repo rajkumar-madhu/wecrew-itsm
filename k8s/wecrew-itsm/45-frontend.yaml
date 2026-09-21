@@ -25,7 +25,7 @@ spec:
         app: linkedeye-frontend
     spec:
       containers:
-      - image: harbor.wecrew.in/linkedeye/argus-itsm-frontend:20260921-login-blue
+      - image: harbor.wecrew.in/linkedeye/argus-itsm-frontend:20260921-colour-blue
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 3

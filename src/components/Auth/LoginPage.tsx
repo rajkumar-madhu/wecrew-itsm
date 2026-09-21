@@ -5,7 +5,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { AuthRail, AuthShell, AuthSurface } from './AuthShell';
 
 /** Visible deploy marker — change when shipping login UI */
-export const LOGIN_UI_BUILD = 'itsm-login-v5-blue';
+export const LOGIN_UI_BUILD = 'itsm-login-v6-blue';
 
 /**
  * WeCrew ITSM sign-in.
@@ -80,11 +80,11 @@ export default function LoginPage() {
           <>
             <p className="text-[13px] text-muted">
               No account yet?{' '}
-              <Link to="/signup" className="font-medium hover:underline" style={{ color: 'var(--argus-coral)' }}>
+              <Link to="/signup" className="font-medium hover:underline" style={{ color: 'var(--brand-blue)' }}>
                 Start a free trial
               </Link>
               {' · '}
-              <Link to="/pilot" className="font-medium hover:underline" style={{ color: 'var(--argus-coral)' }}>
+              <Link to="/pilot" className="font-medium hover:underline" style={{ color: 'var(--brand-blue)' }}>
                 Book a pilot
               </Link>
             </p>
