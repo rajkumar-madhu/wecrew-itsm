@@ -46,7 +46,7 @@ spec:
             name: linkedeye-secrets
         - configMapRef:
             name: linkedeye-config
-        image: harbor.wecrew.in/linkedeye/argus-itsm-api:20260919-wecrew-org
+        image: harbor.wecrew.in/linkedeye/argus-itsm-api:20260921-jwt-jti-b2e972e
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 3

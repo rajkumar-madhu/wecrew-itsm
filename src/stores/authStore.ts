@@ -81,6 +81,8 @@ export const useAuthStore = create<AuthState>()(
               msg = 'Enter a valid email address (e.g. info@wecrew.in)';
             } else if (msg === 'Invalid credentials') {
               msg = 'Invalid email or password. Use your full email, not a username.';
+            } else if (res.status === 409 || /duplicate value for:\s*token/i.test(msg)) {
+              msg = 'Sign-in hit a temporary session conflict. Wait a second and try again.';
             }
             throw new Error(msg);
           }

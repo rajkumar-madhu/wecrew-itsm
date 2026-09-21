@@ -5,7 +5,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { AuthRail, AuthShell, AuthSurface } from './AuthShell';
 
 /** Visible deploy marker — change when shipping login UI */
-export const LOGIN_UI_BUILD = 'itsm-login-v4';
+export const LOGIN_UI_BUILD = 'itsm-login-v5-blue';
 
 /**
  * WeCrew ITSM sign-in.
@@ -146,7 +146,7 @@ export default function LoginPage() {
               <Link
                 to="/forgot-password"
                 className="text-[12px] font-medium hover:underline"
-                style={{ color: 'var(--argus-coral)' }}
+                style={{ color: 'var(--brand-blue)' }}
               >
                 Forgot password?
               </Link>
@@ -177,7 +177,7 @@ export default function LoginPage() {
             type="submit"
             disabled={loading}
             className="flex w-full items-center justify-center gap-2 rounded-md py-3 text-[13px] font-semibold text-white transition-colors disabled:opacity-60"
-            style={{ background: 'var(--argus-coral)' }}
+            style={{ background: 'var(--brand-blue)' }}
           >
             {loading ? (
               <>
