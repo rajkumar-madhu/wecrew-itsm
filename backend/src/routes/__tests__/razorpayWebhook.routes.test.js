@@ -110,6 +110,15 @@ it('does not let a stale event for an old subscription overwrite the current one
     .toEqual({ organizationId: 'org1', razorpaySubscriptionId: null });
 });
 
+it('asks Razorpay to retry an activation that beat subscribe()\'s write', async () => {
+  mockPrisma.paymentEvent.create.mockResolvedValue({ id: 'e5' });
+  mockPrisma.subscription.findFirst.mockResolvedValue(null);
+
+  const res = await send(buildApp(), activatedPayload('sub_new'));
+  expect(res.status).toBe(500);                        // non-2xx → Razorpay retries
+  expect(mockPrisma.paymentEvent.update).not.toHaveBeenCalled();
+});
+
 it('halts the subscription on subscription.halted', async () => {
   mockPrisma.paymentEvent.create.mockResolvedValue({ id: 'e2' });
   mockPrisma.subscription.findFirst.mockResolvedValue({ id: 's1', organizationId: 'org1' });

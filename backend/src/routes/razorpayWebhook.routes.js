@@ -105,10 +105,12 @@ async function handleWebhook(req, res) {
     const sub = await findSubscription(entity, organizationId);
 
     if (!sub) {
-      // Race with subscribe()'s write: ask Razorpay to retry when we have an
-      // org hint. Orphan events with no notes are permanently ignored.
+      // Only an activation/charge for a new subscription can beat subscribe()'s
+      // write, so only those are retried. Terminal events (cancelled, halted,
+      // completed) for an unknown id are for an old, replaced subscription and
+      // would never match — retrying them would get the endpoint disabled.
       logger.warn(`[billing] webhook ${event.event} for unknown subscription ${entity.id}`);
-      if (organizationId) {
+      if (organizationId && nextStatus === 'ACTIVE') {
         return res.status(500).json({ success: false, unmatched: true });
       }
       await markProcessed(eventId).catch(() => {});

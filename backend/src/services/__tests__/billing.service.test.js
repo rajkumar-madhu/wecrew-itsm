@@ -82,17 +82,12 @@ describe('getAccessState', () => {
     expect((await getAccessState('org1')).isReadOnly).toBe(true);
   });
 
-  it('starts a trial when an org has no subscription row', async () => {
+  it('grants access when an org has no subscription row', async () => {
     mockPrisma.subscription.findUnique.mockResolvedValue(null);
-    mockPrisma.subscription.create.mockResolvedValue({
-      tier: 'TRIAL', status: 'TRIALING', seatLimit: 10,
-      trialEndsAt: new Date(Date.now() + 20 * 86400000), currentPeriodEnd: null,
-    });
-    mockPrisma.user.count.mockResolvedValue(0);
-
     const s = await getAccessState('org1');
     expect(s.isReadOnly).toBe(false);
-    expect(s.status).toBe('TRIALING');
-    expect(mockPrisma.subscription.create).toHaveBeenCalled();
+    expect(s.status).toBe('NONE');
+    expect(s.seatLimit).toBeNull();
+    expect(mockPrisma.subscription.create).not.toHaveBeenCalled();
   });
 });

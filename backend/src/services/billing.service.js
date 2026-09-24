@@ -31,28 +31,16 @@ function countBillableSeats(organizationId) {
 }
 
 async function getAccessState(organizationId) {
-  let sub = await prisma.subscription.findUnique({ where: { organizationId } });
+  const sub = await prisma.subscription.findUnique({ where: { organizationId } });
 
-  // No row = unpaid / never provisioned. Fail CLOSED so staff-created orgs
-  // cannot silently get permanent free write access. Lazy-start a trial so
-  // legacy tenants that pre-date billing are not locked out on deploy — the
-  // create is raced safely via the unique organizationId constraint.
+  // Pre-existing orgs have no Subscription row. Fail OPEN — failing closed
+  // (or lazily starting a trial) would cap and later lock out every legacy
+  // customer. New orgs get a trial row at creation, so this is legacy only.
   if (!sub) {
-    try {
-      sub = await startTrial(prisma, organizationId);
-    } catch (err) {
-      if (err.code === 'P2002') {
-        sub = await prisma.subscription.findUnique({ where: { organizationId } });
-      } else {
-        throw err;
-      }
-    }
-    if (!sub) {
-      return {
-        tier: 'NONE', status: 'NONE', isReadOnly: true, daysRemaining: null,
-        trialEndsAt: null, currentPeriodEnd: null, seatsUsed: 0, seatLimit: null,
-      };
-    }
+    return {
+      tier: 'NONE', status: 'NONE', isReadOnly: false, daysRemaining: null,
+      trialEndsAt: null, currentPeriodEnd: null, seatsUsed: 0, seatLimit: null,
+    };
   }
 
   const now = Date.now();
