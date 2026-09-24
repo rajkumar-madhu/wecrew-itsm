@@ -50,9 +50,10 @@ async function subscribe(req, res, next) {
 
     // PAST_DUE / ACTIVE with an existing Razorpay sub: reopen checkout on that
     // id so the customer can update the mandate — creating another would
-    // double-bill and orphan the live one.
+    // double-bill and orphan the live one. Only for the SAME plan: reopening
+    // it for another tier would quote one price and charge the old one.
     if (sub.razorpaySubscriptionId && LIVE_STATUSES.has(sub.status)) {
-      if (sub.status === 'PAST_DUE' || (sub.status === 'ACTIVE' && sub.razorpayPlanId === plan.razorpayPlanId)) {
+      if (sub.razorpayPlanId === plan.razorpayPlanId) {
         return success(res, {
           subscriptionId: sub.razorpaySubscriptionId,
           shortUrl: null,
@@ -62,6 +63,9 @@ async function subscribe(req, res, next) {
           currency: plan.currency,
           reused: true,
         });
+      }
+      if (sub.status === 'PAST_DUE') {
+        return error(res, 'Settle the outstanding payment on your current plan before changing plans', 409);
       }
       return error(res, 'This organization already has an active subscription', 409);
     }
@@ -158,9 +162,8 @@ async function cancel(req, res, next) {
       where: { organizationId: req.user.organizationId },
     });
     if (!sub || !sub.razorpaySubscriptionId) return error(res, 'No active subscription', 404);
-    if (!LIVE_STATUSES.has(sub.status) && sub.status !== 'CANCELLED') {
-      return error(res, 'No cancellable subscription', 404);
-    }
+    if (sub.status === 'CANCELLED') return error(res, 'Subscription is already cancelled', 409);
+    if (!LIVE_STATUSES.has(sub.status)) return error(res, 'No cancellable subscription', 404);
 
     await rzp.cancelSubscription(sub.razorpaySubscriptionId, true);
     await prisma.subscription.update({
