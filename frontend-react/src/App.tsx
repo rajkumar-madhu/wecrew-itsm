@@ -3,6 +3,8 @@ import { Suspense, lazy, useEffect } from 'react';
 import Layout from './components/Layout/Layout';
 import LoginPage from './components/Auth/LoginPage';
 const SignupPage = lazy(() => import('./components/Auth/SignupPage'));
+const ForgotPasswordPage = lazy(() => import('./components/Auth/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('./components/Auth/ResetPasswordPage'));
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 import { useAuthStore } from './stores/authStore';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -94,6 +96,8 @@ export default function App() {
       <Route path="/" element={<HomeRoute />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<Suspense fallback={<div style={{ background: '#fff', minHeight: '100vh' }} />}><SignupPage /></Suspense>} />
+      <Route path="/forgot-password" element={<Suspense fallback={<div style={{ background: '#F8FAFC', minHeight: '100vh' }} />}><ForgotPasswordPage /></Suspense>} />
+      <Route path="/reset-password" element={<Suspense fallback={<div style={{ background: '#F8FAFC', minHeight: '100vh' }} />}><ResetPasswordPage /></Suspense>} />
       <Route path="/docs" element={<Suspense fallback={<div style={{ background: '#0F172A', minHeight: '100vh' }} />}><DeveloperDocs /></Suspense>} />
       <Route path="/status/:orgSlug" element={<Suspense fallback={<div style={{ background: '#030711', minHeight: '100vh' }} />}><StatusPage /></Suspense>} />
 
