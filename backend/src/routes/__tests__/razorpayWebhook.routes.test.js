@@ -119,6 +119,18 @@ it('asks Razorpay to retry an activation that beat subscribe()\'s write', async 
   expect(mockPrisma.paymentEvent.update).not.toHaveBeenCalled();
 });
 
+it('does not revive a cancelled subscription on a late charged event', async () => {
+  mockPrisma.paymentEvent.create.mockResolvedValue({ id: 'e6' });
+  mockPrisma.subscription.findFirst.mockResolvedValue({
+    id: 's1', organizationId: 'org1', status: 'CANCELLED', razorpaySubscriptionId: 'sub_1',
+  });
+
+  const res = await send(buildApp(), { ...activatedPayload('sub_1'), event: 'subscription.charged' });
+  expect(res.status).toBe(200);
+  expect(mockPrisma.subscription.update).not.toHaveBeenCalled();
+  expect(mockPrisma.paymentEvent.update).toHaveBeenCalled(); // marked processed, no retries
+});
+
 it('halts the subscription on subscription.halted', async () => {
   mockPrisma.paymentEvent.create.mockResolvedValue({ id: 'e2' });
   mockPrisma.subscription.findFirst.mockResolvedValue({ id: 's1', organizationId: 'org1' });

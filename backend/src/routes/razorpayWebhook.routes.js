@@ -29,6 +29,8 @@ const STATUS_BY_EVENT = {
   'subscription.completed': 'EXPIRED',
 };
 
+const TERMINAL_STATUSES = new Set(['CANCELLED', 'EXPIRED']);
+
 async function markProcessed(eventId) {
   return prisma.paymentEvent.update({
     where: { razorpayEventId: eventId }, data: { processedAt: new Date() },
@@ -115,6 +117,14 @@ async function handleWebhook(req, res) {
       }
       await markProcessed(eventId).catch(() => {});
       return res.status(200).json({ success: true, unmatched: true });
+    }
+
+    // CANCELLED and EXPIRED are final for a Razorpay subscription. A late or
+    // retried charged/activated/halted for the same id must not revive it.
+    if (TERMINAL_STATUSES.has(sub.status) && sub.razorpaySubscriptionId === entity.id) {
+      logger.info(`[billing] ${event.event} ignored: subscription ${entity.id} is already ${sub.status}`);
+      await markProcessed(eventId);
+      return res.status(200).json({ success: true, ignored: true });
     }
 
     const data = { status: nextStatus, razorpaySubscriptionId: entity.id };

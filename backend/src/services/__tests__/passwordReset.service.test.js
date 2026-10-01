@@ -45,6 +45,22 @@ describe('requestReset', () => {
     expect(html).toContain('&lt;b&gt;A&lt;/b&gt;'); // name is escaped
   });
 
+  it('keeps the reset link out of the email queue table', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1', email: 'a@b.com', firstName: 'A', status: 'ACTIVE' });
+    mockPrisma.passwordResetToken.findFirst.mockResolvedValue(null);
+    await requestReset('a@b.com');
+    const { queueBody } = mockSend.mock.calls[0][3];
+    expect(queueBody).toBeDefined();
+    expect(queueBody).not.toContain('token=');
+  });
+
+  it('does not wait for the email to send', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1', email: 'a@b.com', firstName: 'A', status: 'ACTIVE' });
+    mockPrisma.passwordResetToken.findFirst.mockResolvedValue(null);
+    mockSend.mockReturnValueOnce(new Promise(() => {})); // SMTP that never answers
+    await expect(requestReset('a@b.com')).resolves.toBeUndefined();
+  });
+
   it('throttles repeat requests', async () => {
     mockPrisma.user.findUnique.mockResolvedValue({ id: 'u1', email: 'a@b.com', firstName: 'A', status: 'ACTIVE' });
     mockPrisma.passwordResetToken.findFirst.mockResolvedValue({ id: 't-recent' });
