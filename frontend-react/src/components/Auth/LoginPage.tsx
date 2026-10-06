@@ -1,11 +1,24 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   Eye, EyeOff, Shield, Zap, ArrowRight, Activity,
   Server, Bell, Brain, Lock, ChevronRight,
   CheckCircle2, Globe, Layers, BarChart3,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
+import api from '../../lib/api';
+
+// Codes the API puts in ?sso_error= when a Keycloak sign-in can't finish.
+const SSO_ERRORS: Record<string, string> = {
+  cancelled: 'Single sign-on was cancelled.',
+  expired: 'Your single sign-on attempt expired. Try again.',
+  unverified: 'Your Keycloak account has no verified email address. Ask your admin to verify it.',
+  no_account: "There's no active WeCrew account for that login. Ask your organization admin to add you.",
+  locked: 'This account is temporarily locked. Try again later.',
+  disabled: 'Single sign-on is not set up for this workspace.',
+  unavailable: "Couldn't reach the sign-on service. Try again or sign in with your password.",
+  failed: 'Single sign-on failed. Try again or sign in with your password.',
+};
 
 // ══════════════════════════════════════════════════════════════
 // Feature bullet for left panel
@@ -46,35 +59,87 @@ function StatPill({ value, label }: { value: string; label: string }) {
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { login, isAuthenticated } = useAuthStore();
+  const { login, verifyMfa, isAuthenticated } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(() => {
+    const code = new URLSearchParams(window.location.search).get('sso_error');
+    return code ? SSO_ERRORS[code] || SSO_ERRORS.failed : '';
+  });
   const [shake, setShake] = useState(false);
+  const location = useLocation();
+  // A two-factor user arriving from SSO lands straight on the code step.
+  const [mfaToken, setMfaToken] = useState<string | null>(
+    (location.state as { mfaToken?: string } | null)?.mfaToken ?? null);
+  const [ssoEnabled, setSsoEnabled] = useState(false);
+  const [mfaCode, setMfaCode] = useState('');
 
   useEffect(() => {
     if (isAuthenticated) navigate('/dashboard', { replace: true });
   }, [isAuthenticated, navigate]);
 
+  useEffect(() => {
+    api.get('/auth/sso/config')
+      .then(({ data }) => setSsoEnabled(!!data?.data?.enabled))
+      .catch(() => setSsoEnabled(false));
+    if (location.search.includes('sso_error')) navigate('/login', { replace: true }); // don't keep the error in the URL
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on arrival
+  }, []);
+
+  const startSso = () => {
+    window.location.assign(`${import.meta.env.VITE_API_BASE_URL || '/api/v1'}/auth/sso/login`);
+  };
+
+  const fail = (message: string) => {
+    setError(message);
+    setShake(true);
+    setTimeout(() => setShake(false), 500);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) { setError('Enter your email and password to continue'); setShake(true); setTimeout(() => setShake(false), 500); return; }
+    if (!email || !password) { fail('Enter your email and password to continue'); return; }
     setLoading(true);
     setError('');
     try {
-      await login(email, password);
+      const challenge = await login(email, password);
+      if (challenge?.mfaRequired) {
+        setMfaToken(challenge.mfaToken);
+        setMfaCode('');
+        return;
+      }
       navigate('/dashboard');
-    } catch (err: any) {
-      setError(err?.message || 'Invalid credentials. Please try again.');
-      setShake(true);
-      setTimeout(() => setShake(false), 500);
+    } catch (err) {
+      fail((err as Error)?.message || 'Invalid credentials. Please try again.');
     } finally {
       setLoading(false);
     }
   };
+
+  const handleMfaSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mfaToken) return;
+    if (!/^\d{6}$/.test(mfaCode)) { fail('Enter the 6-digit code from your authenticator app'); return; }
+    setLoading(true);
+    setError('');
+    try {
+      await verifyMfa(mfaToken, mfaCode);
+      navigate('/dashboard');
+    } catch (err) {
+      const message = (err as Error)?.message || 'That code is incorrect.';
+      // An expired challenge or a lockout can't be fixed by retyping the code.
+      if (/expired|locked|deactivated/i.test(message)) { setMfaToken(null); setPassword(''); }
+      setMfaCode('');
+      fail(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cancelMfa = () => { setMfaToken(null); setMfaCode(''); setPassword(''); setError(''); };
 
   return (
     <div className="min-h-screen flex">
@@ -181,8 +246,12 @@ export default function LoginPage() {
 
           {/* Form header */}
           <div className="mb-7">
-            <h2 className="font-display text-[22px] font-bold text-stone-900 tracking-tight">Welcome back</h2>
-            <p className="text-[13px] text-stone-400 mt-1">Sign in to your account to continue</p>
+            <h2 className="font-display text-[22px] font-bold text-stone-900 tracking-tight">
+              {mfaToken ? 'Two-factor authentication' : 'Welcome back'}
+            </h2>
+            <p className="text-[13px] text-stone-400 mt-1">
+              {mfaToken ? 'Enter the 6-digit code from your authenticator app' : 'Sign in to your account to continue'}
+            </p>
           </div>
 
           {/* Error banner */}
@@ -195,100 +264,139 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* SSO Button */}
-          <button className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 hover:border-stone-300 transition-all text-[13px] font-medium text-stone-700 shadow-sm mb-5 group">
-            <div className="w-5 h-5 rounded-md bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center">
-              <Zap size={11} className="text-white" />
-            </div>
-            Sign in with Keycloak SSO
-            <ChevronRight size={13} className="text-stone-300 group-hover:text-stone-500 group-hover:translate-x-0.5 transition-all ml-auto" />
-          </button>
-
-          {/* Divider */}
-          <div className="flex items-center gap-3 mb-5">
-            <div className="flex-1 h-px bg-stone-200" />
-            <span className="text-[10px] font-mono text-stone-300 uppercase tracking-wider">or continue with email</span>
-            <div className="flex-1 h-px bg-stone-200" />
-          </div>
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Email */}
-            <div>
-              <label className="block text-[11px] font-semibold text-stone-500 uppercase tracking-wider mb-1.5">Email address</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => { setEmail(e.target.value); setError(''); }}
-                placeholder="rajkumar@santhira.com"
-                className="w-full px-3.5 py-2.5 text-[13px] text-stone-900 bg-white border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all placeholder:text-stone-400"
-                autoFocus
-                autoComplete="email"
-              />
-            </div>
-
-            {/* Password */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[11px] font-semibold text-stone-500 uppercase tracking-wider">Password</label>
-                <button type="button" className="text-[11px] text-indigo-500 hover:text-indigo-700 font-medium transition-colors">
-                  Forgot password?
-                </button>
-              </div>
-              <div className="relative">
+          {mfaToken ? (
+            <form onSubmit={handleMfaSubmit} className="space-y-4" noValidate>
+              <div>
+                <label htmlFor="mfa-code" className="block text-[11px] font-semibold text-stone-500 uppercase tracking-wider mb-1.5">Authentication code</label>
                 <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => { setPassword(e.target.value); setError(''); }}
-                  placeholder="Enter your password"
-                  className="w-full px-3.5 py-2.5 text-[13px] text-stone-900 bg-white border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all placeholder:text-stone-400 pr-10"
-                  autoComplete="current-password"
+                  id="mfa-code"
+                  value={mfaCode}
+                  onChange={(e) => { setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6)); setError(''); }}
+                  placeholder="123456"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  autoFocus
+                  className="w-full px-3.5 py-2.5 text-[18px] tracking-[0.4em] font-mono text-center text-stone-900 bg-white border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all placeholder:text-stone-300"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 text-stone-400 hover:text-stone-600 transition-colors"
-                  tabIndex={-1}
-                >
-                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                </button>
               </div>
-            </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-2.5 bg-[#0F172A] text-white font-semibold rounded-xl hover:bg-[#1E293B] active:scale-[0.99] disabled:opacity-60 transition-all flex items-center justify-center gap-2 text-[13px] shadow-lg shadow-stone-900/10"
+              >
+                {loading
+                  ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                  : <>Verify <ArrowRight size={14} className="opacity-60" /></>}
+              </button>
+              <p className="text-[12px] text-stone-400 text-center">
+                Lost your phone? Ask your organization admin to reset two-factor for your account.
+              </p>
+              <button type="button" onClick={cancelMfa} className="w-full text-[12px] text-indigo-500 hover:text-indigo-700 font-medium transition-colors">
+                Use a different account
+              </button>
+            </form>
+          ) : (
+            <>
+              {ssoEnabled && (
+              <>
+                {/* SSO Button */}
+                <button type="button" onClick={startSso} className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 hover:border-stone-300 transition-all text-[13px] font-medium text-stone-700 shadow-sm mb-5 group">
+                  <div className="w-5 h-5 rounded-md bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center">
+                    <Zap size={11} className="text-white" />
+                  </div>
+                  Sign in with Keycloak SSO
+                  <ChevronRight size={13} className="text-stone-300 group-hover:text-stone-500 group-hover:translate-x-0.5 transition-all ml-auto" />
+                </button>
 
-            {/* Remember me */}
-            <label className="flex items-center gap-2.5 cursor-pointer group">
-              <div className="relative">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="sr-only peer"
-                />
-                <div className="w-4 h-4 rounded border border-stone-300 bg-white peer-checked:bg-indigo-500 peer-checked:border-indigo-500 transition-all flex items-center justify-center">
-                  {rememberMe && (
-                    <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  )}
+                {/* Divider */}
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="flex-1 h-px bg-stone-200" />
+                  <span className="text-[10px] font-mono text-stone-300 uppercase tracking-wider">or continue with email</span>
+                  <div className="flex-1 h-px bg-stone-200" />
                 </div>
-              </div>
-              <span className="text-[12px] text-stone-500 group-hover:text-stone-700 transition-colors">Keep me signed in for 30 days</span>
-            </label>
-
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 bg-[#0F172A] text-white font-semibold rounded-xl hover:bg-[#1E293B] active:scale-[0.99] disabled:opacity-60 transition-all flex items-center justify-center gap-2 text-[13px] shadow-lg shadow-stone-900/10 mt-1"
-            >
-              {loading ? (
-                <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  Sign in
-                  <ArrowRight size={14} className="opacity-60" />
-                </>
+              </>
               )}
-            </button>
-          </form>
+
+              {/* Form */}
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Email */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-stone-500 uppercase tracking-wider mb-1.5">Email address</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => { setEmail(e.target.value); setError(''); }}
+                    placeholder="rajkumar@santhira.com"
+                    className="w-full px-3.5 py-2.5 text-[13px] text-stone-900 bg-white border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all placeholder:text-stone-400"
+                    autoFocus
+                    autoComplete="email"
+                  />
+                </div>
+
+                {/* Password */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[11px] font-semibold text-stone-500 uppercase tracking-wider">Password</label>
+                    <Link to="/forgot-password" className="text-[11px] text-indigo-500 hover:text-indigo-700 font-medium transition-colors">
+                      Forgot password?
+                    </Link>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => { setPassword(e.target.value); setError(''); }}
+                      placeholder="Enter your password"
+                      className="w-full px-3.5 py-2.5 text-[13px] text-stone-900 bg-white border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all placeholder:text-stone-400 pr-10"
+                      autoComplete="current-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 text-stone-400 hover:text-stone-600 transition-colors"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Remember me */}
+                <label className="flex items-center gap-2.5 cursor-pointer group">
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-4 h-4 rounded border border-stone-300 bg-white peer-checked:bg-indigo-500 peer-checked:border-indigo-500 transition-all flex items-center justify-center">
+                      {rememberMe && (
+                        <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      )}
+                    </div>
+                  </div>
+                  <span className="text-[12px] text-stone-500 group-hover:text-stone-700 transition-colors">Keep me signed in for 30 days</span>
+                </label>
+
+                {/* Submit */}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-2.5 bg-[#0F172A] text-white font-semibold rounded-xl hover:bg-[#1E293B] active:scale-[0.99] disabled:opacity-60 transition-all flex items-center justify-center gap-2 text-[13px] shadow-lg shadow-stone-900/10 mt-1"
+                >
+                  {loading ? (
+                    <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      Sign in
+                      <ArrowRight size={14} className="opacity-60" />
+                    </>
+                  )}
+                </button>
+              </form>
+            </>
+          )}
 
           {/* Footer links */}
           <div className="mt-7 pt-5 border-t border-stone-100 text-center space-y-3">

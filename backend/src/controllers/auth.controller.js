@@ -12,10 +12,64 @@ const { isPlatformAdmin } = require('../middleware/tenant');
 const { startTrial } = require('../services/billing.service');
 const { config } = require('../config/env');
 const passwordReset = require('../services/passwordReset.service');
+const mfa = require('../services/mfa.service');
+const sso = require('../services/sso.service');
 
 const SALT_ROUNDS = 12;
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_DURATION = 15 * 60 * 1000; // 15 min
+
+/** Create the session, set the refresh cookie and send the login payload. */
+async function issueSession(req, res, user) {
+  const accessToken = generateAccessToken(user);
+  const refreshToken = generateRefreshToken(user);
+
+  // Create session
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  await prisma.session.create({
+    data: {
+      token: accessToken, refreshToken, userId: user.id,
+      userAgent: req.get('user-agent'), ipAddress: req.ip, expiresAt,
+    },
+  });
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { lastLogin: new Date(), loginAttempts: 0, lockedUntil: null, status: 'ACTIVE' },
+  });
+
+  res.cookie('refreshToken', refreshToken, {
+    httpOnly: true, secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict', maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+
+  // Fetch organization info if user belongs to one
+  let organization = null;
+  if (user.organizationId) {
+    organization = await prisma.organization.findUnique({
+      where: { id: user.organizationId },
+      select: { id: true, name: true, slug: true, environment: true, fqdn: true },
+    });
+  }
+
+  logger.info(`User logged in: ${user.email} (org: ${organization?.slug || 'none'})`);
+  return success(res, {
+    accessToken, refreshToken, expiresIn: process.env.JWT_EXPIRY || '15m',
+    user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, role: user.role, avatar: user.avatar, organizationId: user.organizationId, isPlatformAdmin: user.isPlatformAdmin, mfaEnabled: user.mfaEnabled },
+    organization,
+  });
+}
+
+/** Count a failed password or code toward the lockout. */
+async function recordFailedAttempt(user) {
+  const attempts = user.loginAttempts + 1;
+  const update = { loginAttempts: attempts };
+  if (attempts >= MAX_LOGIN_ATTEMPTS) {
+    update.lockedUntil = new Date(Date.now() + LOCK_DURATION);
+    update.status = 'LOCKED';
+  }
+  await prisma.user.update({ where: { id: user.id }, data: update });
+}
 
 // POST /api/v1/auth/login
 async function login(req, res, next) {
@@ -53,55 +107,20 @@ async function login(req, res, next) {
 
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) {
-      const attempts = user.loginAttempts + 1;
-      const update = { loginAttempts: attempts };
-      if (attempts >= MAX_LOGIN_ATTEMPTS) {
-        update.lockedUntil = new Date(Date.now() + LOCK_DURATION);
-        update.status = 'LOCKED';
-      }
-      await prisma.user.update({ where: { id: user.id }, data: update });
+      await recordFailedAttempt(user);
       return error(res, 'Invalid credentials', 401);
     }
 
     if (user.status === 'INACTIVE') return error(res, 'Account deactivated', 403);
 
-    const accessToken = generateAccessToken(user);
-    const refreshToken = generateRefreshToken(user);
-
-    // Create session
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    await prisma.session.create({
-      data: {
-        token: accessToken, refreshToken, userId: user.id,
-        userAgent: req.get('user-agent'), ipAddress: req.ip, expiresAt,
-      },
-    });
-
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { lastLogin: new Date(), loginAttempts: 0, lockedUntil: null, status: 'ACTIVE' },
-    });
-
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true, secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict', maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
-    // Fetch organization info if user belongs to one
-    let organization = null;
-    if (user.organizationId) {
-      organization = await prisma.organization.findUnique({
-        where: { id: user.organizationId },
-        select: { id: true, name: true, slug: true, environment: true, fqdn: true },
-      });
+    if (user.mfaEnabled) {
+      // Password is right; the session waits for the second factor. Failed
+      // attempts are NOT reset here, so a stolen password plus code guessing
+      // still runs into the same lockout.
+      return success(res, { mfaRequired: true, mfaToken: mfa.signChallenge(user.id) });
     }
 
-    logger.info(`User logged in: ${user.email} (org: ${organization?.slug || 'none'})`);
-    return success(res, {
-      accessToken, refreshToken, expiresIn: process.env.JWT_EXPIRY || '15m',
-      user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, role: user.role, avatar: user.avatar, organizationId: user.organizationId, isPlatformAdmin: user.isPlatformAdmin },
-      organization,
-    });
+    return issueSession(req, res, user);
   } catch (err) { next(err); }
 }
 
@@ -348,7 +367,180 @@ async function resetPassword(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// ── Two-factor authentication ───────────────────────────
+
+// POST /api/v1/auth/mfa/verify (Public — second login step)
+async function verifyMfaLogin(req, res, next) {
+  try {
+    const userId = mfa.verifyChallenge(req.body.mfaToken);
+    if (!userId) return error(res, 'Your sign-in expired. Enter your password again.', 401);
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !user.mfaEnabled) return error(res, 'Your sign-in expired. Enter your password again.', 401);
+    if (user.status === 'INACTIVE') return error(res, 'Account deactivated', 403);
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      return error(res, 'Account locked. Try again later.', 423, { lockedUntil: user.lockedUntil.toISOString() });
+    }
+
+    const step = mfa.verifyCode(user.mfaSecret, req.body.code, user.mfaLastUsedStep);
+    if (step == null) {
+      await recordFailedAttempt(user);
+      return error(res, 'That code is incorrect or has already been used', 401);
+    }
+
+    // Claim the step atomically so two requests with the same code can't both win.
+    const claimed = await prisma.user.updateMany({
+      where: { id: user.id, OR: [{ mfaLastUsedStep: null }, { mfaLastUsedStep: { lt: step } }] },
+      data: { mfaLastUsedStep: step },
+    });
+    if (claimed.count !== 1) return error(res, 'That code is incorrect or has already been used', 401);
+
+    return issueSession(req, res, user);
+  } catch (err) { next(err); }
+}
+
+// POST /api/v1/auth/mfa/setup — start enrolment (replaces any unfinished one)
+async function setupMfa(req, res, next) {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.user.id }, select: { email: true, mfaEnabled: true } });
+    if (user.mfaEnabled) return error(res, 'Two-factor authentication is already on', 409);
+
+    const { encrypted, base32, otpauthUrl } = mfa.createSecret(user.email);
+    await prisma.user.update({ where: { id: req.user.id }, data: { mfaSecret: encrypted, mfaLastUsedStep: null } });
+    return success(res, { secret: base32, otpauthUrl });
+  } catch (err) { next(err); }
+}
+
+// POST /api/v1/auth/mfa/enable — confirm enrolment with a first code
+async function enableMfa(req, res, next) {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    if (user.mfaEnabled) return error(res, 'Two-factor authentication is already on', 409);
+    if (!user.mfaSecret) return error(res, 'Start setup first', 400);
+
+    const step = mfa.verifyCode(user.mfaSecret, req.body.code, user.mfaLastUsedStep);
+    if (step == null) return error(res, 'That code is incorrect. Check the time on your phone and try again.', 400);
+
+    await prisma.user.update({ where: { id: user.id }, data: { mfaEnabled: true, mfaLastUsedStep: step } });
+    logger.info(`[auth] MFA enabled for user ${user.id}`);
+    return success(res, { mfaEnabled: true });
+  } catch (err) { next(err); }
+}
+
+// POST /api/v1/auth/mfa/disable — needs the password AND a current code
+async function disableMfa(req, res, next) {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    if (!user.mfaEnabled) return error(res, 'Two-factor authentication is not on', 400);
+
+    const validPassword = await bcrypt.compare(String(req.body.password || ''), user.password);
+    const step = validPassword ? mfa.verifyCode(user.mfaSecret, req.body.code, user.mfaLastUsedStep) : null;
+    if (step == null) return error(res, 'Password or code is incorrect', 400);
+
+    await prisma.user.update({ where: { id: user.id }, data: { mfaEnabled: false, mfaSecret: null, mfaLastUsedStep: null } });
+    logger.info(`[auth] MFA disabled by user ${user.id}`);
+    return success(res, { mfaEnabled: false });
+  } catch (err) { next(err); }
+}
+
+// DELETE /api/v1/auth/users/:id/mfa (ADMIN) — recovery for a lost phone
+async function resetUserMfa(req, res, next) {
+  try {
+    const target = await prisma.user.findFirst({
+      where: { id: req.params.id, ...(req.tenantWhere || {}) },
+      select: { id: true, email: true },
+    });
+    if (!target) return error(res, 'User not found', 404);
+
+    await prisma.user.update({ where: { id: target.id }, data: { mfaEnabled: false, mfaSecret: null, mfaLastUsedStep: null } });
+    // Their open sessions may be on the lost device.
+    await prisma.session.deleteMany({ where: { userId: target.id } });
+    logger.warn(`[auth] MFA reset for user ${target.id} by admin ${req.user.id}`);
+    return success(res, { mfaEnabled: false });
+  } catch (err) { next(err); }
+}
+
+// ── Single sign-on (Keycloak) ───────────────────────────
+
+const SSO_COOKIE = 'sso_state';
+const ssoCookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax', // must survive the top-level redirect back from Keycloak
+  path: '/api/v1/auth/sso',
+};
+const appUrl = (path) => `${String(config.frontendUrl || '').replace(/\/+$/, '')}${path}`;
+const ssoFail = (res, reason) => res.redirect(302, appUrl(`/login?sso_error=${encodeURIComponent(reason)}`));
+
+// GET /api/v1/auth/sso/config (Public) — lets the login page show the button
+function ssoConfig(_req, res) {
+  return success(res, { enabled: sso.isEnabled() });
+}
+
+// GET /api/v1/auth/sso/login (Public) — browser navigates here
+async function ssoLogin(req, res) {
+  if (!sso.isEnabled()) return ssoFail(res, 'disabled');
+  try {
+    const { url, stateCookie } = await sso.startLogin();
+    res.cookie(SSO_COOKIE, stateCookie, { ...ssoCookieOptions, maxAge: 10 * 60 * 1000 });
+    return res.redirect(302, url);
+  } catch (err) {
+    logger.error(`[sso] could not start sign-in: ${err.message}`);
+    return ssoFail(res, 'unavailable');
+  }
+}
+
+// GET /api/v1/auth/sso/callback (Public) — Keycloak redirects here
+async function ssoCallback(req, res) {
+  const stateCookie = req.cookies?.[SSO_COOKIE];
+  res.clearCookie(SSO_COOKIE, ssoCookieOptions);
+  if (!sso.isEnabled()) return ssoFail(res, 'disabled');
+  if (req.query.error) {
+    logger.warn(`[sso] Keycloak returned ${String(req.query.error).slice(0, 60)}`);
+    return ssoFail(res, req.query.error === 'access_denied' ? 'cancelled' : 'failed');
+  }
+
+  let identity;
+  try {
+    identity = await sso.finishLogin({ code: req.query.code, state: req.query.state, stateCookie });
+  } catch (err) {
+    logger.warn(`[sso] sign-in rejected: ${err.message}`);
+    return ssoFail(res, err.reason === 'state' ? 'expired' : 'failed');
+  }
+  if (!identity.email || !identity.emailVerified) return ssoFail(res, 'unverified');
+
+  try {
+    const user = await prisma.user.findFirst({ where: { email: { equals: identity.email, mode: 'insensitive' } } });
+    // Same answer for "no account" and "deactivated": don't reveal which.
+    if (!user || user.status === 'INACTIVE') return ssoFail(res, 'no_account');
+    if (user.lockedUntil && user.lockedUntil > new Date()) return ssoFail(res, 'locked');
+
+    logger.info(`[sso] ${user.id} authenticated via Keycloak (sub ${identity.subject})`);
+    // Two-factor still applies: Keycloak proved the identity, not possession of the app's authenticator.
+    const fragment = user.mfaEnabled
+      ? `mfaToken=${encodeURIComponent(mfa.signChallenge(user.id))}`
+      : `handoff=${encodeURIComponent(sso.signHandoff(user.id))}`;
+    return res.redirect(302, appUrl(`/sso/callback#${fragment}`));
+  } catch (err) {
+    logger.error(`[sso] callback failed: ${err.message}`);
+    return ssoFail(res, 'failed');
+  }
+}
+
+// POST /api/v1/auth/sso/exchange (Public) — SPA trades the hand-off for a session
+async function ssoExchange(req, res, next) {
+  try {
+    const userId = sso.redeemHandoff(req.body.handoff);
+    if (!userId) return error(res, 'This sign-in link has expired. Try signing in again.', 401);
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.status === 'INACTIVE') return error(res, 'This sign-in link has expired. Try signing in again.', 401);
+    return issueSession(req, res, user);
+  } catch (err) { next(err); }
+}
+
 module.exports = {
   login, signup, register, refresh, logout, getProfile, updateProfile, changePassword, listUsers,
   forgotPassword, resetPassword,
+  verifyMfaLogin, setupMfa, enableMfa, disableMfa, resetUserMfa,
+  ssoConfig, ssoLogin, ssoCallback, ssoExchange,
 };

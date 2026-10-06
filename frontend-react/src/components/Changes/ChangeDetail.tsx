@@ -25,6 +25,8 @@ import toast from 'react-hot-toast';
 import { useChange, useUpdateChange } from '../../hooks/useChanges';
 import { useTeams } from '../../hooks/useTeams';
 import api from '../../lib/api';
+import AttachmentsPanel from '../Attachments/AttachmentsPanel';
+import { useAttachments } from '../../hooks/useAttachments';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -317,7 +319,8 @@ function ChangeStateDropdown({ change }: { change: any }) {
 export default function ChangeDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'details' | 'plans' | 'approvals' | 'timeline'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'plans' | 'approvals' | 'timeline' | 'files'>('details');
+  const { data: attachments } = useAttachments('changes', id);
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -393,6 +396,7 @@ export default function ChangeDetail() {
     { key: 'plans', label: 'Plans' },
     { key: 'approvals', label: 'Approvals', count: approvals.length },
     { key: 'timeline', label: 'Timeline', count: timeline.length },
+    { key: 'files', label: 'Files', count: attachments?.length || 0 },
   ] as const;
 
   return (
@@ -549,6 +553,8 @@ export default function ChangeDetail() {
       )}
 
       {/* Timeline Tab */}
+      {activeTab === 'files' && id && <AttachmentsPanel type="changes" id={id} />}
+
       {activeTab === 'timeline' && (
         <div className="rounded-xl p-5" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
           {timeline.length === 0 ? (

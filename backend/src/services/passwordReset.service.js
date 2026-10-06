@@ -51,18 +51,16 @@ async function requestReset(email) {
   ]);
 
   const link = `${config.frontendUrl.replace(/\/+$/, '')}/reset-password?token=${encodeURIComponent(raw)}`;
-  // Swallow send failures so the HTTP answer stays identical for known vs
-  // unknown addresses (no 500-based enumeration).
-  try {
-    await sendEmail(user.email, 'Reset your WeCrew ITSM password', `
+  // Not awaited: SMTP latency would otherwise reveal which addresses have an
+  // account. Failures are logged, never surfaced to the caller.
+  sendEmail(user.email, 'Reset your WeCrew ITSM password', `
     <p>Hi ${escapeHtml(user.firstName || 'there')},</p>
     <p>Someone asked to reset the password for your WeCrew ITSM account. If it was you, use the link below —
     it works once and expires in 30 minutes.</p>
     <p><a href="${link}">Reset your password</a></p>
-    <p>If you didn't ask for this, you can ignore this email; your password has not changed.</p>`);
-  } catch (err) {
-    logger.error(`[auth] password reset email failed for user ${user.id}: ${err.message}`);
-  }
+    <p>If you didn't ask for this, you can ignore this email; your password has not changed.</p>`,
+  { queueBody: '[password reset email — body withheld: contains a live reset link]' })
+    .catch((err) => logger.error(`[auth] password reset email failed for user ${user.id}: ${err.message}`));
   logger.info(`[auth] password reset requested for user ${user.id}`);
 }
 

@@ -5,7 +5,7 @@
 const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
-const { validate } = require('../middleware/validator');
+const { validate, validateUUID } = require('../middleware/validator');
 const { authenticate, authorize } = require('../middleware/auth');
 const { enforceSeatLimit } = require('../middleware/billing.middleware');
 const { authLimiter } = require('../middleware/rateLimiter');
@@ -27,6 +27,20 @@ router.post('/reset-password', authLimiter, [
   body('password').isLength({ min: 8, max: 200 }).withMessage('Password must be at least 8 characters'),
   validate,
 ], ctrl.resetPassword);
+
+// Single sign-on (Keycloak)
+router.get('/sso/config', ctrl.ssoConfig);
+router.get('/sso/login', authLimiter, ctrl.ssoLogin);
+router.get('/sso/callback', ctrl.ssoCallback);
+router.post('/sso/exchange', authLimiter, [body('handoff').isString().notEmpty(), validate], ctrl.ssoExchange);
+
+// Two-factor authentication
+const mfaCode = body('code').isString().matches(/^\s*\d{3}\s?\d{3}\s*$/).withMessage('Enter the 6-digit code');
+router.post('/mfa/verify', authLimiter, [body('mfaToken').isString().notEmpty(), mfaCode, validate], ctrl.verifyMfaLogin);
+router.post('/mfa/setup', authenticate, ctrl.setupMfa);
+router.post('/mfa/enable', authenticate, authLimiter, [mfaCode, validate], ctrl.enableMfa);
+router.post('/mfa/disable', authenticate, authLimiter, [body('password').isString().notEmpty(), mfaCode, validate], ctrl.disableMfa);
+router.delete('/users/:id/mfa', authenticate, authorize('ADMIN'), validateUUID, ctrl.resetUserMfa);
 
 router.post('/signup', authLimiter, [
   body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),

@@ -1318,6 +1318,8 @@ async function sendAlertNotification(to, data) {
 
 // ── Core send function ───────────────────────────────────
 
+const MAX_SEND_ATTEMPTS = 3;
+
 /**
  * Send a single email. Queues to DB then attempts delivery.
  * Never throws — errors are logged and recorded in the queue.
@@ -1328,7 +1330,12 @@ async function sendEmail(to, subject, html, options = {}) {
   let queueId;
   try {
     const record = await prisma.emailQueue.create({
-      data: { to, subject, body: html, status: 'PENDING', priority: options.priority || 0 },
+      // queueBody keeps secrets (reset links) out of the table. A withheld body
+      // cannot be resent, so it starts at the attempt cap and the retry job skips it.
+      data: {
+        to, subject, body: options.queueBody ?? html, status: 'PENDING', priority: options.priority || 0,
+        ...(options.queueBody ? { attempts: MAX_SEND_ATTEMPTS } : {}),
+      },
     });
     queueId = record.id;
   } catch (dbErr) {
@@ -1377,7 +1384,7 @@ async function processEmailQueue() {
   const pending = await prisma.emailQueue.findMany({
     where: {
       status: { in: ['PENDING', 'FAILED'] },
-      attempts: { lt: 3 },
+      attempts: { lt: MAX_SEND_ATTEMPTS },
       scheduledAt: { lte: new Date() },
     },
     orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }],

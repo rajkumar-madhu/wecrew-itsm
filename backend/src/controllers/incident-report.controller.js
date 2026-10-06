@@ -726,7 +726,7 @@ class IncidentReportBuilder {
 
     const headers = ['File Name', 'Type', 'Size', 'Uploaded'];
     const rows = inc.attachments.map(att => [
-      att.fileName || att.name || 'Unknown',
+      att.originalName || 'Unknown',
       att.mimeType || att.type || 'N/A',
       att.size ? `${Math.round(att.size / 1024)} KB` : 'N/A',
       formatDate(att.createdAt),

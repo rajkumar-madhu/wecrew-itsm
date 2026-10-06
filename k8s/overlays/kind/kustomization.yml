@@ -8,6 +8,7 @@ resources:
   - rbac.yml
   - postgres-statefulset.yml
   - redis-deployment.yml
+  - uploads-pvc.yml
   - api-deployment.yml
   - frontend-deployment.yml
   - ingress-kind.yml

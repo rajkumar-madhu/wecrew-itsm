@@ -32,6 +32,10 @@ spec:
       serviceAccountName: linkedeye-k8s-viewer
       imagePullSecrets:
         - name: harbor-linkedeye-pull
+      volumes:
+        - name: uploads
+          persistentVolumeClaim:
+            claimName: linkedeye-uploads
       containers:
         - name: api
           image: harbor.wecrew.in/linkedeye/argus-itsm-api:20260816-wecrew
@@ -49,6 +53,12 @@ spec:
                 name: linkedeye-secrets
             - configMapRef:
                 name: linkedeye-config
+          env:
+            - name: UPLOAD_DIR
+              value: /app/uploads
+          volumeMounts:
+            - name: uploads
+              mountPath: /app/uploads
           # Sized down for the single-node kind cluster; matches what is live.
           resources:
             requests:

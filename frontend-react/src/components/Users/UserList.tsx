@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuthStore } from '../../stores/authStore';
+import { useResetUserMfa } from '../../hooks/useAuth';
 import type { User, Role, UserStatus } from '../../types';
 
 // ── Constants ──
@@ -131,6 +132,12 @@ export default function UserList() {
   const [pageSize] = useState(20);
   const debouncedSearch = useDebounce(searchInput, 350);
   const currentUser = useAuthStore(s => s.user);
+  const resetMfa = useResetUserMfa();
+  const handleResetMfa = (u: User) => {
+    if (window.confirm(`Reset two-factor for ${u.firstName} ${u.lastName}? They'll be signed out everywhere and can sign in with just their password until they set it up again.`)) {
+      resetMfa.mutate(u.id);
+    }
+  };
 
   useEffect(() => { setPage(1); }, [debouncedSearch, roleFilter, statusFilter]);
 
@@ -432,6 +439,16 @@ export default function UserList() {
                           ? <span title="MFA enabled"><Shield className="w-4 h-4 text-[#10B981] mx-auto" /></span>
                           : <span title="MFA disabled"><ShieldOff className="w-4 h-4 text-[#CBD5E1] mx-auto" /></span>
                         }
+                        {user.mfaEnabled && currentUser?.role === 'ADMIN' && !isCurrentUser && (
+                          <button
+                            onClick={() => handleResetMfa(user)}
+                            disabled={resetMfa.isPending}
+                            className="mt-1 text-[10px] font-semibold text-[#94A3B8] hover:text-[#EF4444] transition-colors disabled:opacity-50"
+                            title="Reset two-factor (lost phone)"
+                          >
+                            Reset
+                          </button>
+                        )}
                       </td>
 
                       {/* Actions */}

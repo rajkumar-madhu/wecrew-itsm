@@ -1,0 +1,17 @@
+# Ticket attachments. One API replica with maxSurge: 0, so ReadWriteOnce is
+# enough: the old pod is gone before the new one mounts the volume.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: linkedeye-uploads
+  namespace: linkedeye-core
+  labels:
+    app.kubernetes.io/name: linkedeye-uploads
+    app.kubernetes.io/component: storage
+    app.kubernetes.io/part-of: linkedeye
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 5Gi

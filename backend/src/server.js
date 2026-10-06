@@ -27,6 +27,7 @@ const { checkEscalations } = require('./services/escalationService');
 // Routes
 const authRoutes = require('./routes/auth.routes');
 const incidentRoutes = require('./routes/incident.routes');
+const attachmentRoutes = require('./routes/attachment.routes');
 const changeRoutes = require('./routes/change.routes');
 const problemRoutes = require('./routes/problem.routes');
 const alertRoutes = require('./routes/alert.routes');
@@ -104,9 +105,6 @@ app.use(cookieParser());
 app.use(morganMiddleware);
 app.use(globalLimiter);
 
-// Static uploads
-app.use('/uploads', express.static('uploads'));
-
 // Serve dashboard UI from public/
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
@@ -136,6 +134,7 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/incidents', incidentRoutes);
 app.use('/api/v1/changes', changeRoutes);
 app.use('/api/v1/problems', problemRoutes);
+app.use('/api/v1/attachments', attachmentRoutes);
 app.use('/api/v1/alerts', alertRoutes);
 app.use('/api/v1/assets', assetRoutes);
 app.use('/api/v1/teams', teamRoutes);

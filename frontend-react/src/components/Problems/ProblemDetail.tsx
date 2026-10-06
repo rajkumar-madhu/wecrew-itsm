@@ -32,6 +32,8 @@ import toast from 'react-hot-toast';
 import { useProblem, useUpdateProblem, useAiRCA, useAlertKB } from '../../hooks/useProblems';
 import { useTeams } from '../../hooks/useTeams';
 import api from '../../lib/api';
+import AttachmentsPanel from '../Attachments/AttachmentsPanel';
+import { useAttachments } from '../../hooks/useAttachments';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -315,7 +317,8 @@ function ConfidenceGauge({ value }: { value: number }) {
 export default function ProblemDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'details' | 'rca' | 'worknotes' | 'related'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'rca' | 'worknotes' | 'related' | 'files'>('details');
+  const { data: attachments } = useAttachments('problems', id);
   const [newNote, setNewNote] = useState('');
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -444,6 +447,7 @@ export default function ProblemDetail() {
     { key: 'rca', label: 'Root Cause' },
     { key: 'worknotes', label: 'Work Notes', count: worknotes.length },
     { key: 'related', label: 'Related', count: relatedIncidents.length + relatedChanges.length },
+    { key: 'files', label: 'Files', count: attachments?.length || 0 },
   ] as const;
 
   return (
@@ -814,6 +818,8 @@ export default function ProblemDetail() {
       )}
 
       {/* Related Tab */}
+      {activeTab === 'files' && id && <AttachmentsPanel type="problems" id={id} />}
+
       {activeTab === 'related' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="glass-card p-5">
