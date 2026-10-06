@@ -17,6 +17,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useIncident, useIncidentTimeline, useAddWorkNote, useUpdateIncident, useIncidentLiveContext, useEscalationLogs } from '../../hooks/useIncidents';
 import { useTeams } from '../../hooks/useTeams';
 import IncidentReportGenerator from './IncidentReportGenerator';
+import AttachmentsPanel from '../Attachments/AttachmentsPanel';
+import { useAttachments } from '../../hooks/useAttachments';
 import api from '../../lib/api';
 
 // =============================================================================
@@ -25,7 +27,7 @@ import api from '../../lib/api';
 
 type Priority = 'P1' | 'P2' | 'P3' | 'P4';
 type IncidentState = 'NEW' | 'IN_PROGRESS' | 'ON_HOLD' | 'ESCALATED' | 'RESOLVED' | 'CLOSED' | 'CANCELLED';
-type TabKey = 'overview' | 'timeline' | 'worknotes' | 'livemetrics' | 'related' | 'aiagent' | 'escalation';
+type TabKey = 'overview' | 'timeline' | 'worknotes' | 'livemetrics' | 'related' | 'files' | 'aiagent' | 'escalation';
 
 const INCIDENT_TRANSITIONS: Record<string, string[]> = {
   NEW:         ['IN_PROGRESS', 'ON_HOLD', 'RESOLVED', 'CANCELLED'],
@@ -523,6 +525,7 @@ export default function IncidentDetail() {
 
   // UI state — ALL hooks must be before any early returns (React rules of hooks)
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
+  const { data: attachments } = useAttachments('incidents', id);
 
   // AI Agent resolution details — must be here (before early return) to satisfy rules of hooks
   const { data: aiResData, isLoading: aiResLoading, refetch: refetchAI } = useQuery({
@@ -838,6 +841,7 @@ export default function IncidentDetail() {
     { key: 'worknotes',    label: 'Notes',        icon: MessageSquare },
     { key: 'livemetrics',  label: 'Live Metrics', icon: Gauge,          accent: true },
     { key: 'related',      label: 'Related',      icon: Link2, count: (incident.linkedChanges?.length || 0) + (incident.linkedProblems?.length || 0) + (incident.relatedAlerts?.length || 0) || undefined },
+    { key: 'files',        label: 'Files',        icon: Paperclip,      count: attachments?.length || undefined },
     { key: 'aiagent',      label: 'AI Agent',     icon: Brain,          accent: true },
     { key: 'escalation',   label: 'Escalation',   icon: Bell,           count: escData?.logs?.length || undefined },
   ];
@@ -2453,6 +2457,9 @@ export default function IncidentDetail() {
                     )}
                   </div>
                 )}
+
+                {/* === Files Tab === */}
+                {activeTab === 'files' && id && <AttachmentsPanel type="incidents" id={id} />}
 
                 {/* === Related Tab === */}
                 {activeTab === 'related' && (
