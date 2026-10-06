@@ -334,6 +334,7 @@ model User {
   timezone          String     @default("Asia/Kolkata")
   mfaEnabled        Boolean    @default(false)
   mfaSecret         String?
+  mfaLastUsedStep   Int? // last accepted TOTP time step — a code is never accepted twice
   lastLogin         DateTime?
   loginAttempts     Int        @default(0)
   lockedUntil       DateTime?

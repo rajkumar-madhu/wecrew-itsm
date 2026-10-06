@@ -30,12 +30,33 @@ interface User {
   updatedAt: string | null;
 }
 
+export interface MfaChallenge { mfaRequired: true; mfaToken: string }
+
+/** POST to a public auth endpoint; throws the API's message on failure. */
+async function postAuth(path: string, body: unknown) {
+  const res = await fetch(`/api/v1/auth/${path}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg = res.status === 429 ? 'Too many attempts. Wait a few minutes and try again.'
+      : payload?.details?.[0]?.msg || payload?.error || 'Login failed';
+    throw new Error(msg);
+  }
+  return payload;
+}
+
 interface AuthState {
   user: User | null; token: string | null; refreshToken: string | null;
   organization: Organization | null;
   selectedOrgId: string | null; // Admin org filter
   isAuthenticated: boolean; isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  /** Resolves to a challenge when the account has two-factor on; finish with verifyMfa. */
+  login: (email: string, password: string) => Promise<MfaChallenge | void>;
+  verifyMfa: (mfaToken: string, code: string) => Promise<void>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw API envelope
+  completeLogin: (payload: any) => void;
   logout: () => void;
   setUser: (user: User) => void;
   setTokens: (token: string, refreshToken: string) => void;
@@ -51,31 +72,37 @@ export const useAuthStore = create<AuthState>()(
       login: async (email, password) => {
         set({ isLoading: true });
         try {
-          const res = await fetch('/api/v1/auth/login', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password }),
-          });
-          const payload = await res.json().catch(() => ({}));
-          if (!res.ok) {
-            const msg = payload?.error || payload?.details?.[0]?.msg || 'Login failed';
-            throw new Error(msg);
+          const payload = await postAuth('login', { email, password });
+          if (payload?.data?.mfaRequired) {
+            set({ isLoading: false });
+            return { mfaRequired: true, mfaToken: payload.data.mfaToken };
           }
-          if (!payload?.data?.accessToken) {
-            throw new Error('Login failed: no token returned');
-          }
-          set({
-            user: payload.data.user,
-            token: payload.data.accessToken,
-            refreshToken: payload.data.refreshToken,
-            organization: payload.data.organization || null,
-            selectedOrgId: payload.data.user?.organizationId || null,
-            isAuthenticated: true,
-            isLoading: false,
-          });
-        } catch (err: any) {
+          get().completeLogin(payload);
+        } catch (err) {
           set({ isLoading: false, isAuthenticated: false });
-          throw new Error(err?.message || 'Invalid credentials');
+          throw new Error((err as Error)?.message || 'Invalid credentials');
         }
+      },
+      verifyMfa: async (mfaToken, code) => {
+        set({ isLoading: true });
+        try {
+          get().completeLogin(await postAuth('mfa/verify', { mfaToken, code }));
+        } catch (err) {
+          set({ isLoading: false, isAuthenticated: false });
+          throw err;
+        }
+      },
+      completeLogin: (payload) => {
+        if (!payload?.data?.accessToken) throw new Error('Login failed: no token returned');
+        set({
+          user: payload.data.user,
+          token: payload.data.accessToken,
+          refreshToken: payload.data.refreshToken,
+          organization: payload.data.organization || null,
+          selectedOrgId: payload.data.user?.organizationId || null,
+          isAuthenticated: true,
+          isLoading: false,
+        });
       },
       logout: () => {
         const { token } = get();

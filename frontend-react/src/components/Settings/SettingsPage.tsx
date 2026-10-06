@@ -9,6 +9,7 @@ import {
 import { useAuthStore } from '../../stores/authStore';
 import { useUpdateProfile, useChangePassword } from '../../hooks/useAuth';
 import { useOrganizations, useCreateOrganization, useUpdateOrganization } from '../../hooks/useOrganizations';
+import MfaSettings from './MfaSettings';
 
 const TIMEZONES = [
   'Asia/Kolkata', 'UTC', 'America/New_York', 'America/Chicago',
@@ -309,24 +310,7 @@ export default function SettingsPage() {
               <div className="border-t border-[#F1F5F9]" />
 
               <Section title="Two-Factor Authentication" description="Add an extra layer of security using TOTP authenticator">
-                <div className="flex items-center justify-between p-4 rounded-xl bg-[#FAFBFC] border border-[#F1F5F9]">
-                  <div className="flex items-center gap-3">
-                    <div className={clsx('w-10 h-10 rounded-xl flex items-center justify-center', user?.mfaEnabled ? 'bg-[#ECFDF5]' : 'bg-[#FEF2F2]')}>
-                      <Shield className={clsx('w-5 h-5', user?.mfaEnabled ? 'text-[#10B981]' : 'text-[#EF4444]')} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-[#0F172A]">
-                        {user?.mfaEnabled ? 'MFA is enabled' : 'MFA is disabled'}
-                      </p>
-                      <p className="text-xs text-[#94A3B8]">
-                        {user?.mfaEnabled ? 'Your account is protected with TOTP authentication' : 'Enable MFA to secure your account against unauthorized access'}
-                      </p>
-                    </div>
-                  </div>
-                  <button className={clsx('btn-primary text-sm', user?.mfaEnabled ? 'bg-[#EF4444] hover:bg-[#DC2626]' : '')}>
-                    {user?.mfaEnabled ? 'Disable MFA' : 'Enable MFA'}
-                  </button>
-                </div>
+                <MfaSettings />
               </Section>
 
               <div className="border-t border-[#F1F5F9]" />
