@@ -1,11 +1,24 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   Eye, EyeOff, Shield, Zap, ArrowRight, Activity,
   Server, Bell, Brain, Lock, ChevronRight,
   CheckCircle2, Globe, Layers, BarChart3,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
+import api from '../../lib/api';
+
+// Codes the API puts in ?sso_error= when a Keycloak sign-in can't finish.
+const SSO_ERRORS: Record<string, string> = {
+  cancelled: 'Single sign-on was cancelled.',
+  expired: 'Your single sign-on attempt expired. Try again.',
+  unverified: 'Your Keycloak account has no verified email address. Ask your admin to verify it.',
+  no_account: "There's no active WeCrew account for that login. Ask your organization admin to add you.",
+  locked: 'This account is temporarily locked. Try again later.',
+  disabled: 'Single sign-on is not set up for this workspace.',
+  unavailable: "Couldn't reach the sign-on service. Try again or sign in with your password.",
+  failed: 'Single sign-on failed. Try again or sign in with your password.',
+};
 
 // ══════════════════════════════════════════════════════════════
 // Feature bullet for left panel
@@ -52,14 +65,33 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(() => {
+    const code = new URLSearchParams(window.location.search).get('sso_error');
+    return code ? SSO_ERRORS[code] || SSO_ERRORS.failed : '';
+  });
   const [shake, setShake] = useState(false);
-  const [mfaToken, setMfaToken] = useState<string | null>(null);
+  const location = useLocation();
+  // A two-factor user arriving from SSO lands straight on the code step.
+  const [mfaToken, setMfaToken] = useState<string | null>(
+    (location.state as { mfaToken?: string } | null)?.mfaToken ?? null);
+  const [ssoEnabled, setSsoEnabled] = useState(false);
   const [mfaCode, setMfaCode] = useState('');
 
   useEffect(() => {
     if (isAuthenticated) navigate('/dashboard', { replace: true });
   }, [isAuthenticated, navigate]);
+
+  useEffect(() => {
+    api.get('/auth/sso/config')
+      .then(({ data }) => setSsoEnabled(!!data?.data?.enabled))
+      .catch(() => setSsoEnabled(false));
+    if (location.search.includes('sso_error')) navigate('/login', { replace: true }); // don't keep the error in the URL
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on arrival
+  }, []);
+
+  const startSso = () => {
+    window.location.assign(`${import.meta.env.VITE_API_BASE_URL || '/api/v1'}/auth/sso/login`);
+  };
 
   const fail = (message: string) => {
     setError(message);
@@ -265,21 +297,25 @@ export default function LoginPage() {
             </form>
           ) : (
             <>
-              {/* SSO Button */}
-              <button className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 hover:border-stone-300 transition-all text-[13px] font-medium text-stone-700 shadow-sm mb-5 group">
-                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center">
-                  <Zap size={11} className="text-white" />
-                </div>
-                Sign in with Keycloak SSO
-                <ChevronRight size={13} className="text-stone-300 group-hover:text-stone-500 group-hover:translate-x-0.5 transition-all ml-auto" />
-              </button>
+              {ssoEnabled && (
+              <>
+                {/* SSO Button */}
+                <button type="button" onClick={startSso} className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 hover:border-stone-300 transition-all text-[13px] font-medium text-stone-700 shadow-sm mb-5 group">
+                  <div className="w-5 h-5 rounded-md bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center">
+                    <Zap size={11} className="text-white" />
+                  </div>
+                  Sign in with Keycloak SSO
+                  <ChevronRight size={13} className="text-stone-300 group-hover:text-stone-500 group-hover:translate-x-0.5 transition-all ml-auto" />
+                </button>
 
-              {/* Divider */}
-              <div className="flex items-center gap-3 mb-5">
-                <div className="flex-1 h-px bg-stone-200" />
-                <span className="text-[10px] font-mono text-stone-300 uppercase tracking-wider">or continue with email</span>
-                <div className="flex-1 h-px bg-stone-200" />
-              </div>
+                {/* Divider */}
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="flex-1 h-px bg-stone-200" />
+                  <span className="text-[10px] font-mono text-stone-300 uppercase tracking-wider">or continue with email</span>
+                  <div className="flex-1 h-px bg-stone-200" />
+                </div>
+              </>
+              )}
 
               {/* Form */}
               <form onSubmit={handleSubmit} className="space-y-4">

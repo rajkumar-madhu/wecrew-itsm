@@ -28,6 +28,12 @@ router.post('/reset-password', authLimiter, [
   validate,
 ], ctrl.resetPassword);
 
+// Single sign-on (Keycloak)
+router.get('/sso/config', ctrl.ssoConfig);
+router.get('/sso/login', authLimiter, ctrl.ssoLogin);
+router.get('/sso/callback', ctrl.ssoCallback);
+router.post('/sso/exchange', authLimiter, [body('handoff').isString().notEmpty(), validate], ctrl.ssoExchange);
+
 // Two-factor authentication
 const mfaCode = body('code').isString().matches(/^\s*\d{3}\s?\d{3}\s*$/).withMessage('Enter the 6-digit code');
 router.post('/mfa/verify', authLimiter, [body('mfaToken').isString().notEmpty(), mfaCode, validate], ctrl.verifyMfaLogin);

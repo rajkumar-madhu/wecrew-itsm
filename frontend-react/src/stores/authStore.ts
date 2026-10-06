@@ -55,6 +55,8 @@ interface AuthState {
   /** Resolves to a challenge when the account has two-factor on; finish with verifyMfa. */
   login: (email: string, password: string) => Promise<MfaChallenge | void>;
   verifyMfa: (mfaToken: string, code: string) => Promise<void>;
+  /** Trade the one-time token from the Keycloak redirect for a session. */
+  ssoExchange: (handoff: string) => Promise<void>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw API envelope
   completeLogin: (payload: any) => void;
   logout: () => void;
@@ -87,6 +89,15 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true });
         try {
           get().completeLogin(await postAuth('mfa/verify', { mfaToken, code }));
+        } catch (err) {
+          set({ isLoading: false, isAuthenticated: false });
+          throw err;
+        }
+      },
+      ssoExchange: async (handoff) => {
+        set({ isLoading: true });
+        try {
+          get().completeLogin(await postAuth('sso/exchange', { handoff }));
         } catch (err) {
           set({ isLoading: false, isAuthenticated: false });
           throw err;

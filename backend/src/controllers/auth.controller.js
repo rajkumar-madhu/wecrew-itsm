@@ -13,6 +13,7 @@ const { startTrial } = require('../services/billing.service');
 const { config } = require('../config/env');
 const passwordReset = require('../services/passwordReset.service');
 const mfa = require('../services/mfa.service');
+const sso = require('../services/sso.service');
 
 const SALT_ROUNDS = 12;
 const MAX_LOGIN_ATTEMPTS = 5;
@@ -459,8 +460,87 @@ async function resetUserMfa(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// ── Single sign-on (Keycloak) ───────────────────────────
+
+const SSO_COOKIE = 'sso_state';
+const ssoCookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax', // must survive the top-level redirect back from Keycloak
+  path: '/api/v1/auth/sso',
+};
+const appUrl = (path) => `${String(config.frontendUrl || '').replace(/\/+$/, '')}${path}`;
+const ssoFail = (res, reason) => res.redirect(302, appUrl(`/login?sso_error=${encodeURIComponent(reason)}`));
+
+// GET /api/v1/auth/sso/config (Public) — lets the login page show the button
+function ssoConfig(_req, res) {
+  return success(res, { enabled: sso.isEnabled() });
+}
+
+// GET /api/v1/auth/sso/login (Public) — browser navigates here
+async function ssoLogin(req, res) {
+  if (!sso.isEnabled()) return ssoFail(res, 'disabled');
+  try {
+    const { url, stateCookie } = await sso.startLogin();
+    res.cookie(SSO_COOKIE, stateCookie, { ...ssoCookieOptions, maxAge: 10 * 60 * 1000 });
+    return res.redirect(302, url);
+  } catch (err) {
+    logger.error(`[sso] could not start sign-in: ${err.message}`);
+    return ssoFail(res, 'unavailable');
+  }
+}
+
+// GET /api/v1/auth/sso/callback (Public) — Keycloak redirects here
+async function ssoCallback(req, res) {
+  const stateCookie = req.cookies?.[SSO_COOKIE];
+  res.clearCookie(SSO_COOKIE, ssoCookieOptions);
+  if (!sso.isEnabled()) return ssoFail(res, 'disabled');
+  if (req.query.error) {
+    logger.warn(`[sso] Keycloak returned ${String(req.query.error).slice(0, 60)}`);
+    return ssoFail(res, req.query.error === 'access_denied' ? 'cancelled' : 'failed');
+  }
+
+  let identity;
+  try {
+    identity = await sso.finishLogin({ code: req.query.code, state: req.query.state, stateCookie });
+  } catch (err) {
+    logger.warn(`[sso] sign-in rejected: ${err.message}`);
+    return ssoFail(res, err.reason === 'state' ? 'expired' : 'failed');
+  }
+  if (!identity.email || !identity.emailVerified) return ssoFail(res, 'unverified');
+
+  try {
+    const user = await prisma.user.findFirst({ where: { email: { equals: identity.email, mode: 'insensitive' } } });
+    // Same answer for "no account" and "deactivated": don't reveal which.
+    if (!user || user.status === 'INACTIVE') return ssoFail(res, 'no_account');
+    if (user.lockedUntil && user.lockedUntil > new Date()) return ssoFail(res, 'locked');
+
+    logger.info(`[sso] ${user.id} authenticated via Keycloak (sub ${identity.subject})`);
+    // Two-factor still applies: Keycloak proved the identity, not possession of the app's authenticator.
+    const fragment = user.mfaEnabled
+      ? `mfaToken=${encodeURIComponent(mfa.signChallenge(user.id))}`
+      : `handoff=${encodeURIComponent(sso.signHandoff(user.id))}`;
+    return res.redirect(302, appUrl(`/sso/callback#${fragment}`));
+  } catch (err) {
+    logger.error(`[sso] callback failed: ${err.message}`);
+    return ssoFail(res, 'failed');
+  }
+}
+
+// POST /api/v1/auth/sso/exchange (Public) — SPA trades the hand-off for a session
+async function ssoExchange(req, res, next) {
+  try {
+    const userId = sso.redeemHandoff(req.body.handoff);
+    if (!userId) return error(res, 'This sign-in link has expired. Try signing in again.', 401);
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.status === 'INACTIVE') return error(res, 'This sign-in link has expired. Try signing in again.', 401);
+    return issueSession(req, res, user);
+  } catch (err) { next(err); }
+}
+
 module.exports = {
   login, signup, register, refresh, logout, getProfile, updateProfile, changePassword, listUsers,
   forgotPassword, resetPassword,
   verifyMfaLogin, setupMfa, enableMfa, disableMfa, resetUserMfa,
+  ssoConfig, ssoLogin, ssoCallback, ssoExchange,
 };
