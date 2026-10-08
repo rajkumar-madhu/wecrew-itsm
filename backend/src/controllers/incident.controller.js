@@ -6,12 +6,13 @@ const { prisma } = require('../config/database');
 const { deletePattern } = require('../config/redis');
 const { emitToAll, emitToTeam, emitToUser, emitToIncident } = require('../config/socket');
 const {
-  generateIncidentNumber, calculatePriority, calculateSLATargetTimes,
+  generateIncidentNumber, calculatePriority,
   paginate, paginationMeta, success, error,
 } = require('../utils/helpers');
 const { INCIDENT_TRANSITIONS } = require('../config/constants');
 const logger = require('../utils/logger');
 const eventBus = require('../services/eventEmitter');
+const { calculateSLATargetTimesForOrg } = require('../services/slaPolicyService');
 const { getCreateOrgId, scopedWhere, isPlatformAdmin } = require('../middleware/tenant');
 
 // Ids in a request body must point at records in the SAME org as the incident
@@ -124,7 +125,7 @@ async function createIncident(req, res, next) {
     const imp = impact || 'INDIVIDUAL';
     const urg = urgency || 'LOW';
     const priority = calculatePriority(imp, urg);
-    const slaTargets = calculateSLATargetTimes(priority, new Date());
+    const slaTargets = await calculateSLATargetTimesForOrg(priority, new Date(), orgId);
 
     const incident = await prisma.incident.create({
       data: {

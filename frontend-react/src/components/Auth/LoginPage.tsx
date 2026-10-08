@@ -54,6 +54,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [shake, setShake] = useState(false);
+  const [mfaStep, setMfaStep] = useState(false);
+  const [mfaCode, setMfaCode] = useState('');
 
   useEffect(() => {
     if (isAuthenticated) navigate('/dashboard', { replace: true });
@@ -62,10 +64,12 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) { setError('Enter your email and password to continue'); setShake(true); setTimeout(() => setShake(false), 500); return; }
+    if (mfaStep && !/^\d{6}$/.test(mfaCode)) { setError('Enter the 6-digit code from your authenticator app'); return; }
     setLoading(true);
     setError('');
     try {
-      await login(email, password);
+      const { mfaRequired } = await login(email, password, mfaStep ? mfaCode : undefined);
+      if (mfaRequired) { setMfaStep(true); return; }
       navigate('/dashboard');
     } catch (err: any) {
       setError(err?.message || 'Invalid credentials. Please try again.');
@@ -213,6 +217,29 @@ export default function LoginPage() {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
+            {mfaStep ? (
+              <div>
+                <label htmlFor="login-mfa-code" className="block text-[11px] font-semibold text-stone-600 uppercase tracking-wider mb-1.5">Verification code</label>
+                <input
+                  id="login-mfa-code"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  value={mfaCode}
+                  onChange={(e) => { setMfaCode(e.target.value.replace(/\D/g, '')); setError(''); }}
+                  placeholder="123456"
+                  className="w-full px-3.5 py-2.5 text-[18px] tracking-[0.4em] font-mono text-stone-900 bg-white border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all placeholder:text-stone-300"
+                  autoFocus
+                />
+                <p className="text-[12px] text-stone-600 mt-2">
+                  Open your authenticator app and enter the code for Argus ITSM ({email}).
+                </p>
+                <button type="button" onClick={() => { setMfaStep(false); setMfaCode(''); setError(''); }}
+                  className="text-[12px] text-indigo-600 hover:text-indigo-800 font-medium mt-2">
+                  Use a different account
+                </button>
+              </div>
+            ) : (<>
             {/* Email */}
             <div>
               <label className="block text-[11px] font-semibold text-stone-500 uppercase tracking-wider mb-1.5">Email address</label>
@@ -255,6 +282,8 @@ export default function LoginPage() {
               </div>
             </div>
 
+            </>)}
+
             {/* Remember me */}
             <label className="flex items-center gap-2.5 cursor-pointer group">
               <div className="relative">
@@ -283,7 +312,7 @@ export default function LoginPage() {
                 <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
               ) : (
                 <>
-                  Sign in
+                  {mfaStep ? 'Verify and sign in' : 'Sign in'}
                   <ArrowRight size={14} className="opacity-60" />
                 </>
               )}

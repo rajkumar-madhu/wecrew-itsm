@@ -35,7 +35,8 @@ interface AuthState {
   organization: Organization | null;
   selectedOrgId: string | null; // Admin org filter
   isAuthenticated: boolean; isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  /** Resolves `{ mfaRequired: true }` when the account needs a 6-digit code; call again with it. */
+  login: (email: string, password: string, mfaCode?: string) => Promise<{ mfaRequired: boolean }>;
   logout: () => void;
   setUser: (user: User) => void;
   setTokens: (token: string, refreshToken: string) => void;
@@ -48,17 +49,21 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       user: null, token: null, refreshToken: null, organization: null, selectedOrgId: null,
       isAuthenticated: false, isLoading: true, // true until rehydrate + checkAuth
-      login: async (email, password) => {
+      login: async (email, password, mfaCode) => {
         set({ isLoading: true });
         try {
           const res = await fetch('/api/v1/auth/login', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password }),
+            body: JSON.stringify(mfaCode ? { email, password, mfaCode } : { email, password }),
           });
           const payload = await res.json().catch(() => ({}));
           if (!res.ok) {
             const msg = payload?.error || payload?.details?.[0]?.msg || 'Login failed';
             throw new Error(msg);
+          }
+          if (payload?.data?.mfaRequired) {
+            set({ isLoading: false });
+            return { mfaRequired: true };
           }
           if (!payload?.data?.accessToken) {
             throw new Error('Login failed: no token returned');
@@ -72,6 +77,7 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: true,
             isLoading: false,
           });
+          return { mfaRequired: false };
         } catch (err: any) {
           set({ isLoading: false, isAuthenticated: false });
           throw new Error(err?.message || 'Invalid credentials');

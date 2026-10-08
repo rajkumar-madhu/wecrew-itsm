@@ -12,7 +12,7 @@ const compression = require('compression');
 const cookieParser = require('cookie-parser');
 
 const { validateEnv, config } = require('./config/env');
-const { connectDB, disconnectDB } = require('./config/database');
+const { connectDB, disconnectDB, prisma } = require('./config/database');
 const { initSocket } = require('./config/socket');
 const { morganMiddleware } = require('./utils/logger');
 const logger = require('./utils/logger');
@@ -52,6 +52,7 @@ const billingRoutes = require('./routes/billing.routes');
 const razorpayWebhookRoutes = require('./routes/razorpayWebhook.routes');
 const auditRoutes = require('./routes/audit.routes');
 const chatRoutes = require('./routes/chat.routes');
+const slaRoutes = require('./routes/sla.routes');
 const publicRoutes = require('./routes/public.routes');
 
 // ── Validate Environment ────────────────────────────────
@@ -114,7 +115,6 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 
 app.get('/health', async (_req, res) => {
   try {
-    const { prisma } = require('./config/database');
     await prisma.$queryRaw`SELECT 1`;
     res.json({
       status: 'healthy',
@@ -157,6 +157,7 @@ app.use('/api/v1/apm', apmRoutes);
 app.use('/api/v1/status', statusRoutes);  // Public — no auth
 app.use('/api/v1/audit', auditRoutes);
 app.use('/api/v1/chat', chatRoutes);
+app.use('/api/v1/sla', slaRoutes);
 app.use('/api/v1/billing', billingRoutes);
 app.use('/api/v1/public', publicRoutes);  // Public — no auth (marketing site forms)
 

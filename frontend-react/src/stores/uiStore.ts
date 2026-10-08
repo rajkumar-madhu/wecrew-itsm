@@ -13,6 +13,7 @@ interface UIState {
   toggleSidebar: () => void;
   toggleGlobalSearch: () => void;
   setGlobalSearchOpen: (open: boolean) => void;
+  setCommandPaletteOpen: (open: boolean) => void;
   addNotification: (n: Omit<UINotification, 'id' | 'read' | 'timestamp'>) => void;
   markNotificationRead: (id: string) => void;
   markAllRead: () => void;
@@ -24,6 +25,7 @@ export const useUIStore = create<UIState>()((set) => ({
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
   toggleGlobalSearch: () => set((s) => ({ globalSearchOpen: !s.globalSearchOpen })),
   setGlobalSearchOpen: (open) => set({ globalSearchOpen: open }),
+  setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
   addNotification: (n) => set((s) => ({
     notifications: [{ ...n, id: Date.now().toString(36) + Math.random().toString(36).slice(2), read: false, timestamp: new Date().toISOString() }, ...s.notifications],
   })),
