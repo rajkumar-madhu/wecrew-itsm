@@ -4,7 +4,8 @@
 
 const { prisma } = require('../config/database');
 const { emitToAll, emitToTeam, emitToUser } = require('../config/socket');
-const { success, error, generateIncidentNumber, calculateSLATargetTimes } = require('../utils/helpers');
+const { success, error, generateIncidentNumber } = require('../utils/helpers');
+const { calculateSLATargetTimesForOrg } = require('../services/slaPolicyService');
 const logger = require('../utils/logger');
 const slackService = require('../services/slackService');
 const crypto = require('crypto');
@@ -265,7 +266,7 @@ async function alertmanagerWebhook(req, res, next) {
             const incNumber = await generateIncidentNumber();
             const createdById = await getSystemUserId();
             const priority = incData.urgency === 'CRITICAL' ? 'P1' : incData.urgency === 'HIGH' ? 'P2' : 'P3';
-            const slaTargets = calculateSLATargetTimes(priority, new Date());
+            const slaTargets = await calculateSLATargetTimesForOrg(priority, new Date(), incData.organizationId);
             const { assignmentGroupId, assignedToId } = await resolveTeamAndAssignee(
               incData.configItemId, incData.category, incData.organizationId
             );
@@ -379,7 +380,7 @@ async function grafanaWebhook(req, res, next) {
           const incNumber = await generateIncidentNumber();
           const createdById = await getSystemUserId();
           const priority = incData.urgency === 'CRITICAL' ? 'P1' : incData.urgency === 'HIGH' ? 'P2' : 'P3';
-          const slaTargets = calculateSLATargetTimes(priority, new Date());
+          const slaTargets = await calculateSLATargetTimesForOrg(priority, new Date(), incData.organizationId);
           const { assignmentGroupId, assignedToId } = await resolveTeamAndAssignee(
             incData.configItemId, incData.category, incData.organizationId
           );

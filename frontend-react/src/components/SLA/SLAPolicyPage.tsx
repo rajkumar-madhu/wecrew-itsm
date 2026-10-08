@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuthStore } from '../../stores/authStore';
+import toast from 'react-hot-toast';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface SLARow {
@@ -21,7 +22,14 @@ interface SLADef {
   responseTimeMinutes: number;
   resolutionTimeMinutes: number;
   name?: string;
+  source?: 'organization' | 'platform' | 'default';
 }
+
+const SOURCE_LABEL: Record<string, string> = {
+  organization: 'Org policy',
+  platform: 'Platform policy',
+  default: 'Built-in default',
+};
 
 const PRIORITIES = ['P1', 'P2', 'P3', 'P4'];
 
@@ -57,7 +65,7 @@ function ComplianceArc({ pct }: { pct: number }) {
   return (
     <div className="relative w-16 h-16 flex items-center justify-center shrink-0">
       <svg width="64" height="64" viewBox="0 0 64 64" className="rotate-[-90deg]">
-        <circle cx="32" cy="32" r={r} fill="none" stroke="#E7E5E4" strokeWidth="5" />
+        <circle cx="32" cy="32" r={r} fill="none" stroke="rgba(99,179,255,0.14)" strokeWidth="5" />
         <circle cx="32" cy="32" r={r} fill="none" stroke={color} strokeWidth="5"
           strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
           style={{ transition: 'stroke-dashoffset 0.6s ease' }} />
@@ -101,9 +109,9 @@ function EditModal({
       style={{ background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(6px)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="w-full max-w-md rounded-2xl overflow-hidden"
-        style={{ background: '#FFFFFF', border: '1px solid #E7E5E4', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15)' }}>
+        style={{ background: '#0B1424', border: '1px solid rgba(99,179,255,0.12)', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15)' }}>
 
-        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #E7E5E4' }}>
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(99,179,255,0.12)' }}>
           <div>
             <h3 className="text-[15px] font-display font-bold text-stone-900">Edit SLA Policy</h3>
             <p className="text-[11px] text-stone-500 mt-0.5">{def.priority} — {meta.label}: {meta.description}</p>
@@ -125,7 +133,7 @@ function EditModal({
               min={1}
               onChange={e => setResponse(Number(e.target.value))}
               className="w-full rounded-xl px-3 py-2.5 text-[14px] font-mono text-stone-900 focus:outline-none"
-              style={{ background: '#FAFAF9', border: '1px solid #E7E5E4' }}
+              style={{ background: '#0F1B2D', border: '1px solid rgba(99,179,255,0.12)' }}
             />
             <p className="text-[10px] text-stone-400 mt-1 font-mono">= {fmtMins(response)}</p>
           </div>
@@ -140,7 +148,7 @@ function EditModal({
               min={1}
               onChange={e => setResolution(Number(e.target.value))}
               className="w-full rounded-xl px-3 py-2.5 text-[14px] font-mono text-stone-900 focus:outline-none"
-              style={{ background: '#FAFAF9', border: '1px solid #E7E5E4' }}
+              style={{ background: '#0F1B2D', border: '1px solid rgba(99,179,255,0.12)' }}
             />
             <p className="text-[10px] text-stone-400 mt-1 font-mono">= {fmtMins(resolution)}</p>
           </div>
@@ -154,7 +162,7 @@ function EditModal({
           )}
         </div>
 
-        <div className="flex justify-end gap-2 px-5 py-4" style={{ borderTop: '1px solid #E7E5E4' }}>
+        <div className="flex justify-end gap-2 px-5 py-4" style={{ borderTop: '1px solid rgba(99,179,255,0.12)' }}>
           <button onClick={onClose}
             className="px-4 py-2 rounded-xl text-[13px] font-medium text-stone-500 hover:text-stone-700 hover:bg-stone-100 transition-colors">
             Cancel
@@ -175,8 +183,8 @@ function EditModal({
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function SLAPolicyPage() {
-  const { user } = useAuthStore();
-  const isAdmin = user?.role === 'ADMIN';
+  const { user, selectedOrgId } = useAuthStore();
+  const canEdit = user?.role === 'ADMIN' || user?.role === 'MANAGER';
   const [editDef, setEditDef] = useState<SLADef | null>(null);
   const [period, setPeriod] = useState('30d');
 
@@ -190,28 +198,31 @@ export default function SLAPolicyPage() {
     staleTime: 60000,
   });
 
-  // SLA definitions
+  // SLA definitions (effective policy per priority for the selected tenant)
   const { data: defsResp, isLoading: defsLoading, refetch: refetchDefs } = useQuery({
-    queryKey: ['sla-defs'],
+    queryKey: ['sla-defs', selectedOrgId],
     queryFn: async () => {
-      const { data } = await api.get('/reports/executive-summary');
+      const { data } = await api.get('/sla');
       return data;
     },
     staleTime: 120000,
   });
 
   const slaCompliance: SLARow[] = reportResp?.data?.slaCompliance || [];
+  const policies: SLADef[] = defsResp?.data?.policies || [];
   const isLoading = reportLoading || defsLoading;
 
-  // Build per-priority data merging compliance + default SLA targets
+  // Build per-priority data merging compliance + effective SLA targets
   const rows = PRIORITIES.map(p => {
     const comp = slaCompliance.find(c => c.priority === p);
     const meta = PRIORITY_META[p];
+    const policy = policies.find(d => d.priority === p);
     return {
       priority: p,
       meta,
-      responseTarget: meta.defaultResponse,
-      resolutionTarget: meta.defaultResolution,
+      responseTarget: policy?.responseTimeMinutes ?? meta.defaultResponse,
+      resolutionTarget: policy?.resolutionTimeMinutes ?? meta.defaultResolution,
+      source: policy?.source ?? 'default',
       total: comp?.total || 0,
       met: comp?.met || 0,
       pct: comp ? Number(comp.compliance_pct) : 100,
@@ -219,17 +230,24 @@ export default function SLAPolicyPage() {
     };
   });
 
+  // Errors propagate so the edit modal can show them
   async function handleSave(updated: SLADef) {
-    // PATCH /api/v1/reports/sla or store locally — endpoint may not exist
-    // Gracefully no-op if not available
+    await api.put(`/sla/${updated.priority}`, {
+      responseTimeMinutes: updated.responseTimeMinutes,
+      resolutionTimeMinutes: updated.resolutionTimeMinutes,
+    });
+    toast.success(`${updated.priority} SLA policy saved`);
+    refetchDefs();
+  }
+
+  async function handleReset(priority: string) {
     try {
-      await api.patch(`/sla/${updated.id || updated.priority}`, {
-        responseTimeMinutes: updated.responseTimeMinutes,
-        resolutionTimeMinutes: updated.resolutionTimeMinutes,
-      });
+      await api.delete(`/sla/${priority}`);
+      toast.success(`${priority} now uses the platform default`);
       refetchDefs();
-    } catch {
-      // Endpoint may not exist — show success anyway for UX
+    } catch (e) {
+      const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      toast.error(msg || 'Could not reset the policy');
     }
   }
 
@@ -270,7 +288,7 @@ export default function SLAPolicyPage() {
               value={period}
               onChange={e => setPeriod(e.target.value)}
               className="text-[13px] rounded-xl px-3 py-2 font-medium focus:outline-none"
-              style={{ background: '#FAFAF9', border: '1px solid #E7E5E4', color: '#44403C' }}>
+              style={{ background: '#0F1B2D', border: '1px solid rgba(99,179,255,0.12)', color: '#C5D8E8' }}>
               <option value="7d">Last 7 days</option>
               <option value="30d">Last 30 days</option>
               <option value="90d">Last 90 days</option>
@@ -290,7 +308,7 @@ export default function SLAPolicyPage() {
             const trend = r.pct >= 95 ? 'up' : r.pct >= 80 ? 'neutral' : 'down';
             return (
               <div key={r.priority} className="rounded-xl p-4 flex items-center gap-3"
-                style={{ background: '#FFFFFF', border: `1px solid ${r.meta.borderColor}` }}>
+                style={{ background: '#0B1424', border: `1px solid ${r.meta.borderColor}` }}>
                 <ComplianceArc pct={r.pct} />
                 <div>
                   <div className="flex items-center gap-1.5 mb-0.5">
@@ -344,10 +362,10 @@ export default function SLAPolicyPage() {
             <span className="text-[12px] text-stone-500 font-mono">Loading SLA data…</span>
           </div>
         ) : (
-          <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #E7E5E4' }}>
+          <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(99,179,255,0.12)' }}>
             {/* Table header */}
             <div className="grid grid-cols-6 gap-0 px-4 py-3"
-              style={{ background: '#FAFAF9', borderBottom: '1px solid #E7E5E4' }}>
+              style={{ background: '#0F1B2D', borderBottom: '1px solid rgba(99,179,255,0.12)' }}>
               {['Priority', 'Response Target', 'Resolution Target', 'Breaches', 'Compliance %', 'Actions'].map(h => (
                 <p key={h} className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">{h}</p>
               ))}
@@ -358,8 +376,8 @@ export default function SLAPolicyPage() {
                 key={r.priority}
                 className="grid grid-cols-6 gap-0 items-center px-4 py-4"
                 style={{
-                  borderBottom: idx < rows.length - 1 ? '1px solid #F5F5F4' : 'none',
-                  background: '#FFFFFF',
+                  borderBottom: idx < rows.length - 1 ? '1px solid rgba(99,179,255,0.08)' : 'none',
+                  background: '#0B1424',
                 }}>
                 {/* Priority */}
                 <div className="flex items-center gap-2">
@@ -393,7 +411,7 @@ export default function SLAPolicyPage() {
 
                 {/* Compliance % */}
                 <div className="flex items-center gap-2">
-                  <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: '#E7E5E4', maxWidth: 80 }}>
+                  <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(99,179,255,0.14)', maxWidth: 80 }}>
                     <div className="h-full rounded-full transition-all"
                       style={{
                         width: `${r.pct}%`,
@@ -407,20 +425,30 @@ export default function SLAPolicyPage() {
                 </div>
 
                 {/* Edit */}
-                <div>
-                  {isAdmin && (
-                    <button
-                      onClick={() => setEditDef({
-                        priority: r.priority,
-                        responseTimeMinutes: r.responseTarget,
-                        resolutionTimeMinutes: r.resolutionTarget,
-                      })}
-                      className="px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all"
-                      style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', color: '#059669' }}
-                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(16,185,129,0.14)')}
-                      onMouseLeave={e => (e.currentTarget.style.background = 'rgba(16,185,129,0.08)')}>
-                      Edit
-                    </button>
+                <div className="flex flex-col items-start gap-1">
+                  <span className="text-[10px] font-mono text-stone-600">{SOURCE_LABEL[r.source]}</span>
+                  {canEdit && (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setEditDef({
+                          priority: r.priority,
+                          responseTimeMinutes: r.responseTarget,
+                          resolutionTimeMinutes: r.resolutionTarget,
+                        })}
+                        aria-label={`Edit ${r.priority} SLA policy`}
+                        className="px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all hover:brightness-95"
+                        style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', color: '#047857' }}>
+                        Edit
+                      </button>
+                      {r.source === 'organization' && (
+                        <button
+                          onClick={() => handleReset(r.priority)}
+                          aria-label={`Reset ${r.priority} SLA policy to the platform default`}
+                          className="px-2 py-1.5 rounded-lg text-[11px] font-medium text-stone-600 hover:bg-stone-100">
+                          Reset
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
