@@ -12,6 +12,7 @@ const { isPlatformAdmin } = require('../middleware/tenant');
 const { startTrial } = require('../services/billing.service');
 const { config } = require('../config/env');
 const passwordReset = require('../services/passwordReset.service');
+const mfa = require('../services/mfa.service');
 
 const SALT_ROUNDS = 12;
 const MAX_LOGIN_ATTEMPTS = 5;
@@ -64,6 +65,24 @@ async function login(req, res, next) {
     }
 
     if (user.status === 'INACTIVE') return error(res, 'Account deactivated', 403);
+
+    // Second factor: the client re-sends email + password + mfaCode.
+    // A missing code is a normal step (200, no tokens); a wrong code counts
+    // toward the same lockout as a wrong password.
+    if (user.mfaEnabled) {
+      const { mfaCode } = req.body;
+      if (!mfaCode) return success(res, { mfaRequired: true });
+      if (!mfa.verifyCode(user.mfaSecret, mfaCode)) {
+        const attempts = user.loginAttempts + 1;
+        const update = { loginAttempts: attempts };
+        if (attempts >= MAX_LOGIN_ATTEMPTS) {
+          update.lockedUntil = new Date(Date.now() + LOCK_DURATION);
+          update.status = 'LOCKED';
+        }
+        await prisma.user.update({ where: { id: user.id }, data: update });
+        return error(res, 'Invalid verification code', 401, { mfaRequired: true });
+      }
+    }
 
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
@@ -348,7 +367,46 @@ async function resetPassword(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// POST /api/v1/auth/mfa/setup — issue a new secret (not active until confirmed)
+async function mfaSetup(req, res, next) {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.user.id }, select: { email: true, mfaEnabled: true } });
+    if (user.mfaEnabled) return error(res, 'Two-factor authentication is already on. Turn it off first to re-enrol.', 409);
+    const { base32, otpauthUrl } = mfa.generateSecret(user.email);
+    await prisma.user.update({ where: { id: req.user.id }, data: { mfaSecret: mfa.encryptSecret(base32) } });
+    return success(res, { secret: base32, otpauthUrl });
+  } catch (err) { next(err); }
+}
+
+// POST /api/v1/auth/mfa/enable — confirm the pending secret with a code
+async function mfaEnable(req, res, next) {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.user.id }, select: { mfaSecret: true, mfaEnabled: true } });
+    if (user.mfaEnabled) return error(res, 'Two-factor authentication is already on', 409);
+    if (!user.mfaSecret) return error(res, 'Start setup first', 400);
+    if (!mfa.verifyCode(user.mfaSecret, req.body.code)) return error(res, 'That code did not match. Check the time on your phone and try again.', 400);
+    await prisma.user.update({ where: { id: req.user.id }, data: { mfaEnabled: true } });
+    logger.info(`MFA enabled for user ${req.user.id}`);
+    return success(res, { mfaEnabled: true });
+  } catch (err) { next(err); }
+}
+
+// POST /api/v1/auth/mfa/disable — requires password and a current code
+async function mfaDisable(req, res, next) {
+  try {
+    const { password, code } = req.body;
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    if (!user.mfaEnabled) return success(res, { mfaEnabled: false });
+    const valid = await bcrypt.compare(String(password || ''), user.password);
+    if (!valid) return error(res, 'Password incorrect', 400);
+    if (!mfa.verifyCode(user.mfaSecret, code)) return error(res, 'Invalid verification code', 400);
+    await prisma.user.update({ where: { id: user.id }, data: { mfaEnabled: false, mfaSecret: null } });
+    logger.info(`MFA disabled for user ${user.id}`);
+    return success(res, { mfaEnabled: false });
+  } catch (err) { next(err); }
+}
+
 module.exports = {
   login, signup, register, refresh, logout, getProfile, updateProfile, changePassword, listUsers,
-  forgotPassword, resetPassword,
+  forgotPassword, resetPassword, mfaSetup, mfaEnable, mfaDisable,
 };
