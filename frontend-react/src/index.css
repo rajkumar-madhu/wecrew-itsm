@@ -322,7 +322,8 @@
     color: #8aabc4 !important;
   }
   .app-shell .text-stone-300 {
-    color: #5a7d99 !important;
+    /* ≥ 4.5:1 on the shell's #0b1424 surfaces (was #5a7d99, ~4.3:1) */
+    color: #7590a9 !important;
   }
 
   .app-shell .bg-white {
@@ -376,7 +377,7 @@
   }
 
   .app-shell .placeholder-stone-400::placeholder {
-    color: #5a7d99 !important;
+    color: #7590a9 !important;
   }
 }
 
