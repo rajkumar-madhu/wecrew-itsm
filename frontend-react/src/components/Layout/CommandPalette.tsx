@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Search, Loader2, AlertTriangle, GitBranch, Bug, Server, Siren, Plus, CornerDownLeft,
+  Search, Loader2, AlertTriangle, GitBranch, Bug, Server, Siren, Plus, CornerDownLeft, Inbox,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useUIStore } from '../../stores/uiStore';
@@ -33,6 +33,7 @@ interface SearchHit {
 const RECORD_GROUPS: { key: string; label: string; icon: LucideIcon; route: string }[] = [
   { key: 'incidents', label: 'Incident', icon: AlertTriangle, route: '/incidents' },
   { key: 'changes', label: 'Change', icon: GitBranch, route: '/changes' },
+  { key: 'requests', label: 'Request', icon: Inbox, route: '/requests' },
   { key: 'problems', label: 'Problem', icon: Bug, route: '/problems' },
   { key: 'assets', label: 'Asset', icon: Server, route: '/assets' },
   { key: 'alerts', label: 'Alert', icon: Siren, route: '/alerts' },

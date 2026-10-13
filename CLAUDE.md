@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **Backend:** Node.js 20+ / Express.js / Prisma ORM / PostgreSQL 16
 - **Frontend:** React 19 / TypeScript 5.9 / Vite 7 / TailwindCSS 3.4 / Zustand 5 / TanStack Query 5 / React Router v6
-- **Auth:** JWT with RBAC (roles: ADMIN, MANAGER, ENGINEER, OPERATOR, VIEWER)
+- **Auth:** JWT with RBAC (roles: ADMIN, MANAGER, ENGINEER, OPERATOR, VIEWER, REQUESTER) + optional TOTP MFA
 - **Real-time:** Socket.IO
 - **Cache:** Redis 7 (sessions + caching)
 - **AI:** Ollama (Qwen3-32B) + Flowise + OpenAI/Anthropic SDKs
@@ -106,7 +106,7 @@ npm run db:health                # Database health check
 /auth, /incidents, /changes, /problems, /alerts, /assets, /teams,
 /notifications, /integrations, /dashboard, /search, /webhooks,
 /reports, /sms, /voice, /ai, /organizations, /k8s, /agent, /pagerduty, /apm,
-/status, /audit, /chat, /billing, /public, /sla
+/status, /audit, /chat, /billing, /public, /sla, /catalog, /requests, /portal, /knowledge
 ```
 
 **Key layers:**
@@ -211,6 +211,25 @@ Automated incident response: Detect → Triage → Enrich → Act (SSH) → Noti
 - TOTP MFA: `services/mfa.service.js` (speakeasy; secrets AES-256-GCM encrypted with `MFA_ENCRYPTION_KEY`,
   falling back to `JWT_SECRET`). Login returns `{ mfaRequired: true }` until the client re-posts with `mfaCode`.
   Enrol via `POST /auth/mfa/setup` → `/auth/mfa/enable`; `/auth/mfa/disable` needs password + code.
+
+## Service Desk: Requests, Portal, Knowledge, CMDB
+
+- **Service requests** (`REQ0000001`): `ServiceCatalogItem` defines a form (`formSchema` JSON) plus optional approval
+  (approver team LEADs, else the org's ADMIN/MANAGER users) and a fulfilment team/target. Logic lives in
+  `services/serviceRequestService.js` (form validation, approvals, transitions in `REQUEST_TRANSITIONS`).
+  Agent API: `/catalog`, `/requests`. Approve/reject only via `POST /requests/:id/decision`.
+- **REQUESTER role** = end users of the self-service portal. `middleware/auth.js` confines them centrally to
+  `/portal`, `/notifications` and their own `/auth/me|logout|change-password|mfa/*` (`requesterMayUse`). The frontend
+  `ProtectedRoute` sends them to `/portal` (its own light layout, outside `.app-shell`).
+- **Portal** (`/api/v1/portal`): every handler scopes to the caller's own records (`requestedById` / `createdById`).
+  Requesters see only `isInternal: false` comments/work notes — agent notes default to internal in the UI.
+- **CSAT**: 1–5 rating once a request is FULFILLED or an incident RESOLVED/CLOSED; `GET /reports/csat`.
+- **Knowledge articles** (`KB0000001`): DRAFT → IN_REVIEW → PUBLISHED → RETIRED; publish/retire need ADMIN/MANAGER;
+  a non-reviewer edit of a published article returns it to review. `audience: PORTAL` makes it visible to requesters.
+- **CMDB relationships**: `CIRelationship(parent, child, type)` reads "parent <type> child";
+  `GET /assets/:id/relationships` also returns an impact walk (what breaks if this asset breaks).
+- **Business hours**: `BusinessHours` per org (timezone, weekly schedule, holidays) used by
+  `calculateSLATargetTimesForOrg()` when an SLA policy has `businessHoursOnly`. SLA clocks pause while ON_HOLD.
 
 ## Frontend Navigation
 

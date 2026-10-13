@@ -63,8 +63,9 @@ function LoadingFallback() {
 }
 
 function HomeRoute() {
-  const { isAuthenticated } = useAuthStore();
-  return <Navigate to={isAuthenticated ? '/dashboard' : '/login'} replace />;
+  const { isAuthenticated, user } = useAuthStore();
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  return <Navigate to={user?.role === 'REQUESTER' ? '/portal' : '/dashboard'} replace />;
 }
 
 export default function App() {

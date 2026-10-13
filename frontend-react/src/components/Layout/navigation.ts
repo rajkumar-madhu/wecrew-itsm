@@ -8,7 +8,7 @@ import {
   Server, Network, Brain, Zap, BarChart3, Plug, Users,
   Settings, Shield, Eye, MessageSquare, Mic, Activity, Phone, Layers, MessagesSquare,
   Monitor, CalendarDays, CalendarClock, GitMerge, Terminal,
-  BookOpen, Clock, FileSearch, UserCircle, Home, LifeBuoy, Radar, Wrench,
+  BookOpen, Clock, FileSearch, UserCircle, Home, LifeBuoy, Radar, Wrench, Inbox, ShoppingBag,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -41,9 +41,10 @@ export const NAV_HUBS: NavHub[] = [
     ],
   },
   {
-    id: 'service-desk', label: 'Service Desk', icon: LifeBuoy, description: 'Incidents, problems and SLAs',
+    id: 'service-desk', label: 'Service Desk', icon: LifeBuoy, description: 'Incidents, requests, problems and SLAs',
     items: [
       { to: '/incidents', icon: AlertTriangle, label: 'Incidents', keywords: 'tickets inc outage' },
+      { to: '/requests', icon: Inbox, label: 'Service Requests', keywords: 'req catalog approvals fulfilment access laptop' },
       { to: '/problems', icon: Bug, label: 'Problems', keywords: 'rca root cause prb kedb' },
       { to: '/sla', icon: Clock, label: 'SLA Policies', keywords: 'targets response resolution breach' },
     ],
@@ -84,7 +85,8 @@ export const NAV_HUBS: NavHub[] = [
   {
     id: 'knowledge', label: 'Knowledge', icon: BookOpen, description: 'Known errors and runbook automation',
     items: [
-      { to: '/knowledge-base', icon: BookOpen, label: 'Knowledge Base', keywords: 'kb articles known errors workaround' },
+      { to: '/knowledge-base', icon: BookOpen, label: 'Knowledge Base', keywords: 'kb articles known errors workaround publish' },
+      { to: '/portal', icon: LifeBuoy, label: 'Self-service Portal', keywords: 'help center requester end user' },
       { to: '/automation', icon: Zap, label: 'Automation', keywords: 'runbooks remediation pipeline' },
     ],
   },
@@ -94,6 +96,7 @@ export const ADMIN_HUB: NavHub = {
   id: 'admin', label: 'Admin', icon: Wrench, description: 'Organization, people and integrations',
   items: [
     { to: '/teams', icon: Users, label: 'Teams', keywords: 'groups members' },
+    { to: '/catalog', icon: ShoppingBag, label: 'Service Catalog', roles: ['ADMIN', 'MANAGER'], keywords: 'request forms approvals offerings' },
     { to: '/users', icon: Shield, label: 'Users', roles: ['ADMIN', 'MANAGER'], keywords: 'people accounts roles' },
     { to: '/integrations', icon: Plug, label: 'Integrations', roles: ['ADMIN'], keywords: 'slack prometheus grafana webhooks' },
     { to: '/audit', icon: FileSearch, label: 'Audit Log', roles: ['ADMIN', 'MANAGER'], keywords: 'history who changed' },

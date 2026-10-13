@@ -2,7 +2,7 @@
 // Matches Prisma schema. All date fields are ISO 8601 strings from API.
 
 // ── Enums ──
-export type Role = 'ADMIN' | 'MANAGER' | 'ENGINEER' | 'OPERATOR' | 'VIEWER';
+export type Role = 'ADMIN' | 'MANAGER' | 'ENGINEER' | 'OPERATOR' | 'VIEWER' | 'REQUESTER';
 export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'LOCKED';
 export type TeamMemberRole = 'LEAD' | 'MEMBER' | 'OBSERVER';
 

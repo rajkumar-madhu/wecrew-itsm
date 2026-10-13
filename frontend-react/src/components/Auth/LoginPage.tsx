@@ -58,7 +58,7 @@ export default function LoginPage() {
   const [mfaCode, setMfaCode] = useState('');
 
   useEffect(() => {
-    if (isAuthenticated) navigate('/dashboard', { replace: true });
+    if (isAuthenticated) navigate('/', { replace: true });
   }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -70,7 +70,7 @@ export default function LoginPage() {
     try {
       const { mfaRequired } = await login(email, password, mfaStep ? mfaCode : undefined);
       if (mfaRequired) { setMfaStep(true); return; }
-      navigate('/dashboard');
+      navigate('/');
     } catch (err: any) {
       setError(err?.message || 'Invalid credentials. Please try again.');
       setShake(true);
