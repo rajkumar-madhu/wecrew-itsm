@@ -24,6 +24,7 @@ const AssetDetail = lazy(() => import('./components/Assets/AssetDetail'));
 const RequestList = lazy(() => import('./components/Requests/RequestList'));
 const RequestDetail = lazy(() => import('./components/Requests/RequestDetail'));
 const CatalogAdmin = lazy(() => import('./components/Catalog/CatalogAdmin'));
+const PortalApp = lazy(() => import('./components/Portal/PortalApp'));
 const IntegrationHub = lazy(() => import('./components/Integrations/IntegrationHub'));
 const TeamList = lazy(() => import('./components/Teams/TeamList'));
 const ReportsDashboard = lazy(() => import('./components/Reports/ReportsDashboard'));
@@ -100,6 +101,13 @@ export default function App() {
       <Route path="/signup" element={<Suspense fallback={<div style={{ background: '#fff', minHeight: '100vh' }} />}><SignupPage /></Suspense>} />
       <Route path="/docs" element={<Suspense fallback={<div style={{ background: '#0F172A', minHeight: '100vh' }} />}><DeveloperDocs /></Suspense>} />
       <Route path="/status/:orgSlug" element={<Suspense fallback={<div style={{ background: '#030711', minHeight: '100vh' }} />}><StatusPage /></Suspense>} />
+
+      {/* Self-service portal: signed-in users, own light layout outside the agent shell */}
+      <Route path="/portal/*" element={
+        <ErrorBoundary><ProtectedRoute>
+          <Suspense fallback={<div style={{ background: '#F8FAFC', minHeight: '100vh' }} />}><PortalApp /></Suspense>
+        </ProtectedRoute></ErrorBoundary>
+      } />
 
       {/* Protected app routes */}
       <Route element={<ErrorBoundary><ProtectedRoute><Layout /></ProtectedRoute></ErrorBoundary>}>
