@@ -7,6 +7,7 @@ import {
 import api from '../../lib/api';
 import { useAuthStore } from '../../stores/authStore';
 import toast from 'react-hot-toast';
+import BusinessHoursEditor from './BusinessHoursEditor';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface SLARow {
@@ -21,6 +22,7 @@ interface SLADef {
   priority: string;
   responseTimeMinutes: number;
   resolutionTimeMinutes: number;
+  businessHoursOnly?: boolean;
   name?: string;
   source?: 'organization' | 'platform' | 'default';
 }
@@ -87,6 +89,7 @@ function EditModal({
 }) {
   const [response, setResponse] = useState(def.responseTimeMinutes);
   const [resolution, setResolution] = useState(def.resolutionTimeMinutes);
+  const [businessHoursOnly, setBusinessHoursOnly] = useState(!!def.businessHoursOnly);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
   const meta = PRIORITY_META[def.priority] || PRIORITY_META.P4;
@@ -95,7 +98,7 @@ function EditModal({
     setSaving(true);
     setErr('');
     try {
-      await onSave({ ...def, responseTimeMinutes: response, resolutionTimeMinutes: resolution });
+      await onSave({ ...def, responseTimeMinutes: response, resolutionTimeMinutes: resolution, businessHoursOnly });
       onClose();
     } catch (e: any) {
       setErr(e?.response?.data?.error || 'Failed to update SLA policy');
@@ -152,6 +155,20 @@ function EditModal({
             />
             <p className="text-[10px] text-stone-400 mt-1 font-mono">= {fmtMins(resolution)}</p>
           </div>
+
+          <label htmlFor="sla-business-hours-only" className="flex items-start gap-2 text-[13px] text-stone-700 cursor-pointer">
+            <input
+              id="sla-business-hours-only"
+              type="checkbox"
+              checked={businessHoursOnly}
+              onChange={e => setBusinessHoursOnly(e.target.checked)}
+              className="mt-0.5 accent-[#059669]"
+            />
+            <span>
+              Count business hours only
+              <span className="block text-[11px] text-stone-400">The SLA clock pauses outside business hours and on holidays.</span>
+            </span>
+          </label>
 
           {err && (
             <div className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-[12px]"
@@ -223,6 +240,7 @@ export default function SLAPolicyPage() {
       responseTarget: policy?.responseTimeMinutes ?? meta.defaultResponse,
       resolutionTarget: policy?.resolutionTimeMinutes ?? meta.defaultResolution,
       source: policy?.source ?? 'default',
+      businessHoursOnly: !!policy?.businessHoursOnly,
       total: comp?.total || 0,
       met: comp?.met || 0,
       pct: comp ? Number(comp.compliance_pct) : 100,
@@ -235,6 +253,7 @@ export default function SLAPolicyPage() {
     await api.put(`/sla/${updated.priority}`, {
       responseTimeMinutes: updated.responseTimeMinutes,
       resolutionTimeMinutes: updated.resolutionTimeMinutes,
+      businessHoursOnly: !!updated.businessHoursOnly,
     });
     toast.success(`${updated.priority} SLA policy saved`);
     refetchDefs();
@@ -397,7 +416,7 @@ export default function SLAPolicyPage() {
                 {/* Resolution target */}
                 <div>
                   <p className="text-[13px] font-semibold font-mono text-stone-900">{fmtMins(r.resolutionTarget)}</p>
-                  <p className="text-[10px] text-stone-400">Full resolution</p>
+                  <p className="text-[10px] text-stone-400">Full resolution{r.businessHoursOnly ? ' · business hours' : ''}</p>
                 </div>
 
                 {/* Breaches */}
@@ -434,6 +453,7 @@ export default function SLAPolicyPage() {
                           priority: r.priority,
                           responseTimeMinutes: r.responseTarget,
                           resolutionTimeMinutes: r.resolutionTarget,
+                          businessHoursOnly: r.businessHoursOnly,
                         })}
                         aria-label={`Edit ${r.priority} SLA policy`}
                         className="px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all hover:brightness-95"
@@ -455,6 +475,9 @@ export default function SLAPolicyPage() {
             ))}
           </div>
         )}
+
+        {/* Business hours calendar */}
+        <BusinessHoursEditor canEdit={canEdit} />
 
         {/* Description cards */}
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">

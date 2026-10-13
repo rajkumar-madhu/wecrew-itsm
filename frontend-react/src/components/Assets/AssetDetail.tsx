@@ -35,6 +35,8 @@ import {
 import toast from 'react-hot-toast';
 import { useAsset, useUpdateAsset, useAssetLiveMetrics, useAssetMetricsHistory } from '../../hooks/useAssets';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
+import { useAuthStore } from '../../stores/authStore';
+import RelationshipsPanel from './RelationshipsPanel';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -729,8 +731,10 @@ function AIAnalysisCard({ analysis, issues, recommendations }: { analysis: strin
 export default function AssetDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'live' | 'network' | 'storage' | 'alerts' | 'incidents' | 'history'>('live');
+  const [activeTab, setActiveTab] = useState<'live' | 'network' | 'storage' | 'alerts' | 'incidents' | 'relationships' | 'history'>('live');
   const [showEditModal, setShowEditModal] = useState(false);
+  const role = useAuthStore((s) => s.user?.role);
+  const canEditRelationships = role === 'ADMIN' || role === 'MANAGER' || role === 'ENGINEER';
 
   const { data: assetData, isLoading, isError } = useAsset(id || '');
   const asset = assetData?.data;
@@ -776,6 +780,7 @@ export default function AssetDetail() {
     { key: 'storage', label: 'Storage', icon: HardDrive, count: live?.filesystems?.length || 0 },
     { key: 'alerts', label: 'Alerts', icon: AlertCircle, count: live?.alerts?.length || 0 },
     { key: 'incidents', label: 'Incidents', icon: AlertTriangle, count: relatedIncidents.length },
+    { key: 'relationships', label: 'Relationships', icon: Link2 },
     { key: 'history', label: 'History', icon: Clock },
   ] as const;
 
@@ -1080,6 +1085,11 @@ export default function AssetDetail() {
             <p className="text-xs text-stone-400 text-center py-6">No incidents linked to this asset</p>
           )}
         </div>
+      )}
+
+      {/* ─── Relationships Tab ─── */}
+      {activeTab === 'relationships' && id && (
+        <RelationshipsPanel assetId={id} canEdit={canEditRelationships} />
       )}
 
       {/* ─── History Tab ─── */}

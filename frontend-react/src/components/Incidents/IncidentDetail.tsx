@@ -9,7 +9,7 @@ import {
   CircleDot, Eye, Radio, Bell, Copy, MoreHorizontal,
   Brain, Terminal, Wrench, ListChecks, Cpu, GitBranch,
   Gauge, HardDrive, Wifi, AlertCircle, User2, Clock3, Building2,
-  Plus, Layers,
+  Plus, Layers, BookOpen,
 } from 'lucide-react';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
@@ -18,6 +18,7 @@ import { useIncident, useIncidentTimeline, useAddWorkNote, useUpdateIncident, us
 import { useTeams } from '../../hooks/useTeams';
 import IncidentReportGenerator from './IncidentReportGenerator';
 import api from '../../lib/api';
+import { useArticleFromIncident, knowledgeErrorMessage } from '../../hooks/useKnowledge';
 
 // =============================================================================
 // Types & Constants
@@ -519,6 +520,7 @@ export default function IncidentDetail() {
   const { data: timelineData } = useIncidentTimeline(id || '');
   const addWorkNote = useAddWorkNote(id || '');
   const updateIncident = useUpdateIncident();
+  const articleFromIncident = useArticleFromIncident();
   const { data: teamsData } = useTeams();
 
   // UI state — ALL hooks must be before any early returns (React rules of hooks)
@@ -554,7 +556,7 @@ export default function IncidentDetail() {
   }, []);
 
   const [noteContent, setNoteContent] = useState('');
-  const [noteInternal, setNoteInternal] = useState(false);
+  const [noteInternal, setNoteInternal] = useState(true);
   const [showStateMenu, setShowStateMenu] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -777,6 +779,17 @@ export default function IncidentDetail() {
       toast.error(err?.message || 'Failed to update');
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleWriteArticle() {
+    if (!id) return;
+    try {
+      const article = await articleFromIncident.mutateAsync(id);
+      toast.success(`Draft ${article.number} created`);
+      navigate(`/knowledge-base?article=${article.id}`);
+    } catch (err) {
+      toast.error(knowledgeErrorMessage(err, 'Failed to draft the article'));
     }
   }
 
@@ -1027,6 +1040,18 @@ export default function IncidentDetail() {
                   >
                     <CheckCircle2 size={13} />
                     Close Incident
+                  </button>
+                )}
+
+                {(state === 'RESOLVED' || state === 'CLOSED') && (
+                  <button
+                    onClick={handleWriteArticle}
+                    disabled={articleFromIncident.isPending}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+                    style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.4)', color: '#C7D2FE' }}
+                  >
+                    {articleFromIncident.isPending ? <Loader2 size={13} className="animate-spin" /> : <BookOpen size={13} />}
+                    Write knowledge article
                   </button>
                 )}
 
@@ -1738,6 +1763,18 @@ export default function IncidentDetail() {
                   </div>
                 </div>
               )}
+
+              {/* Requester satisfaction rating (from the self-service portal) */}
+              {incident.csatScore != null && (
+                <div className="mt-3 rounded-xl px-4 py-3" style={{ background: '#0F1B2D', border: '1px solid rgba(99,179,255,0.12)' }}>
+                  <p className="text-[13px] font-semibold" style={{ color: '#E8F1FA' }}>
+                    Requester rating: {incident.csatScore}/5
+                  </p>
+                  {incident.csatComment && (
+                    <p className="text-[13px] mt-1 whitespace-pre-wrap" style={{ color: '#C5D8E8' }}>“{incident.csatComment}”</p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Tabbed Section */}
@@ -2158,8 +2195,11 @@ export default function IncidentDetail() {
                             onChange={(e) => setNoteInternal(e.target.checked)}
                             className="w-3.5 h-3.5 rounded border-stone-300 text-amber-500 focus:ring-amber-500"
                           />
-                          <span className="text-[11px] text-stone-500 font-medium">Internal note</span>
+                          <span className="text-[11px] text-stone-500 font-medium">Internal note (hidden from the requester)</span>
                         </label>
+                        {!noteInternal && (
+                          <span className="text-[11px] font-medium" style={{ color: '#FCD34D' }}>Visible to the requester in the self-service portal</span>
+                        )}
                       </div>
                       <div className="flex gap-2">
                         <input
