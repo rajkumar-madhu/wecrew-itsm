@@ -6,7 +6,7 @@ const { prisma } = require('../config/database');
 const { success, error } = require('../utils/helpers');
 const logger = require('../utils/logger');
 
-// GET /api/v1/search?q=...&type=all|incidents|changes|problems|assets|alerts
+// GET /api/v1/search?q=...&type=all|incidents|changes|problems|assets|alerts|requests
 async function globalSearch(req, res, next) {
   try {
     const { q, type = 'all', limit = 20 } = req.query;
@@ -110,6 +110,16 @@ async function globalSearch(req, res, next) {
           id: true, name: true, severity: true, status: true, source: true, firedAt: true,
         },
         orderBy: { firedAt: 'desc' },
+        take,
+      });
+    }
+
+    // Service requests
+    if (type === 'all' || type === 'requests') {
+      results.requests = await prisma.serviceRequest.findMany({
+        where: { ...tw, OR: [{ number: searchMode }, { title: searchMode }] },
+        select: { id: true, number: true, title: true, state: true, createdAt: true },
+        orderBy: { createdAt: 'desc' },
         take,
       });
     }

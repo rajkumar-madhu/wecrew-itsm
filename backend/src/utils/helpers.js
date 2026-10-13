@@ -25,6 +25,18 @@ async function generateProblemNumber() {
   return `PRB${String(seq).padStart(7, '0')}`;
 }
 
+async function generateRequestNumber() {
+  const last = await prisma.serviceRequest.findFirst({ orderBy: { number: 'desc' }, select: { number: true } });
+  const seq = last ? parseInt(last.number.replace('REQ', ''), 10) + 1 : 1;
+  return `REQ${String(seq).padStart(7, '0')}`;
+}
+
+async function generateArticleNumber() {
+  const last = await prisma.knowledgeArticle.findFirst({ orderBy: { number: 'desc' }, select: { number: true } });
+  const seq = last ? parseInt(last.number.replace('KB', ''), 10) + 1 : 1;
+  return `KB${String(seq).padStart(7, '0')}`;
+}
+
 // ── Priority & SLA ──────────────────────────────────────
 
 function calculatePriority(impact, urgency) {
@@ -83,6 +95,7 @@ function sanitizeObject(obj, allowedFields) {
 
 module.exports = {
   generateIncidentNumber, generateChangeNumber, generateProblemNumber,
+  generateRequestNumber, generateArticleNumber,
   calculatePriority, getSLATargets, calculateSLATargetTimes,
   paginate, paginationMeta, success, error, sanitizeObject,
 };

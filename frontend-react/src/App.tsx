@@ -21,6 +21,10 @@ const AlertList = lazy(() => import('./components/Alerts/AlertList'));
 const AssetDashboard = lazy(() => import('./components/Assets/AssetDashboard'));
 const AssetCreate = lazy(() => import('./components/Assets/AssetCreate'));
 const AssetDetail = lazy(() => import('./components/Assets/AssetDetail'));
+const RequestList = lazy(() => import('./components/Requests/RequestList'));
+const RequestDetail = lazy(() => import('./components/Requests/RequestDetail'));
+const CatalogAdmin = lazy(() => import('./components/Catalog/CatalogAdmin'));
+const PortalApp = lazy(() => import('./components/Portal/PortalApp'));
 const IntegrationHub = lazy(() => import('./components/Integrations/IntegrationHub'));
 const TeamList = lazy(() => import('./components/Teams/TeamList'));
 const ReportsDashboard = lazy(() => import('./components/Reports/ReportsDashboard'));
@@ -63,8 +67,9 @@ function LoadingFallback() {
 }
 
 function HomeRoute() {
-  const { isAuthenticated } = useAuthStore();
-  return <Navigate to={isAuthenticated ? '/dashboard' : '/login'} replace />;
+  const { isAuthenticated, user } = useAuthStore();
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  return <Navigate to={user?.role === 'REQUESTER' ? '/portal' : '/dashboard'} replace />;
 }
 
 export default function App() {
@@ -97,6 +102,13 @@ export default function App() {
       <Route path="/docs" element={<Suspense fallback={<div style={{ background: '#0F172A', minHeight: '100vh' }} />}><DeveloperDocs /></Suspense>} />
       <Route path="/status/:orgSlug" element={<Suspense fallback={<div style={{ background: '#030711', minHeight: '100vh' }} />}><StatusPage /></Suspense>} />
 
+      {/* Self-service portal: signed-in users, own light layout outside the agent shell */}
+      <Route path="/portal/*" element={
+        <ErrorBoundary><ProtectedRoute>
+          <Suspense fallback={<div style={{ background: '#F8FAFC', minHeight: '100vh' }} />}><PortalApp /></Suspense>
+        </ProtectedRoute></ErrorBoundary>
+      } />
+
       {/* Protected app routes */}
       <Route element={<ErrorBoundary><ProtectedRoute><Layout /></ProtectedRoute></ErrorBoundary>}>
         <Route path="/dashboard" element={<Suspense fallback={<LoadingFallback />}><Dashboard /></Suspense>} />
@@ -107,6 +119,9 @@ export default function App() {
         <Route path="/changes/calendar" element={<Suspense fallback={<LoadingFallback />}><ChangeCalendar /></Suspense>} />
         <Route path="/changes/create" element={<Suspense fallback={<LoadingFallback />}><ChangeCreate /></Suspense>} />
         <Route path="/changes/:id" element={<Suspense fallback={<LoadingFallback />}><ChangeDetail /></Suspense>} />
+        <Route path="/requests" element={<Suspense fallback={<LoadingFallback />}><RequestList /></Suspense>} />
+        <Route path="/requests/:id" element={<Suspense fallback={<LoadingFallback />}><RequestDetail /></Suspense>} />
+        <Route path="/catalog" element={<Suspense fallback={<LoadingFallback />}><CatalogAdmin /></Suspense>} />
         <Route path="/problems" element={<Suspense fallback={<LoadingFallback />}><ProblemList /></Suspense>} />
         <Route path="/problems/create" element={<Suspense fallback={<LoadingFallback />}><ProblemCreate /></Suspense>} />
         <Route path="/problems/:id" element={<Suspense fallback={<LoadingFallback />}><ProblemDetail /></Suspense>} />

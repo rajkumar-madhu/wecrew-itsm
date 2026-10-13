@@ -390,7 +390,94 @@ function OverviewSection({ period }: { period: Period }) {
           </div>
         </ChartCard>
       </div>
+
+      <CsatCard period={period} />
     </div>
+  );
+}
+
+// ─── CUSTOMER SATISFACTION ─────────────────────────────────────────────────
+
+interface CsatReport {
+  periodDays: number;
+  responses: number;
+  csatPercent: number | null;
+  incidents: { average: number | null; responses: number };
+  requests: { average: number | null; responses: number };
+  distribution: { score: number; count: number }[];
+  recentComments: { id: string; number: string; csatScore: number; csatComment: string | null; csatAt: string | null }[];
+}
+
+function CsatCard({ period }: { period: Period }) {
+  const days = parseInt(period, 10) || 30;
+  const { data: csat, isLoading, isError } = useQuery({
+    queryKey: ['reports', 'csat', days],
+    queryFn: async (): Promise<CsatReport> => { const { data } = await api.get(`/reports/csat?period=${days}`); return data.data; },
+    staleTime: 60000,
+  });
+  const fmtAvg = (v: number | null | undefined) => (v == null ? '–' : `${Number(v).toFixed(1)} / 5`);
+  const maxCount = Math.max(1, ...(csat?.distribution ?? []).map(d => d.count));
+
+  return (
+    <ChartCard title="Customer satisfaction" subtitle={`Requester ratings (1–5) — last ${days} days`} loading={isLoading}>
+      {isError ? (
+        <p className="text-xs" style={{ color: '#FCA5A5' }}>Could not load satisfaction ratings.</p>
+      ) : !csat || csat.responses === 0 ? (
+        <div className="h-32"><EmptyChart message={isLoading ? 'Loading…' : 'No ratings received in this period'} /></div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <dl className="grid grid-cols-2 gap-3">
+            {[
+              { label: 'CSAT', value: csat.csatPercent != null ? `${csat.csatPercent}%` : '–', sub: 'Rated 4 or 5' },
+              { label: 'Responses', value: String(csat.responses), sub: `Last ${days} days` },
+              { label: 'Incidents', value: fmtAvg(csat.incidents.average), sub: `${csat.incidents.responses} ratings` },
+              { label: 'Requests', value: fmtAvg(csat.requests.average), sub: `${csat.requests.responses} ratings` },
+            ].map(k => (
+              <div key={k.label} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <dt className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#8AABC4' }}>{k.label}</dt>
+                <dd className="text-[18px] font-extrabold font-mono mt-0.5" style={{ color: '#E8F1FA' }}>{k.value}</dd>
+                <dd className="text-[10px]" style={{ color: '#8AABC4' }}>{k.sub}</dd>
+              </div>
+            ))}
+          </dl>
+
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: '#8AABC4' }}>Distribution</p>
+            <ul className="space-y-1.5">
+              {[5, 4, 3, 2, 1].map(score => {
+                const count = csat.distribution.find(d => d.score === score)?.count ?? 0;
+                return (
+                  <li key={score} className="flex items-center gap-2 text-[11px]">
+                    <span className="w-12 shrink-0 font-mono" style={{ color: '#C5D8E8' }}>{score} / 5</span>
+                    <span className="flex-1 h-2.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                      <span className="block h-full rounded-full"
+                        style={{ width: `${(count / maxCount) * 100}%`, background: score >= 4 ? '#10B981' : score === 3 ? '#F59E0B' : '#EF4444' }} />
+                    </span>
+                    <span className="w-8 shrink-0 text-right font-mono" style={{ color: '#C5D8E8' }}>{count}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: '#8AABC4' }}>Recent comments</p>
+            {csat.recentComments.length === 0 ? (
+              <p className="text-[11px]" style={{ color: '#8AABC4' }}>No written comments yet.</p>
+            ) : (
+              <ul className="space-y-2">
+                {csat.recentComments.slice(0, 5).map(c => (
+                  <li key={c.id} className="rounded-lg px-3 py-2" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <p className="text-[10px] font-mono" style={{ color: '#8AABC4' }}>{c.number} · {c.csatScore}/5</p>
+                    <p className="text-[12px] mt-0.5 line-clamp-3" style={{ color: '#C5D8E8' }}>{c.csatComment}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+    </ChartCard>
   );
 }
 

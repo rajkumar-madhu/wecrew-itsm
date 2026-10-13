@@ -7,7 +7,8 @@
 
 const { prisma } = require('../config/database');
 const { emitToAll, emitToTeam, emitToUser } = require('../config/socket');
-const { generateIncidentNumber, calculateSLATargetTimes } = require('../utils/helpers');
+const { generateIncidentNumber } = require('../utils/helpers');
+const { calculateSLATargetTimesForOrg } = require('./slaPolicyService');
 const { resolveInstanceToConfigItem } = require('../utils/cmdbResolver');
 const { buildIncidentFromAlert } = require('../controllers/alert.controller');
 const { getRemoteFiringAlerts } = require('./k8sService');
@@ -250,7 +251,7 @@ async function processOrgAlerts(integration) {
           const incNumber = await generateIncidentNumber();
           const createdById = await getSystemUserId();
           const priority = incData.urgency === 'CRITICAL' ? 'P1' : incData.urgency === 'HIGH' ? 'P2' : 'P3';
-          const slaTargets = calculateSLATargetTimes(priority, new Date());
+          const slaTargets = await calculateSLATargetTimesForOrg(priority, new Date(), org.id);
           const { assignmentGroupId, assignedToId } = await resolveTeamAndAssignee(incData.configItemId, incData.category, org.id);
 
           const incident = await prisma.incident.create({
@@ -304,7 +305,7 @@ async function processOrgAlerts(integration) {
 
     return { created, resolved, skipped, ok: true };
   } catch (orgErr) {
-    logger.warn(`[AlertSync] Failed for ${org.name} (${serverIp}): ${orgErr.message}`);
+    logger.warn(`[AlertSync] Failed for ${org.name} (${config.serverIp || org.serverIp || accessMethod}): ${orgErr.message}`);
     return { created: 0, resolved: 0, skipped: 0, ok: false };
   }
 }

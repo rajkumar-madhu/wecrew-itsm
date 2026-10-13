@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **Backend:** Node.js 20+ / Express.js / Prisma ORM / PostgreSQL 16
 - **Frontend:** React 19 / TypeScript 5.9 / Vite 7 / TailwindCSS 3.4 / Zustand 5 / TanStack Query 5 / React Router v6
-- **Auth:** JWT with RBAC (roles: ADMIN, MANAGER, ENGINEER, OPERATOR, VIEWER)
+- **Auth:** JWT with RBAC (roles: ADMIN, MANAGER, ENGINEER, OPERATOR, VIEWER, REQUESTER) + optional TOTP MFA
 - **Real-time:** Socket.IO
 - **Cache:** Redis 7 (sessions + caching)
 - **AI:** Ollama (Qwen3-32B) + Flowise + OpenAI/Anthropic SDKs
@@ -38,6 +38,13 @@ npm run build                # tsc -b && vite build → outputs to dist/
 ```
 
 ### K8s Build & Deploy
+
+**Preferred:** on the kind node, from the repo root at the commit to ship, run `./scripts/deploy.sh`
+(checks the MFA key, backs up Postgres to `~/argus-backups`, builds + pushes both images, rolls out the API,
+verifies the schema with `prisma db push` without `--accept-data-loss`, rolls out the frontend, checks
+`/health`, and prints rollback commands on failure). `--skip-build` redeploys an existing `TAG`.
+
+Manual equivalent:
 
 Live on the `wecrew` kind cluster: namespace **`linkedeye-core`**, host `https://itsm.wecrew.in`
 (API also at `https://itsm.api.wecrew.in`). Images live in Harbor project `linkedeye`
@@ -69,8 +76,9 @@ to exist first — it is gitignored; copy `secrets.example.yml` and fill in real
 # K8s production: postgres.linkedeye-core:5432 (ClusterIP 10.97.121.123)
 # These are SEPARATE databases — always update K8s postgres for production changes
 
-npx prisma migrate deploy     # Production migration (non-interactive, safe for K8s)
-# npm run prisma:migrate:prod  # Alias for the above
+# Production (K8s) schema is synced by `prisma db push` in the API container's start command
+# (k8s/overlays/kind/api-deployment.yml), not by `migrate deploy` — the prod DB has no migration
+# history. Keep prisma/migrations up to date for local/dev databases (`migrate dev`).
 ```
 
 ### Linting
@@ -81,11 +89,9 @@ cd frontend-react && npm run lint  # eslint .
 
 ### Tests
 ```bash
-cd backend && npm test           # jest --coverage — 39 tests across 3 suites:
-                                 #   services/__tests__/k8sService.test.js      (kubectl failure handling)
-                                 #   controllers/__tests__/public.controller.test.js (lead validation)
-                                 #   routes/__tests__/public.routes.test.js     (public route + rate limit)
-                                 # No ESLint config exists, so `npm run lint` fails.
+cd backend && npm test           # jest --coverage — 24 suites under src/**/__tests__/
+                                 # (tenant isolation, billing, SLA policy, MFA, k8s, public routes, …)
+cd backend && npm run lint       # eslint src/ — config in backend/.eslintrc.json (errors fail; unused vars warn)
 cd backend && npm run test:watch # jest --watch
 ```
 
@@ -107,7 +113,8 @@ npm run db:health                # Database health check
 ```
 /auth, /incidents, /changes, /problems, /alerts, /assets, /teams,
 /notifications, /integrations, /dashboard, /search, /webhooks,
-/reports, /sms, /voice, /ai, /organizations, /k8s, /agent, /pagerduty, /apm
+/reports, /sms, /voice, /ai, /organizations, /k8s, /agent, /pagerduty, /apm,
+/status, /audit, /chat, /billing, /public, /sla, /catalog, /requests, /portal, /knowledge
 ```
 
 **Key layers:**
@@ -166,36 +173,23 @@ const items = await prisma.incident.findMany({
 });
 ```
 
-## Critical: Tailwind Color Override Gotcha
+## Critical: Dark App Shell Color Remapping
 
-`frontend-react/tailwind.config.js` overrides standard Tailwind palettes with a **flat semantic color system** — no shade variants exist:
+`frontend-react/tailwind.config.js` defines a **dark control-plane palette** (`void #060A14`, `obsidian #0B1424`,
+`slate #0F1B2D` — overridden, not Tailwind's slate scale —, `gunmetal #152238`, `steel #1C2E4A`, `graphite #2A4060`,
+text `ink #E8F1FA` / `muted #8AABC4` / `dim #5A7D99`, plus `signal`, `cyan`, `emerald`, `amber`, `crimson`, `violet`
+with `-dim` variants).
 
-| Token | Hex | Use |
-|-------|-----|-----|
-| `void` | `#F5F5F4` | Page background |
-| `obsidian` | `#FFFFFF` | Card surfaces |
-| `slate` | `#FFFFFF` | **Overridden to white!** |
-| `gunmetal` | `#FAFAF9` | Subtle backgrounds |
-| `steel` | `#E7E5E4` | Borders, dividers |
-| `graphite` | `#D6D3D1` | Muted text, icons |
-| `signal` | `#4F46E5` | Primary action (indigo) |
-| `crimson` | `#DC2626` | Error/danger |
-| `emerald` | `#059669` | Success (DEFAULT only) |
-| `amber` | `#D97706` | Warning (DEFAULT only) |
-| `violet` | `#7C3AED` | Accent (DEFAULT only) |
+Inside the authenticated layout (`.app-shell`), `src/index.css` **remaps light utility classes with `!important`**:
+`text-stone-900/800` → near-white, `text-stone-600/700` → `#C5D8E8`, `text-stone-400/500` → `#8AABC4`,
+`text-stone-300` → `#7590A9`, `bg-white` → `#0B1424`, `bg-stone-50/100` → dark, `border-stone-*` → faint blue.
 
-Dim variants exist for light badges: `signal-dim`, `emerald-dim`, `amber-dim`, `crimson-dim`, `violet-dim`.
-
-**All dark-themed UI (hero sections, etc.) must use arbitrary hex values**, not Tailwind shade classes:
-```jsx
-// WRONG — slate-900 renders white due to config override, emerald-600 doesn't exist
-<div className="bg-slate-900 text-slate-300">
-<span className="text-emerald-600">
-
-// CORRECT — use hex values directly
-<div className="bg-[#0F172A] text-[#94A3B8]">
-<span className="text-[#059669]">
-```
+Consequences:
+- A hard-coded light surface (`style={{ background: '#FFFFFF' }}`, `bg-[#FAFBFC]`) combined with `text-stone-*`
+  renders light-on-light and becomes unreadable. Use the dark tokens for surfaces inside the shell.
+- `bg-white` is dark inside the shell; use `bg-[#FFFFFF]` only where white is required (e.g. a QR code).
+- Login/Signup are outside `.app-shell` and keep light styles.
+- Keep body text ≥ 4.5:1 against `#0B1424` (e.g. `#7590A9` or lighter).
 
 Custom fonts: `font-display` (Outfit), `font-body` (DM Sans), `font-mono` (JetBrains Mono).
 
@@ -216,6 +210,41 @@ Automated incident response: Detect → Triage → Enrich → Act (SSH) → Noti
 - 17 ALERT_KB entries for pattern matching
 - Integrated into `webhook.controller.js`: `processAlert()` called async after alert creation
 - Only CRITICAL/WARNING severity alerts auto-create incidents (INFO → alert only)
+
+## SLA Policies & MFA
+
+- SLA targets come from `SLADefinition` rows via `services/slaPolicyService.js`: org policy → platform policy
+  (`organizationId: null`) → `SLA_DEFAULTS`. Every incident creator uses `calculateSLATargetTimesForOrg()`.
+  API: `GET /api/v1/sla`, `PUT|DELETE /api/v1/sla/:priority` (ADMIN/MANAGER). 30s in-process cache.
+- TOTP MFA: `services/mfa.service.js` (speakeasy; secrets AES-256-GCM encrypted with `MFA_ENCRYPTION_KEY`,
+  falling back to `JWT_SECRET`). Login returns `{ mfaRequired: true }` until the client re-posts with `mfaCode`.
+  Enrol via `POST /auth/mfa/setup` → `/auth/mfa/enable`; `/auth/mfa/disable` needs password + code.
+
+## Service Desk: Requests, Portal, Knowledge, CMDB
+
+- **Service requests** (`REQ0000001`): `ServiceCatalogItem` defines a form (`formSchema` JSON) plus optional approval
+  (approver team LEADs, else the org's ADMIN/MANAGER users) and a fulfilment team/target. Logic lives in
+  `services/serviceRequestService.js` (form validation, approvals, transitions in `REQUEST_TRANSITIONS`).
+  Agent API: `/catalog`, `/requests`. Approve/reject only via `POST /requests/:id/decision`.
+- **REQUESTER role** = end users of the self-service portal. `middleware/auth.js` confines them centrally to
+  `/portal`, `/notifications` and their own `/auth/me|logout|change-password|mfa/*` (`requesterMayUse`). The frontend
+  `ProtectedRoute` sends them to `/portal` (its own light layout, outside `.app-shell`).
+- **Portal** (`/api/v1/portal`): every handler scopes to the caller's own records (`requestedById` / `createdById`).
+  Requesters see only `isInternal: false` comments/work notes — agent notes default to internal in the UI.
+- **CSAT**: 1–5 rating once a request is FULFILLED or an incident RESOLVED/CLOSED; `GET /reports/csat`.
+- **Knowledge articles** (`KB0000001`): DRAFT → IN_REVIEW → PUBLISHED → RETIRED; publish/retire need ADMIN/MANAGER;
+  a non-reviewer edit of a published article returns it to review. `audience: PORTAL` makes it visible to requesters.
+- **CMDB relationships**: `CIRelationship(parent, child, type)` reads "parent <type> child";
+  `GET /assets/:id/relationships` also returns an impact walk (what breaks if this asset breaks).
+- **Business hours**: `BusinessHours` per org (timezone, weekly schedule, holidays) used by
+  `calculateSLATargetTimesForOrg()` when an SLA policy has `businessHoursOnly`. SLA clocks pause while ON_HOLD.
+
+## Frontend Navigation
+
+`components/Layout/navigation.ts` is the single nav map: six hubs (Home, Service Desk, Change, Observe, On-Call,
+Knowledge) plus Admin. The Sidebar renders them as collapsible groups; `CommandPalette.tsx` (Ctrl/Cmd+K, global)
+reuses the same map for page search alongside quick actions and `/search` record results. Add new pages to
+`navigation.ts` so both pick them up.
 
 ## SSH-Based Remote Infrastructure Access
 

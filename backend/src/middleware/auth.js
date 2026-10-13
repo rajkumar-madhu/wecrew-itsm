@@ -7,6 +7,20 @@ const { prisma } = require('../config/database');
 const { PERMISSIONS } = require('../config/constants');
 const { isPlatformAdmin, lockToOwnOrg } = require('./tenant');
 
+// REQUESTER accounts are end users of the self-service portal. They are kept to
+// an allowlist here, centrally, so no agent route is reachable just because it
+// forgot a permission check.
+const REQUESTER_ALLOWED = [
+  /^\/api\/v1\/portal(\/|$)/,
+  /^\/api\/v1\/notifications(\/|$)/,
+  /^\/api\/v1\/auth\/(me|logout|change-password|mfa\/[a-z]+)$/,
+];
+
+function requesterMayUse(req) {
+  const path = (req.originalUrl || '').split('?')[0];
+  return REQUESTER_ALLOWED.some((re) => re.test(path));
+}
+
 async function authenticate(req, res, next) {
   try {
     const header = req.headers.authorization;
@@ -49,6 +63,10 @@ async function authenticate(req, res, next) {
       }
     } else {
       lockToOwnOrg(req);
+    }
+
+    if (user.role === 'REQUESTER' && !requesterMayUse(req)) {
+      return res.status(403).json({ success: false, error: 'Not available from the self-service portal' });
     }
 
     next();
@@ -106,4 +124,4 @@ function optionalAuth(req, res, next) {
   next();
 }
 
-module.exports = { authenticate, authorize, checkPermission, optionalAuth, requirePlatformAdmin };
+module.exports = { authenticate, authorize, checkPermission, optionalAuth, requirePlatformAdmin, requesterMayUse };

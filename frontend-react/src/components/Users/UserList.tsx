@@ -6,13 +6,14 @@ import {
   ShieldOff, Pencil, Lock, Unlock, MoreHorizontal, Trash2, KeyRound,
   AlertTriangle, Loader2, Filter, Building2, Clock, Activity,
   Mail, Phone, Globe, Crown, CheckCircle, XCircle, Ban,
+  UserCircle,
 } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuthStore } from '../../stores/authStore';
 import type { User, Role, UserStatus } from '../../types';
 
 // ── Constants ──
-const ALL_ROLES: Role[] = ['ADMIN', 'MANAGER', 'ENGINEER', 'OPERATOR', 'VIEWER'];
+const ALL_ROLES: Role[] = ['ADMIN', 'MANAGER', 'ENGINEER', 'OPERATOR', 'VIEWER', 'REQUESTER'];
 const ALL_STATUSES: UserStatus[] = ['ACTIVE', 'INACTIVE', 'LOCKED'];
 
 const roleBadgeConfig: Record<Role, { cls: string; icon: any; label: string }> = {
@@ -21,6 +22,7 @@ const roleBadgeConfig: Record<Role, { cls: string; icon: any; label: string }> =
   ENGINEER: { cls: 'bg-[#EEF2FF] text-[#6366F1] border-[#C7D2FE]', icon: Activity, label: 'Engineer' },
   OPERATOR: { cls: 'bg-[#ECFDF5] text-[#10B981] border-[#A7F3D0]', icon: Globe,    label: 'Operator' },
   VIEWER:   { cls: 'bg-[#F1F5F9] text-[#64748B] border-[#CBD5E1]', icon: Users,    label: 'Viewer' },
+  REQUESTER: { cls: 'bg-[#F0F9FF] text-[#0369A1] border-[#BAE6FD]', icon: UserCircle, label: 'Requester (portal)' },
 };
 
 const statusConfig: Record<UserStatus, { dot: string; icon: any; label: string; cls: string }> = {

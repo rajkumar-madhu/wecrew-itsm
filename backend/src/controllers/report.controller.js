@@ -5,6 +5,7 @@
 const { Prisma } = require('@prisma/client');
 const { prisma } = require('../config/database');
 const { success, error } = require('../utils/helpers');
+const { scopedWhere } = require('../middleware/tenant');
 const logger = require('../utils/logger');
 
 // Helper: build raw SQL org filter fragment
@@ -267,4 +268,47 @@ async function incidentTrend(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { incidentReport, changeReport, teamPerformanceReport, executiveSummary, incidentTrend };
+// GET /api/v1/reports/csat?period=30d — requester satisfaction for incidents and requests
+async function csatReport(req, res, next) {
+  try {
+    const days = Math.min(365, Math.max(1, parseInt(req.query.period) || 30));
+    const since = new Date(Date.now() - days * 86400000);
+    const where = { ...scopedWhere(req), csatAt: { gte: since }, csatScore: { not: null } };
+    const [inc, reqs, incDist, reqDist, incComments, reqComments] = await Promise.all([
+      prisma.incident.aggregate({ where, _avg: { csatScore: true }, _count: { csatScore: true } }),
+      prisma.serviceRequest.aggregate({ where, _avg: { csatScore: true }, _count: { csatScore: true } }),
+      prisma.incident.groupBy({ by: ['csatScore'], where, _count: { _all: true } }),
+      prisma.serviceRequest.groupBy({ by: ['csatScore'], where, _count: { _all: true } }),
+      prisma.incident.findMany({
+        where: { ...where, csatComment: { not: null } },
+        select: { id: true, number: true, csatScore: true, csatComment: true, csatAt: true },
+        orderBy: { csatAt: 'desc' }, take: 10,
+      }),
+      prisma.serviceRequest.findMany({
+        where: { ...where, csatComment: { not: null } },
+        select: { id: true, number: true, csatScore: true, csatComment: true, csatAt: true },
+        orderBy: { csatAt: 'desc' }, take: 10,
+      }),
+    ]);
+    const comments = [...incComments.map((c) => ({ ...c, kind: 'incident' })), ...reqComments.map((c) => ({ ...c, kind: 'request' }))]
+      .sort((a, b) => b.csatAt - a.csatAt)
+      .slice(0, 10);
+    const distribution = [1, 2, 3, 4, 5].map((score) => ({
+      score,
+      count: (incDist.find((d) => d.csatScore === score)?._count._all || 0) + (reqDist.find((d) => d.csatScore === score)?._count._all || 0),
+    }));
+    const total = inc._count.csatScore + reqs._count.csatScore;
+    const satisfied = distribution.filter((d) => d.score >= 4).reduce((a, d) => a + d.count, 0);
+    return success(res, {
+      periodDays: days,
+      responses: total,
+      csatPercent: total ? Math.round((satisfied / total) * 100) : null, // share of 4-5 ratings
+      incidents: { average: inc._avg.csatScore, responses: inc._count.csatScore },
+      requests: { average: reqs._avg.csatScore, responses: reqs._count.csatScore },
+      distribution,
+      recentComments: comments,
+    });
+  } catch (err) { next(err); }
+}
+
+module.exports = { incidentReport, changeReport, teamPerformanceReport, executiveSummary, incidentTrend, csatReport };

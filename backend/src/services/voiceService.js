@@ -7,7 +7,8 @@ const FormData = require('form-data');
 const { prisma } = require('../config/database');
 const { config } = require('../config/env');
 const logger = require('../utils/logger');
-const { generateIncidentNumber, calculatePriority, calculateSLATargetTimes } = require('../utils/helpers');
+const { generateIncidentNumber, calculatePriority } = require('../utils/helpers');
+const { calculateSLATargetTimesForOrg } = require('./slaPolicyService');
 const { dispatchEvent } = require('./webhookDispatcher');
 
 // Lazy-load to avoid circular dep: eventEmitter → notificationService → voiceService → eventEmitter
@@ -743,7 +744,7 @@ async function handleCallStatusUpdate(statusData) {
         const impact = 'TEAM';
         const urgency = 'MEDIUM';
         const priority = calculatePriority(impact, urgency);
-        const slaTimes = calculateSLATargetTimes(priority, now);
+        const slaTimes = await calculateSLATargetTimesForOrg(priority, now, callLog.organizationId || null);
 
         const incident = await prisma.incident.create({
           data: {

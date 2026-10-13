@@ -14,6 +14,7 @@ const ctrl = require('../controllers/auth.controller');
 router.post('/login', authLimiter, [
   body('email').isEmail().normalizeEmail(),
   body('password').isLength({ min: 6 }),
+  body('mfaCode').optional().isString().isLength({ max: 10 }),
   validate,
 ], ctrl.login);
 
@@ -42,7 +43,7 @@ router.post('/register', authenticate, authorize('ADMIN'), enforceSeatLimit, [
   body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
   body('firstName').trim().notEmpty(),
   body('lastName').trim().notEmpty(),
-  body('role').optional().isIn(['ADMIN', 'MANAGER', 'ENGINEER', 'OPERATOR', 'VIEWER']),
+  body('role').optional().isIn(['ADMIN', 'MANAGER', 'ENGINEER', 'OPERATOR', 'VIEWER', 'REQUESTER']),
   validate,
 ], ctrl.register);
 
@@ -57,5 +58,16 @@ router.post('/change-password', authenticate, [
   body('newPassword').isLength({ min: 8 }),
   validate,
 ], ctrl.changePassword);
+
+router.post('/mfa/setup', authenticate, ctrl.mfaSetup);
+router.post('/mfa/enable', authenticate, authLimiter, [
+  body('code').isString().isLength({ min: 6, max: 10 }),
+  validate,
+], ctrl.mfaEnable);
+router.post('/mfa/disable', authenticate, authLimiter, [
+  body('password').isString().notEmpty(),
+  body('code').isString().isLength({ min: 6, max: 10 }),
+  validate,
+], ctrl.mfaDisable);
 
 module.exports = router;

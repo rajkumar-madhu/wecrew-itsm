@@ -26,6 +26,11 @@ export default function ProtectedRoute({ children, allowedRoles }: Props) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
+  // Portal-only accounts never see the agent app
+  if (user?.role === 'REQUESTER' && !location.pathname.startsWith('/portal')) {
+    return <Navigate to="/portal" replace />;
+  }
+
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
     return (
       <div className="flex items-center justify-center h-full min-h-[400px]">

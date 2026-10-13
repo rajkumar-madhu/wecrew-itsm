@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
-import { Search, Bell, Command, LogOut, User, ChevronRight, Loader2, AlertTriangle, GitBranch, Bug, Server, Siren, CheckCheck } from 'lucide-react';
+import { Search, Bell, Command, LogOut, User, ChevronRight, CheckCheck } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuthStore } from '../../stores/authStore';
-import { useGlobalSearch } from '../../hooks/useSearch';
+import { useUIStore } from '../../stores/uiStore';
 import { useUnreadCount, useNotifications, useMarkAsRead, useMarkAllAsRead } from '../../hooks/useNotifications';
 
 const routeTitles: Record<string, string> = {
@@ -45,34 +45,6 @@ const routeTitles: Record<string, string> = {
   '/settings': 'Settings',
   '/sla': 'SLA Policies',
 };
-
-interface SearchResultItem {
-  id: string;
-  number?: string;
-  title?: string;
-  name?: string;
-  subject?: string;
-  description?: string;
-  status?: string;
-  priority?: string;
-  severity?: string;
-}
-
-const resultGroups: { key: string; label: string; icon: React.ReactNode; route: string }[] = [
-  { key: 'incidents', label: 'Incidents', icon: <AlertTriangle className="w-3.5 h-3.5" />, route: '/incidents' },
-  { key: 'changes', label: 'Changes', icon: <GitBranch className="w-3.5 h-3.5" />, route: '/changes' },
-  { key: 'problems', label: 'Problems', icon: <Bug className="w-3.5 h-3.5" />, route: '/problems' },
-  { key: 'assets', label: 'Assets', icon: <Server className="w-3.5 h-3.5" />, route: '/assets' },
-  { key: 'alerts', label: 'Alerts', icon: <Siren className="w-3.5 h-3.5" />, route: '/alerts' },
-];
-
-function getResultTitle(item: SearchResultItem): string {
-  return item.title || item.subject || item.name || item.description || 'Untitled';
-}
-
-function getResultNumber(item: SearchResultItem): string {
-  return item.number || item.id || '';
-}
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -166,13 +138,9 @@ export default function Header() {
   const initials = user ? `${(user.firstName?.[0] || '').toUpperCase()}${(user.lastName?.[0] || '').toUpperCase()}` : 'U';
   const displayName = user ? `${user.firstName} ${user.lastName}` : 'User';
   const displayRole = user?.role || 'User';
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const searchRef = useRef<HTMLInputElement>(null);
-
-  const { data: searchData, isLoading: searchLoading } = useGlobalSearch(searchQuery);
+  const openPalette = useUIStore((s) => s.setCommandPaletteOpen);
 
   // Notifications
   const { data: unreadData }   = useUnreadCount();
@@ -186,13 +154,7 @@ export default function Header() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setSearchOpen(true);
-        setTimeout(() => searchRef.current?.focus(), 100);
-      }
       if (e.key === 'Escape') {
-        setSearchOpen(false);
         setNotifOpen(false);
         setProfileOpen(false);
       }
@@ -200,18 +162,6 @@ export default function Header() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
-
-  const results = searchData?.data?.results;
-  const hasResults = results && resultGroups.some(g => {
-    const arr = results[g.key as keyof typeof results];
-    return Array.isArray(arr) && arr.length > 0;
-  });
-
-  const handleResultClick = (route: string, id: string) => {
-    setSearchOpen(false);
-    setSearchQuery('');
-    navigate(`${route}/${id}`);
-  };
 
   return (
     <header
@@ -248,7 +198,8 @@ export default function Header() {
       <div className="flex items-center gap-1.5">
         {/* Search Trigger */}
         <button
-          onClick={() => { setSearchOpen(true); setTimeout(() => searchRef.current?.focus(), 100); }}
+          onClick={() => openPalette(true)}
+          aria-label="Search and jump to (Ctrl+K)"
           className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] transition-all"
           style={{
             background: 'rgba(255,255,255,0.04)',
@@ -431,195 +382,6 @@ export default function Header() {
         </div>
       </div>
 
-      {/* ── Search Overlay ── */}
-      {searchOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]"
-          onClick={() => setSearchOpen(false)}
-          style={{ background: 'rgba(6,10,20,0.8)', backdropFilter: 'blur(8px)' }}
-        >
-          <div
-            className="relative w-full max-w-xl overflow-hidden animate-slide-in"
-            style={{
-              background: '#0C1828',
-              border: '1px solid rgba(99,179,255,0.16)',
-              borderRadius: '16px',
-              boxShadow: '0 24px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(79,70,229,0.2)',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Search Input Row */}
-            <div
-              className="flex items-center gap-3 px-4 py-3"
-              style={{ borderBottom: '1px solid rgba(99,179,255,0.08)' }}
-            >
-              <Search className="w-5 h-5 shrink-0" style={{ color: '#4F46E5' }} />
-              <input
-                ref={searchRef}
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search incidents, changes, assets..."
-                className="flex-1 bg-transparent outline-none text-sm"
-                style={{
-                  color: '#E2EEF9',
-                }}
-                onFocus={(e) => {
-                  (e.target as HTMLInputElement).style.setProperty(
-                    '--tw-placeholder-color',
-                    '#2A4A63'
-                  );
-                }}
-              />
-              <kbd
-                className="px-1.5 py-0.5 rounded text-[10px] font-mono"
-                style={{
-                  background: 'rgba(99,179,255,0.06)',
-                  border: '1px solid rgba(99,179,255,0.12)',
-                  color: '#2A4A63',
-                }}
-              >
-                ESC
-              </kbd>
-            </div>
-
-            <div className="max-h-[60vh] overflow-y-auto">
-              {/* Empty state */}
-              {!searchQuery && (
-                <div className="p-4 text-sm text-center" style={{ color: '#2A4A63' }}>
-                  Type to search across all modules
-                </div>
-              )}
-
-              {/* Loading */}
-              {searchQuery && searchLoading && (
-                <div className="p-6 flex flex-col items-center gap-2" style={{ color: '#4A6F8A' }}>
-                  <Loader2 className="w-5 h-5 animate-spin" style={{ color: '#4F46E5' }} />
-                  <span className="text-sm">Searching for "{searchQuery}"...</span>
-                </div>
-              )}
-
-              {/* Results */}
-              {searchQuery && !searchLoading && results && hasResults && (
-                <div className="py-2">
-                  {resultGroups.map(group => {
-                    const items: SearchResultItem[] = results[group.key as keyof typeof results] || [];
-                    if (!items.length) return null;
-                    return (
-                      <div key={group.key}>
-                        <div
-                          className="px-4 py-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.08em]"
-                          style={{ color: '#1E3A52' }}
-                        >
-                          {group.icon}
-                          {group.label}
-                          <span className="font-mono">({items.length})</span>
-                        </div>
-                        {items.map((item) => (
-                          <button
-                            key={item.id}
-                            onClick={() => handleResultClick(group.route, item.id)}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 transition-colors text-left group"
-                            style={{ color: '#E2EEF9' }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.background = 'rgba(79,70,229,0.08)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.background = 'transparent';
-                            }}
-                          >
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span
-                                  className="text-xs font-mono font-semibold"
-                                  style={{ color: '#818CF8' }}
-                                >
-                                  {getResultNumber(item)}
-                                </span>
-                                {item.priority && (
-                                  <span
-                                    className="text-[10px] font-bold px-1.5 py-0.5 rounded"
-                                    style={
-                                      item.priority === 'P1'
-                                        ? { color: '#F87171', background: 'rgba(220,38,38,0.12)' }
-                                        : item.priority === 'P2'
-                                        ? { color: '#FB923C', background: 'rgba(234,88,12,0.12)' }
-                                        : item.priority === 'P3'
-                                        ? { color: '#FBB040', background: 'rgba(217,119,6,0.12)' }
-                                        : { color: '#818CF8', background: 'rgba(79,70,229,0.12)' }
-                                    }
-                                  >
-                                    {item.priority}
-                                  </span>
-                                )}
-                                {item.severity && (
-                                  <span
-                                    className="text-[10px] font-bold px-1.5 py-0.5 rounded"
-                                    style={
-                                      item.severity === 'critical'
-                                        ? { color: '#F87171', background: 'rgba(220,38,38,0.12)' }
-                                        : item.severity === 'high'
-                                        ? { color: '#FB923C', background: 'rgba(234,88,12,0.12)' }
-                                        : item.severity === 'medium'
-                                        ? { color: '#FBB040', background: 'rgba(217,119,6,0.12)' }
-                                        : { color: '#818CF8', background: 'rgba(79,70,229,0.12)' }
-                                    }
-                                  >
-                                    {item.severity}
-                                  </span>
-                                )}
-                                {item.status && (
-                                  <span
-                                    className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
-                                    style={{
-                                      color: '#4A6F8A',
-                                      background: 'rgba(99,179,255,0.06)',
-                                      border: '1px solid rgba(99,179,255,0.1)',
-                                    }}
-                                  >
-                                    {item.status}
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-xs mt-0.5 truncate" style={{ color: '#4A6F8A' }}>
-                                {getResultTitle(item)}
-                              </p>
-                            </div>
-                            <ChevronRight
-                              className="w-3.5 h-3.5 flex-shrink-0 transition-colors"
-                              style={{ color: '#1E3A52' }}
-                            />
-                          </button>
-                        ))}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* No results */}
-              {searchQuery && !searchLoading && results && !hasResults && (
-                <div className="p-6 flex flex-col items-center gap-2" style={{ color: '#2A4A63' }}>
-                  <Search className="w-5 h-5" style={{ color: '#1E3A52' }} />
-                  <span className="text-sm" style={{ color: '#4A6F8A' }}>
-                    No results found for "{searchQuery}"
-                  </span>
-                  <span className="text-xs" style={{ color: '#2A4A63' }}>
-                    Try a different search term
-                  </span>
-                </div>
-              )}
-
-              {/* Min length hint */}
-              {searchQuery && searchQuery.length < 2 && !searchLoading && !results && (
-                <div className="p-4 text-sm text-center" style={{ color: '#2A4A63' }}>
-                  Type at least 2 characters to search
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </header>
   );
 }

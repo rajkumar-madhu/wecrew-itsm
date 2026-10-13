@@ -130,6 +130,10 @@ async function resumeSLA(incidentId) {
       slaTargetResolution: incident.slaTargetResolution
         ? new Date(incident.slaTargetResolution.getTime() + pausedMs)
         : null,
+      // An unanswered incident's response target moves too
+      ...(!incident.responseTime && incident.slaTargetResponse
+        ? { slaTargetResponse: new Date(incident.slaTargetResponse.getTime() + pausedMs) }
+        : {}),
     },
   });
 }

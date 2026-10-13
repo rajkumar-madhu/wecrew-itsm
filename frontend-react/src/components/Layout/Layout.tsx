@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { clsx } from 'clsx';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import CommandPalette from './CommandPalette';
 import { useRealtime } from '../../hooks/useRealtime';
 
 export default function Layout() {
@@ -20,10 +21,11 @@ export default function Layout() {
       <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
       <div className={clsx('transition-all duration-300', collapsed ? 'ml-[68px]' : 'ml-[240px]')}>
         <Header />
-        <main className="p-6 min-h-[calc(100vh-3.5rem)]">
+        <main id="main-content" className="p-6 min-h-[calc(100vh-3.5rem)]">
           <Outlet />
         </main>
       </div>
+      <CommandPalette />
     </div>
   );
 }

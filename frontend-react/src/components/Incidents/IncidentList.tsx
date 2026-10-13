@@ -759,12 +759,14 @@ export default function IncidentList() {
   // ── Keyboard navigation ──
   useEffect(() => {
     function handleKeydown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      // Ctrl/Cmd+K belongs to the global command palette; "/" focuses this list's filter
+      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'SELECT' || document.activeElement?.tagName === 'TEXTAREA') return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === '/') {
         e.preventDefault();
         searchInputRef.current?.focus();
         return;
       }
-      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'SELECT') return;
       if (viewMode !== 'table') return;
 
       if (e.key === 'j') {
@@ -936,8 +938,8 @@ export default function IncidentList() {
               placeholder="Search incidents..."
               className="w-full pl-9 pr-16 py-2 bg-stone-50 border border-stone-200 rounded-lg text-sm text-stone-900 placeholder-stone-400 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-200 transition-all"
             />
-            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-stone-400 bg-stone-100 border border-stone-200 rounded px-1.5 py-0.5 font-mono hidden sm:inline-block">
-              {'\u2318'}K
+            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-stone-500 bg-stone-100 border border-stone-200 rounded px-1.5 py-0.5 font-mono hidden sm:inline-block">
+              /
             </kbd>
           </div>
 
@@ -1296,7 +1298,7 @@ export default function IncidentList() {
             <span className="ml-0.5">Select</span>
           </div>
           <div className="flex items-center gap-1 text-[10px] text-stone-300">
-            <kbd className="font-mono bg-stone-100 border border-stone-200 rounded px-1 py-0.5 text-stone-400">{'\u2318'}K</kbd>
+            <kbd className="font-mono bg-stone-100 border border-stone-200 rounded px-1 py-0.5 text-stone-400">/</kbd>
             <span className="ml-0.5">Search</span>
           </div>
         </div>

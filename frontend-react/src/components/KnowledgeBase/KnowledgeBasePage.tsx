@@ -1,587 +1,253 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import {
-  BookOpen, Search, X, Plus, Tag, Clock, AlertCircle,
-  ChevronRight, FileText, CheckCircle2, AlertTriangle, Filter,
-} from 'lucide-react';
-import api from '../../lib/api';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { BookOpen, Plus, Search, X, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
-import { useAlertKB } from '../../hooks/useProblems';
+import {
+  useKnowledgeArticles, knowledgeErrorMessage, AUDIENCE_LABEL,
+  type ArticleAudience, type ArticleState,
+} from '../../hooks/useKnowledge';
+import ArticleEditor, { StatePill } from './ArticleEditor';
+import KnownErrors from './KnownErrors';
 
-// ── Types ──────────────────────────────────────────────────────────────────────
-interface KBArticle {
-  id: string;
-  title: string;
-  problemNumber?: string;
-  state?: string;
-  rootCauseAnalysis?: any;
-  workaround?: string;
-  category?: string;
-  tags?: string[];
-  updatedAt: string;
-  incidents?: { id: string }[];
-  _count?: { incidents: number };
-}
+type Tab = 'articles' | 'known-errors';
 
-interface AlertKBEntry {
-  id: string;
-  name: string;
-  description?: string;
-  symptoms?: string[];
-  resolution?: string;
-  remediation?: string;
-  category?: string;
-  tags?: string[];
-}
+const STATE_FILTERS: { key: string; label: string; states: ArticleState[] }[] = [
+  { key: 'all', label: 'All', states: [] },
+  { key: 'draft', label: 'Drafts', states: ['DRAFT'] },
+  { key: 'review', label: 'In review', states: ['IN_REVIEW'] },
+  { key: 'published', label: 'Published', states: ['PUBLISHED'] },
+  { key: 'retired', label: 'Retired', states: ['RETIRED'] },
+];
 
-const CATEGORIES = ['All', 'Infrastructure', 'Application', 'Database', 'Network', 'Security', 'Other'];
+const AUDIENCE_FILTERS: { key: ArticleAudience | ''; label: string }[] = [
+  { key: '', label: 'Any audience' },
+  { key: 'INTERNAL', label: 'Internal' },
+  { key: 'PORTAL', label: 'Portal' },
+];
 
-const CAT_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  Infrastructure: { bg: 'rgba(99,102,241,0.1)',  text: '#4F46E5', border: 'rgba(99,102,241,0.25)' },
-  Application:    { bg: 'rgba(16,185,129,0.1)',  text: '#059669', border: 'rgba(16,185,129,0.25)' },
-  Database:       { bg: 'rgba(217,119,6,0.1)',   text: '#D97706', border: 'rgba(217,119,6,0.25)' },
-  Network:        { bg: 'rgba(14,165,233,0.1)',  text: '#0284C7', border: 'rgba(14,165,233,0.25)' },
-  Security:       { bg: 'rgba(220,38,38,0.1)',   text: '#DC2626', border: 'rgba(220,38,38,0.25)' },
-  Other:          { bg: 'rgba(124,58,237,0.1)',  text: '#7C3AED', border: 'rgba(124,58,237,0.25)' },
-};
+const WRITER_ROLES = ['ADMIN', 'MANAGER', 'ENGINEER', 'OPERATOR'];
+const PAGE_SIZE = 25;
 
-function catStyle(cat?: string) {
-  return CAT_COLORS[cat || 'Other'] || CAT_COLORS.Other;
-}
-
-function guessCategory(article: KBArticle): string {
-  const t = (article.title || '').toLowerCase();
-  if (t.includes('disk') || t.includes('cpu') || t.includes('memory') || t.includes('node') || t.includes('server')) return 'Infrastructure';
-  if (t.includes('db') || t.includes('database') || t.includes('postgres') || t.includes('mysql') || t.includes('redis')) return 'Database';
-  if (t.includes('network') || t.includes('icmp') || t.includes('switch') || t.includes('fortigate') || t.includes('ping')) return 'Network';
-  if (t.includes('security') || t.includes('ssl') || t.includes('cert') || t.includes('login') || t.includes('auth')) return 'Security';
-  if (t.includes('pod') || t.includes('deploy') || t.includes('k8s') || t.includes('kube') || t.includes('container')) return 'Infrastructure';
-  if (t.includes('app') || t.includes('service') || t.includes('api') || t.includes('error')) return 'Application';
-  return article.category || 'Other';
-}
+const border = '1px solid rgba(99,179,255,0.12)';
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function rcaSnippet(rca: any): string {
-  if (!rca) return '';
-  if (typeof rca === 'string') return rca.slice(0, 120);
-  if (rca.rootCause) return String(rca.rootCause).slice(0, 120);
-  if (rca.summary) return String(rca.summary).slice(0, 120);
-  return '';
-}
-
-// ── Article Detail Modal ───────────────────────────────────────────────────────
-function ArticleModal({ article, onClose }: { article: KBArticle; onClose: () => void }) {
-  const cat = guessCategory(article);
-  const cs = catStyle(cat);
-  const rca = article.rootCauseAnalysis;
-
+function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(6px)' }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl"
-        style={{ background: '#FFFFFF', border: '1px solid #E7E5E4', boxShadow: '0 25px 60px -12px rgba(0,0,0,0.2)' }}>
-
-        {/* Header */}
-        <div className="flex items-start justify-between px-6 py-5" style={{ borderBottom: '1px solid #E7E5E4' }}>
-          <div className="flex items-start gap-3">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
-              style={{ background: cs.bg, border: `1px solid ${cs.border}` }}>
-              <BookOpen className="w-4 h-4" style={{ color: cs.text }} />
-            </div>
-            <div>
-              {article.problemNumber && (
-                <p className="text-[10px] font-mono font-bold tracking-widest uppercase mb-0.5" style={{ color: cs.text }}>
-                  {article.problemNumber}
-                </p>
-              )}
-              <h2 className="text-[17px] font-display font-bold text-stone-900 leading-snug">{article.title}</h2>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                  style={{ background: cs.bg, color: cs.text, border: `1px solid ${cs.border}` }}>
-                  {cat}
-                </span>
-                <span className="text-[11px] text-stone-400 font-mono flex items-center gap-1">
-                  <Clock className="w-3 h-3" /> {fmtDate(article.updatedAt)}
-                </span>
-              </div>
-            </div>
-          </div>
-          <button onClick={onClose}
-            className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors shrink-0">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="px-6 py-5 space-y-5">
-          {/* Root Cause */}
-          {rca && (
-            <div>
-              <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-2">Root Cause Analysis</p>
-              <div className="rounded-xl p-4" style={{ background: '#FAFAF9', border: '1px solid #E7E5E4' }}>
-                {typeof rca === 'string' ? (
-                  <p className="text-[13px] text-stone-700 leading-relaxed">{rca}</p>
-                ) : (
-                  <div className="space-y-2">
-                    {rca.rootCause && <p className="text-[13px] text-stone-700"><span className="font-semibold">Root Cause:</span> {rca.rootCause}</p>}
-                    {rca.impact && <p className="text-[13px] text-stone-700"><span className="font-semibold">Impact:</span> {rca.impact}</p>}
-                    {rca.immediateAction && <p className="text-[13px] text-stone-700"><span className="font-semibold">Immediate Action:</span> {rca.immediateAction}</p>}
-                    {rca.permanentFix && <p className="text-[13px] text-stone-700"><span className="font-semibold">Permanent Fix:</span> {rca.permanentFix}</p>}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Workaround */}
-          {article.workaround && (
-            <div>
-              <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-2">Workaround / Resolution</p>
-              <div className="flex items-start gap-3 rounded-xl p-4"
-                style={{ background: 'rgba(16,185,129,0.04)', border: '1px solid rgba(16,185,129,0.15)' }}>
-                <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" style={{ color: '#059669' }} />
-                <p className="text-[13px] text-stone-700 leading-relaxed">{article.workaround}</p>
-              </div>
-            </div>
-          )}
-
-          {/* Tags */}
-          {article.tags && article.tags.length > 0 && (
-            <div>
-              <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-2">Tags</p>
-              <div className="flex flex-wrap gap-1.5">
-                {article.tags.map((tag, i) => (
-                  <span key={i} className="text-[11px] px-2.5 py-1 rounded-full font-medium"
-                    style={{ background: '#F1F5F9', color: '#475569', border: '1px solid #E2E8F0' }}>
-                    #{tag}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Related incidents count */}
-          {(article._count?.incidents || 0) > 0 && (
-            <div className="flex items-center gap-2.5 rounded-xl px-4 py-3"
-              style={{ background: 'rgba(217,119,6,0.05)', border: '1px solid rgba(217,119,6,0.15)' }}>
-              <AlertTriangle className="w-4 h-4 shrink-0" style={{ color: '#D97706' }} />
-              <p className="text-[12px] font-medium" style={{ color: '#92400E' }}>
-                {article._count!.incidents} related incident{article._count!.incidents !== 1 ? 's' : ''} linked to this problem
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── AlertKB Card (from agentPipeline KB) ──────────────────────────────────────
-function AlertKBCard({ entry, onClick }: { entry: AlertKBEntry; onClick: () => void }) {
-  const cat = entry.category || 'Other';
-  const cs = catStyle(cat);
-  return (
-    <button onClick={onClick}
-      className="text-left rounded-xl p-4 w-full transition-all group"
-      style={{ background: '#FFFFFF', border: '1px solid #E7E5E4' }}
-      onMouseEnter={e => (e.currentTarget.style.borderColor = cs.border)}
-      onMouseLeave={e => (e.currentTarget.style.borderColor = '#E7E5E4')}>
-      <div className="flex items-start gap-3">
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-          style={{ background: cs.bg, border: `1px solid ${cs.border}` }}>
-          <FileText className="w-3.5 h-3.5" style={{ color: cs.text }} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-[13px] font-semibold text-stone-900 leading-tight truncate">{entry.name}</p>
-            <ChevronRight className="w-3.5 h-3.5 shrink-0 text-stone-300 group-hover:text-stone-500 transition-colors" />
-          </div>
-          {entry.description && (
-            <p className="text-[11px] text-stone-500 mt-1 leading-relaxed line-clamp-2">{entry.description}</p>
-          )}
-          <div className="flex items-center gap-2 mt-2">
-            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide"
-              style={{ background: cs.bg, color: cs.text, border: `1px solid ${cs.border}` }}>{cat}</span>
-            {entry.remediation && (
-              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full"
-                style={{ background: 'rgba(16,185,129,0.1)', color: '#059669', border: '1px solid rgba(16,185,129,0.2)' }}>
-                AUTO-REMEDIABLE
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
+    <button type="button" onClick={onClick} aria-pressed={active}
+      className="px-3 py-1.5 rounded-full text-[12px] font-medium transition-colors"
+      style={active
+        ? { background: 'rgba(99,102,241,0.2)', border: '1px solid #6366F1', color: '#E8F1FA' }
+        : { background: '#0F1B2D', border, color: '#C5D8E8' }}>
+      {children}
     </button>
   );
 }
 
-// ── AlertKB Detail Modal ───────────────────────────────────────────────────────
-function AlertKBModal({ entry, onClose }: { entry: AlertKBEntry; onClose: () => void }) {
-  const cat = entry.category || 'Other';
-  const cs = catStyle(cat);
+function ArticlesTab({ onOpen, onNew, canCreate }: { onOpen: (id: string) => void; onNew: () => void; canCreate: boolean }) {
+  const [stateKey, setStateKey] = useState('all');
+  const [audience, setAudience] = useState<ArticleAudience | ''>('');
+  const [searchInput, setSearchInput] = useState('');
+  const [q, setQ] = useState('');
+  const [page, setPage] = useState(1);
+
+  // Debounce the search box
+  useEffect(() => {
+    const t = setTimeout(() => { setQ(searchInput.trim()); setPage(1); }, 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  const states = STATE_FILTERS.find((f) => f.key === stateKey)?.states ?? [];
+  const { data, isLoading, isError, error, isFetching } = useKnowledgeArticles({ q, state: states, audience, page, limit: PAGE_SIZE });
+  const rows = data?.data ?? [];
+  const pagination = data?.pagination;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(6px)' }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-xl max-h-[85vh] overflow-y-auto rounded-2xl"
-        style={{ background: '#FFFFFF', border: '1px solid #E7E5E4', boxShadow: '0 25px 60px -12px rgba(0,0,0,0.2)' }}>
-        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #E7E5E4' }}>
-          <div>
-            <h3 className="text-[15px] font-display font-bold text-stone-900">{entry.name}</h3>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full mt-1 inline-block"
-              style={{ background: cs.bg, color: cs.text, border: `1px solid ${cs.border}` }}>{cat}</span>
-          </div>
-          <button onClick={onClose}
-            className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors">
-            <X className="w-4 h-4" />
+    <div className="space-y-3">
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div role="group" aria-label="Filter by state" className="flex flex-wrap gap-1.5">
+          {STATE_FILTERS.map((f) => (
+            <Chip key={f.key} active={stateKey === f.key} onClick={() => { setStateKey(f.key); setPage(1); }}>{f.label}</Chip>
+          ))}
+        </div>
+        <span className="w-px h-5 mx-1 hidden sm:block" style={{ background: 'rgba(99,179,255,0.12)' }} />
+        <div role="group" aria-label="Filter by audience" className="flex flex-wrap gap-1.5">
+          {AUDIENCE_FILTERS.map((f) => (
+            <Chip key={f.key || 'any'} active={audience === f.key} onClick={() => { setAudience(f.key); setPage(1); }}>{f.label}</Chip>
+          ))}
+        </div>
+        <div className="flex-1" />
+        {canCreate && (
+          <button onClick={onNew}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold"
+            style={{ background: '#6366F1', color: '#FFFFFF' }}>
+            <Plus className="w-4 h-4" /> New article
           </button>
-        </div>
-        <div className="px-5 py-5 space-y-4">
-          {entry.description && (
-            <div>
-              <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1.5">Description</p>
-              <p className="text-[13px] text-stone-700 leading-relaxed">{entry.description}</p>
-            </div>
-          )}
-          {entry.symptoms && entry.symptoms.length > 0 && (
-            <div>
-              <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1.5">Symptoms</p>
-              <ul className="space-y-1">
-                {entry.symptoms.map((s, i) => (
-                  <li key={i} className="flex items-start gap-2 text-[13px] text-stone-700">
-                    <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: '#D97706' }} />
-                    {s}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {entry.resolution && (
-            <div>
-              <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1.5">Resolution Steps</p>
-              <div className="rounded-xl p-4" style={{ background: 'rgba(16,185,129,0.04)', border: '1px solid rgba(16,185,129,0.15)' }}>
-                <p className="text-[13px] text-stone-700 leading-relaxed whitespace-pre-line">{entry.resolution}</p>
-              </div>
-            </div>
-          )}
-          {entry.remediation && (
-            <div>
-              <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1.5">Auto-Remediation Action</p>
-              <div className="rounded-xl px-4 py-3 flex items-center gap-2"
-                style={{ background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)' }}>
-                <CheckCircle2 className="w-4 h-4 shrink-0" style={{ color: '#4F46E5' }} />
-                <p className="text-[12px] font-semibold" style={{ color: '#4F46E5' }}>{entry.remediation}</p>
-              </div>
-            </div>
-          )}
-          {entry.tags && entry.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {entry.tags.map((tag, i) => (
-                <span key={i} className="text-[11px] px-2.5 py-1 rounded-full"
-                  style={{ background: '#F1F5F9', color: '#475569', border: '1px solid #E2E8F0' }}>#{tag}</span>
-              ))}
-            </div>
-          )}
-        </div>
+        )}
       </div>
+
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#8AABC4' }} />
+        <label htmlFor="kb-search" className="sr-only">Search articles</label>
+        <input id="kb-search" type="search" value={searchInput} onChange={(e) => setSearchInput(e.target.value)}
+          placeholder="Search by title, text, number or tag…"
+          className="w-full pl-9 pr-9 py-2.5 rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-[#6366F1]/40"
+          style={{ background: '#0F1B2D', border, color: '#E8F1FA' }} />
+        {searchInput && (
+          <button onClick={() => setSearchInput('')} aria-label="Clear search"
+            className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: '#8AABC4' }}>
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+
+      {/* Table */}
+      <div className="rounded-2xl overflow-x-auto" style={{ border, background: '#0B1424' }}>
+        <table className="w-full text-left text-[12px] min-w-[860px]">
+          <thead style={{ background: '#0F1B2D' }}>
+            <tr>
+              {['Number', 'Title', 'State', 'Audience', 'Version', 'Helpful', 'Views', 'Updated'].map((h) => (
+                <th key={h} scope="col" className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8AABC4' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
+              <tr><td colSpan={8} className="px-4 py-10 text-center" style={{ color: '#8AABC4' }}>
+                <Loader2 className="w-4 h-4 animate-spin inline mr-2" /> Loading articles…
+              </td></tr>
+            ) : isError ? (
+              <tr><td colSpan={8} className="px-4 py-10 text-center" style={{ color: '#FCA5A5' }}>
+                {knowledgeErrorMessage(error, 'Failed to load articles')}
+              </td></tr>
+            ) : rows.length === 0 ? (
+              <tr><td colSpan={8} className="px-4 py-12 text-center">
+                <BookOpen className="w-8 h-8 mx-auto mb-2" style={{ color: '#5A7D99' }} />
+                <p style={{ color: '#C5D8E8' }}>No articles match these filters.</p>
+                {canCreate && <p className="mt-1" style={{ color: '#8AABC4' }}>Write one with “New article”, or from a resolved incident.</p>}
+              </td></tr>
+            ) : rows.map((a) => {
+              const total = a.helpfulYes + a.helpfulNo;
+              return (
+                <tr key={a.id} onClick={() => onOpen(a.id)}
+                  className="cursor-pointer transition-colors hover:bg-[#0F1B2D]"
+                  style={{ borderTop: '1px solid rgba(99,179,255,0.08)' }}>
+                  <td className="px-4 py-3 font-mono font-semibold whitespace-nowrap" style={{ color: '#818CF8' }}>{a.number}</td>
+                  <td className="px-4 py-3 max-w-[360px]">
+                    <button type="button" onClick={(e) => { e.stopPropagation(); onOpen(a.id); }}
+                      className="text-left font-medium hover:underline truncate block max-w-full" style={{ color: '#E8F1FA' }}>
+                      {a.title}
+                    </button>
+                    {(a.category || a.tags.length > 0) && (
+                      <span className="block truncate text-[11px] mt-0.5" style={{ color: '#8AABC4' }}>
+                        {[a.category, ...a.tags.slice(0, 3).map((t) => `#${t}`)].filter(Boolean).join(' · ')}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3"><StatePill state={a.state} /></td>
+                  <td className="px-4 py-3" style={{ color: '#C5D8E8' }}>{AUDIENCE_LABEL[a.audience] ?? a.audience}</td>
+                  <td className="px-4 py-3 font-mono" style={{ color: '#C5D8E8' }}>v{a.version}</td>
+                  <td className="px-4 py-3 font-mono" style={{ color: '#C5D8E8' }}
+                    title={`${a.helpfulYes} yes / ${a.helpfulNo} no`}>
+                    {total > 0 ? `${Math.round((a.helpfulYes / total) * 100)}%` : '—'}
+                  </td>
+                  <td className="px-4 py-3 font-mono" style={{ color: '#C5D8E8' }}>{a.viewCount}</td>
+                  <td className="px-4 py-3 whitespace-nowrap" style={{ color: '#8AABC4' }}>{fmtDate(a.updatedAt)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {pagination && pagination.totalPages > 1 && (
+        <div className="flex items-center justify-between text-[12px]" style={{ color: '#8AABC4' }}>
+          <span>{pagination.total} articles{isFetching ? ' · updating…' : ''}</span>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} aria-label="Previous page"
+              className="p-1.5 rounded-lg disabled:opacity-40" style={{ border, color: '#C5D8E8' }}>
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span>Page {pagination.page} of {pagination.totalPages}</span>
+            <button onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))} disabled={page >= pagination.totalPages}
+              aria-label="Next page" className="p-1.5 rounded-lg disabled:opacity-40" style={{ border, color: '#C5D8E8' }}>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-// ── Main Component ─────────────────────────────────────────────────────────────
 export default function KnowledgeBasePage() {
-  const { user } = useAuthStore();
-  const canEdit = user?.role === 'ADMIN' || user?.role === 'MANAGER';
+  const role = useAuthStore((s) => s.user?.role);
+  const canCreate = WRITER_ROLES.includes(role ?? '');
+  const [params, setParams] = useSearchParams();
+  const [tab, setTab] = useState<Tab>('articles');
 
-  const [search, setSearch]       = useState('');
-  const [category, setCategory]   = useState('All');
-  const [tab, setTab]             = useState<'kedb' | 'alerts'>('kedb');
-  const [selectedArticle, setSelectedArticle] = useState<KBArticle | null>(null);
-  const [selectedAlertKB, setSelectedAlertKB] = useState<AlertKBEntry | null>(null);
+  // ?article=<id> opens an article; ?article=new opens a blank editor
+  const articleParam = params.get('article');
 
-  // KEDB: problems with KEDB data
-  const { data: kedbResp, isLoading: kedbLoading } = useQuery({
-    queryKey: ['kb-kedb'],
-    queryFn: async () => {
-      const { data } = await api.get('/problems?limit=100&state=KNOWN_ERROR');
-      return data;
-    },
-    staleTime: 60000,
-  });
-  const articles: KBArticle[] = (kedbResp?.data || []).filter((p: KBArticle) =>
-    p.rootCauseAnalysis || p.workaround
-  );
+  const openArticle = (id: string) => setParams({ article: id });
+  const closeArticle = () => setParams({});
 
-  // Alert KB from agentPipeline
-  const { data: alertKBResp, isLoading: alertKBLoading } = useAlertKB();
-  const alertKBRaw = alertKBResp?.data || [];
-
-  // Normalise alertKB entries
-  const alertKBEntries: AlertKBEntry[] = alertKBRaw.map((e: any) => ({
-    id: e.id || e.name,
-    name: e.name || e.alertName || 'Unknown',
-    description: e.description,
-    symptoms: e.symptoms || (e.symptom ? [e.symptom] : []),
-    resolution: e.resolution || e.steps,
-    remediation: e.remediation,
-    category: e.category || guessAlertCategory(e.name || ''),
-    tags: e.tags || [],
-  }));
-
-  function guessAlertCategory(name: string): string {
-    const n = name.toLowerCase();
-    if (n.includes('disk') || n.includes('cpu') || n.includes('mem') || n.includes('host') || n.includes('node')) return 'Infrastructure';
-    if (n.includes('kube') || n.includes('pod') || n.includes('deploy') || n.includes('container')) return 'Infrastructure';
-    if (n.includes('db') || n.includes('database') || n.includes('connection')) return 'Database';
-    if (n.includes('network') || n.includes('icmp') || n.includes('switch') || n.includes('fortigate')) return 'Network';
-    if (n.includes('ssl') || n.includes('cert') || n.includes('login') || n.includes('security')) return 'Security';
-    if (n.includes('app') || n.includes('api') || n.includes('error') || n.includes('hpa')) return 'Application';
-    return 'Other';
+  if (articleParam) {
+    return (
+      <div className="animate-fade-in">
+        <ArticleEditor
+          articleId={articleParam === 'new' ? null : articleParam}
+          onClose={closeArticle}
+          onCreated={(id) => setParams({ article: id }, { replace: true })}
+        />
+      </div>
+    );
   }
-
-  // Filter
-  const filteredArticles = articles.filter(a => {
-    const cat = guessCategory(a);
-    const matchCat = category === 'All' || cat === category;
-    const matchSearch = !search ||
-      a.title.toLowerCase().includes(search.toLowerCase()) ||
-      (a.workaround || '').toLowerCase().includes(search.toLowerCase());
-    return matchCat && matchSearch;
-  });
-
-  const filteredAlertKB = alertKBEntries.filter(e => {
-    const matchCat = category === 'All' || e.category === category;
-    const matchSearch = !search ||
-      e.name.toLowerCase().includes(search.toLowerCase()) ||
-      (e.description || '').toLowerCase().includes(search.toLowerCase());
-    return matchCat && matchSearch;
-  });
-
-  const isLoading = tab === 'kedb' ? kedbLoading : alertKBLoading;
 
   return (
     <div className="animate-fade-in">
-
-      {/* ── Hero ── */}
-      <div className="relative overflow-hidden bg-white shadow-sm border border-stone-200 rounded-2xl mx-4 mt-4">
-        <div className="absolute inset-0 opacity-[0.03]"
+      {/* Hero */}
+      <div className="relative overflow-hidden rounded-2xl mx-4 mt-4" style={{ background: '#0B1424', border }}>
+        <div className="absolute inset-0 opacity-[0.04] pointer-events-none"
           style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, #94A3B8 1px, transparent 0)', backgroundSize: '32px 32px' }} />
-        <div className="absolute top-0 right-0 w-72 h-20 pointer-events-none opacity-[0.06]"
-          style={{ background: 'radial-gradient(ellipse at 100% 0%, #4F46E5 0%, transparent 70%)' }} />
-
-        <div className="relative px-6 py-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)' }}>
-                <BookOpen className="w-5 h-5" style={{ color: '#4F46E5' }} />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className="text-[10px] font-mono tracking-widest uppercase" style={{ color: '#4F46E5' }}>Intelligence</span>
-                  <span className="text-stone-300">/</span>
-                  <span className="text-[10px] font-mono text-stone-500 tracking-widest uppercase">Knowledge Base</span>
-                </div>
-                <h1 className="text-[22px] font-display font-bold text-stone-900 tracking-tight">Knowledge Base</h1>
-                <p className="text-[12px] text-stone-500 mt-0.5">
-                  KEDB articles, alert patterns, resolution guides
-                </p>
-              </div>
-            </div>
-            {canEdit && (
-              <button
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold transition-all"
-                style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.3)', color: '#4F46E5' }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(99,102,241,0.16)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'rgba(99,102,241,0.1)')}>
-                <Plus className="w-4 h-4" />
-                Create Article
-              </button>
-            )}
+        <div className="relative px-6 py-5 flex items-center gap-4">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.35)' }}>
+            <BookOpen className="w-5 h-5" style={{ color: '#818CF8' }} />
           </div>
+          <div>
+            <div className="flex items-center gap-2 mb-0.5">
+              <span className="text-[10px] font-mono tracking-widest uppercase" style={{ color: '#818CF8' }}>Knowledge</span>
+              <span style={{ color: '#5A7D99' }}>/</span>
+              <span className="text-[10px] font-mono tracking-widest uppercase" style={{ color: '#8AABC4' }}>Knowledge Base</span>
+            </div>
+            <h1 className="text-[22px] font-display font-bold tracking-tight" style={{ color: '#E8F1FA' }}>Knowledge Base</h1>
+            <p className="text-[12px] mt-0.5" style={{ color: '#8AABC4' }}>
+              Articles for agents and the self-service portal, plus known errors and alert runbooks
+            </p>
+          </div>
+        </div>
+        <div className="h-px mx-6" style={{ background: 'linear-gradient(90deg, #6366F1, transparent)' }} />
+        <div role="tablist" aria-label="Knowledge base sections" className="relative flex gap-1 px-4">
+          {([['articles', 'Articles'], ['known-errors', 'Known errors']] as [Tab, string][]).map(([key, label]) => (
+            <button key={key} role="tab" aria-selected={tab === key} onClick={() => setTab(key)}
+              className="px-4 py-2.5 text-[13px] font-medium relative"
+              style={{ color: tab === key ? '#E8F1FA' : '#8AABC4' }}>
+              {label}
+              {tab === key && <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full" style={{ background: '#6366F1' }} />}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* ── Layout ── */}
-      <div className="flex gap-4 px-4 pt-4 pb-6">
-
-        {/* Left: category filter */}
-        <div className="w-44 shrink-0">
-          <div className="rounded-xl overflow-hidden" style={{ background: '#FFFFFF', border: '1px solid #E7E5E4' }}>
-            <div className="px-3 py-2.5" style={{ borderBottom: '1px solid #E7E5E4' }}>
-              <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest flex items-center gap-1.5">
-                <Filter className="w-3 h-3" /> Category
-              </p>
-            </div>
-            {CATEGORIES.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setCategory(cat)}
-                className="w-full text-left px-3 py-2 text-[12px] font-medium transition-colors"
-                style={
-                  category === cat
-                    ? { background: 'rgba(99,102,241,0.08)', color: '#4F46E5', borderLeft: '2px solid #4F46E5' }
-                    : { color: '#78716C', borderLeft: '2px solid transparent' }
-                }
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-
-          {/* Tab switcher */}
-          <div className="rounded-xl overflow-hidden mt-3" style={{ background: '#FFFFFF', border: '1px solid #E7E5E4' }}>
-            <div className="px-3 py-2.5" style={{ borderBottom: '1px solid #E7E5E4' }}>
-              <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Source</p>
-            </div>
-            {[
-              { key: 'kedb', label: 'KEDB (Problems)', icon: BookOpen },
-              { key: 'alerts', label: 'Alert Patterns', icon: AlertCircle },
-            ].map(t => (
-              <button
-                key={t.key}
-                onClick={() => setTab(t.key as 'kedb' | 'alerts')}
-                className="w-full text-left px-3 py-2 text-[12px] font-medium transition-colors flex items-center gap-2"
-                style={
-                  tab === t.key
-                    ? { background: 'rgba(99,102,241,0.08)', color: '#4F46E5', borderLeft: '2px solid #4F46E5' }
-                    : { color: '#78716C', borderLeft: '2px solid transparent' }
-                }
-              >
-                <t.icon className="w-3.5 h-3.5 shrink-0" />
-                {t.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Right: articles */}
-        <div className="flex-1 min-w-0">
-          {/* Search */}
-          <div className="relative mb-4">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search knowledge base…"
-              className="w-full pl-9 pr-4 py-2.5 rounded-xl text-[13px] text-stone-900 placeholder:text-stone-400 focus:outline-none"
-              style={{ background: '#FFFFFF', border: '1px solid #E7E5E4' }}
-            />
-            {search && (
-              <button onClick={() => setSearch('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600">
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-
-          {isLoading && (
-            <div className="flex items-center justify-center py-12 gap-2">
-              <div className="w-5 h-5 border border-[#4F46E5]/30 border-t-[#4F46E5] rounded-full animate-spin" />
-              <span className="text-[12px] text-stone-500 font-mono">Loading knowledge base…</span>
-            </div>
-          )}
-
-          {/* KEDB Articles */}
-          {tab === 'kedb' && !isLoading && (
-            <>
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-[11px] text-stone-500 font-mono">{filteredArticles.length} articles</span>
-              </div>
-              {filteredArticles.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 rounded-2xl"
-                  style={{ background: '#FAFAF9', border: '1px solid #E7E5E4' }}>
-                  <BookOpen className="w-10 h-10 mb-3" style={{ color: '#D6D3D1' }} />
-                  <p className="text-[13px] text-stone-500 font-mono">No KEDB articles found</p>
-                  <p className="text-[11px] text-stone-400 mt-1">Problems in KNOWN_ERROR state with RCA/workaround appear here</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 gap-3">
-                  {filteredArticles.map(a => {
-                    const cat = guessCategory(a);
-                    const cs = catStyle(cat);
-                    const snippet = rcaSnippet(a.rootCauseAnalysis);
-                    return (
-                      <button
-                        key={a.id}
-                        onClick={() => setSelectedArticle(a)}
-                        className="text-left rounded-xl p-4 transition-all group"
-                        style={{ background: '#FFFFFF', border: '1px solid #E7E5E4' }}
-                        onMouseEnter={e => (e.currentTarget.style.borderColor = cs.border)}
-                        onMouseLeave={e => (e.currentTarget.style.borderColor = '#E7E5E4')}>
-                        <div className="flex items-start gap-3">
-                          <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
-                            style={{ background: cs.bg, border: `1px solid ${cs.border}` }}>
-                            <BookOpen className="w-3.5 h-3.5" style={{ color: cs.text }} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-2">
-                              <p className="text-[13px] font-semibold text-stone-900 truncate">{a.title}</p>
-                              <ChevronRight className="w-3.5 h-3.5 shrink-0 text-stone-300 group-hover:text-stone-500 transition-colors" />
-                            </div>
-                            {snippet && (
-                              <p className="text-[11px] text-stone-500 mt-1 leading-relaxed line-clamp-2">{snippet}…</p>
-                            )}
-                            {a.workaround && !snippet && (
-                              <p className="text-[11px] text-stone-500 mt-1 line-clamp-2">{a.workaround}</p>
-                            )}
-                            <div className="flex items-center gap-2 mt-2 flex-wrap">
-                              {a.problemNumber && (
-                                <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded"
-                                  style={{ background: '#F1F5F9', color: '#64748B' }}>{a.problemNumber}</span>
-                              )}
-                              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide"
-                                style={{ background: cs.bg, color: cs.text, border: `1px solid ${cs.border}` }}>{cat}</span>
-                              {a.tags && a.tags.slice(0, 3).map((tag, i) => (
-                                <span key={i} className="flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded"
-                                  style={{ background: '#F8FAFC', color: '#94A3B8' }}>
-                                  <Tag className="w-2 h-2" />{tag}
-                                </span>
-                              ))}
-                              <span className="text-[9px] text-stone-400 font-mono ml-auto flex items-center gap-1">
-                                <Clock className="w-2.5 h-2.5" />{fmtDate(a.updatedAt)}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </>
-          )}
-
-          {/* Alert KB */}
-          {tab === 'alerts' && !isLoading && (
-            <>
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-[11px] text-stone-500 font-mono">{filteredAlertKB.length} patterns</span>
-              </div>
-              {filteredAlertKB.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 rounded-2xl"
-                  style={{ background: '#FAFAF9', border: '1px solid #E7E5E4' }}>
-                  <AlertCircle className="w-10 h-10 mb-3" style={{ color: '#D6D3D1' }} />
-                  <p className="text-[13px] text-stone-500 font-mono">No alert patterns found</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 gap-3">
-                  {filteredAlertKB.map(e => (
-                    <AlertKBCard key={e.id} entry={e} onClick={() => setSelectedAlertKB(e)} />
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-        </div>
+      <div className="px-4 pt-4 pb-6" role="tabpanel">
+        {tab === 'articles'
+          ? <ArticlesTab onOpen={openArticle} onNew={() => setParams({ article: 'new' })} canCreate={canCreate} />
+          : <KnownErrors />}
       </div>
-
-      {selectedArticle && <ArticleModal article={selectedArticle} onClose={() => setSelectedArticle(null)} />}
-      {selectedAlertKB && <AlertKBModal entry={selectedAlertKB} onClose={() => setSelectedAlertKB(null)} />}
     </div>
   );
 }

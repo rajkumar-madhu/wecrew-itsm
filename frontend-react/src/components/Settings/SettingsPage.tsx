@@ -9,6 +9,7 @@ import {
 import { useAuthStore } from '../../stores/authStore';
 import { useUpdateProfile, useChangePassword } from '../../hooks/useAuth';
 import { useOrganizations, useCreateOrganization, useUpdateOrganization } from '../../hooks/useOrganizations';
+import MfaPanel from './MfaPanel';
 
 const TIMEZONES = [
   'Asia/Kolkata', 'UTC', 'America/New_York', 'America/Chicago',
@@ -33,7 +34,7 @@ function Section({ title, description, children }: { title: string; description?
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-base font-semibold text-[#0F172A]">{title}</h2>
+        <h2 className="text-base font-semibold text-[#E8F1FA]">{title}</h2>
         {description && <p className="text-xs text-[#94A3B8] mt-0.5">{description}</p>}
       </div>
       {children}
@@ -308,51 +309,8 @@ export default function SettingsPage() {
 
               <div className="border-t border-[#F1F5F9]" />
 
-              <Section title="Two-Factor Authentication" description="Add an extra layer of security using TOTP authenticator">
-                <div className="flex items-center justify-between p-4 rounded-xl bg-[#FAFBFC] border border-[#F1F5F9]">
-                  <div className="flex items-center gap-3">
-                    <div className={clsx('w-10 h-10 rounded-xl flex items-center justify-center', user?.mfaEnabled ? 'bg-[#ECFDF5]' : 'bg-[#FEF2F2]')}>
-                      <Shield className={clsx('w-5 h-5', user?.mfaEnabled ? 'text-[#10B981]' : 'text-[#EF4444]')} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-[#0F172A]">
-                        {user?.mfaEnabled ? 'MFA is enabled' : 'MFA is disabled'}
-                      </p>
-                      <p className="text-xs text-[#94A3B8]">
-                        {user?.mfaEnabled ? 'Your account is protected with TOTP authentication' : 'Enable MFA to secure your account against unauthorized access'}
-                      </p>
-                    </div>
-                  </div>
-                  <button className={clsx('btn-primary text-sm', user?.mfaEnabled ? 'bg-[#EF4444] hover:bg-[#DC2626]' : '')}>
-                    {user?.mfaEnabled ? 'Disable MFA' : 'Enable MFA'}
-                  </button>
-                </div>
-              </Section>
-
-              <div className="border-t border-[#F1F5F9]" />
-
-              <Section title="Active Sessions" description="Manage your active login sessions">
-                <div className="space-y-2">
-                  {[
-                    { device: 'Chrome on Linux', ip: '103.231.79.231', current: true, time: 'Current session' },
-                    { device: 'Firefox on Windows', ip: '49.249.139.196', current: false, time: '2 hours ago' },
-                  ].map((s, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-[#FAFBFC] border border-[#F1F5F9]">
-                      <div className="flex items-center gap-3">
-                        <Monitor className="w-4 h-4 text-[#94A3B8]" />
-                        <div>
-                          <p className="text-sm font-medium text-[#0F172A]">
-                            {s.device} {s.current && <span className="text-[9px] font-bold px-1 py-0.5 ml-1 rounded bg-[#ECFDF5] text-[#10B981] border border-[#A7F3D0]">CURRENT</span>}
-                          </p>
-                          <p className="text-[10px] text-[#94A3B8] font-mono">{s.ip} &middot; {s.time}</p>
-                        </div>
-                      </div>
-                      {!s.current && (
-                        <button className="text-xs text-[#EF4444] hover:bg-[#FEF2F2] px-2.5 py-1 rounded-lg transition-colors font-medium">Revoke</button>
-                      )}
-                    </div>
-                  ))}
-                </div>
+              <Section title="Two-Factor Authentication" description="Protect sign-in with a code from an authenticator app">
+                <MfaPanel />
               </Section>
             </div>
           )}
