@@ -39,6 +39,13 @@ npm run build                # tsc -b && vite build → outputs to dist/
 
 ### K8s Build & Deploy
 
+**Preferred:** on the kind node, from the repo root at the commit to ship, run `./scripts/deploy.sh`
+(checks the MFA key, backs up Postgres to `~/argus-backups`, builds + pushes both images, rolls out the API,
+verifies the schema with `prisma db push` without `--accept-data-loss`, rolls out the frontend, checks
+`/health`, and prints rollback commands on failure). `--skip-build` redeploys an existing `TAG`.
+
+Manual equivalent:
+
 Live on the `wecrew` kind cluster: namespace **`linkedeye-core`**, host `https://itsm.wecrew.in`
 (API also at `https://itsm.api.wecrew.in`). Images live in Harbor project `linkedeye`
 (private — pulled with the `harbor-linkedeye-pull` Secret, a pull-only Harbor robot).
@@ -69,8 +76,9 @@ to exist first — it is gitignored; copy `secrets.example.yml` and fill in real
 # K8s production: postgres.linkedeye-core:5432 (ClusterIP 10.97.121.123)
 # These are SEPARATE databases — always update K8s postgres for production changes
 
-npx prisma migrate deploy     # Production migration (non-interactive, safe for K8s)
-# npm run prisma:migrate:prod  # Alias for the above
+# Production (K8s) schema is synced by `prisma db push` in the API container's start command
+# (k8s/overlays/kind/api-deployment.yml), not by `migrate deploy` — the prod DB has no migration
+# history. Keep prisma/migrations up to date for local/dev databases (`migrate dev`).
 ```
 
 ### Linting
