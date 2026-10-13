@@ -53,6 +53,9 @@ const razorpayWebhookRoutes = require('./routes/razorpayWebhook.routes');
 const auditRoutes = require('./routes/audit.routes');
 const chatRoutes = require('./routes/chat.routes');
 const slaRoutes = require('./routes/sla.routes');
+const { catalogRoutes, requestRoutes } = require('./routes/request.routes');
+const portalRoutes = require('./routes/portal.routes');
+const knowledgeRoutes = require('./routes/knowledge.routes');
 const publicRoutes = require('./routes/public.routes');
 
 // ── Validate Environment ────────────────────────────────
@@ -158,6 +161,10 @@ app.use('/api/v1/status', statusRoutes);  // Public — no auth
 app.use('/api/v1/audit', auditRoutes);
 app.use('/api/v1/chat', chatRoutes);
 app.use('/api/v1/sla', slaRoutes);
+app.use('/api/v1/catalog', catalogRoutes);
+app.use('/api/v1/requests', requestRoutes);
+app.use('/api/v1/portal', portalRoutes);
+app.use('/api/v1/knowledge', knowledgeRoutes);
 app.use('/api/v1/billing', billingRoutes);
 app.use('/api/v1/public', publicRoutes);  // Public — no auth (marketing site forms)
 

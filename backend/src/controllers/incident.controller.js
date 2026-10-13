@@ -13,6 +13,7 @@ const { INCIDENT_TRANSITIONS } = require('../config/constants');
 const logger = require('../utils/logger');
 const eventBus = require('../services/eventEmitter');
 const { calculateSLATargetTimesForOrg } = require('../services/slaPolicyService');
+const { pauseSLA, resumeSLA } = require('../services/slaService');
 const { getCreateOrgId, scopedWhere, isPlatformAdmin } = require('../middleware/tenant');
 
 // Ids in a request body must point at records in the SAME org as the incident
@@ -230,6 +231,12 @@ async function updateIncident(req, res, next) {
 
     emitToAll('incident:updated', { id: incident.id, number: incident.number, state: incident.state, priority: incident.priority });
     emitToIncident(incident.id, 'incident:detail-updated', incident);
+
+    // SLA clock stops while the incident is on hold (waiting on the requester or a third party)
+    if (req.body.state && req.body.state !== existing.state) {
+      if (req.body.state === 'ON_HOLD') await pauseSLA(incident.id);
+      else if (existing.state === 'ON_HOLD') await resumeSLA(incident.id);
+    }
 
     // Emit eventBus events for state changes (notifications, voice alerts, etc.)
     if (req.body.state && req.body.state !== existing.state) {

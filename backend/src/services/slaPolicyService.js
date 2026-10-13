@@ -7,6 +7,7 @@
 const { prisma } = require('../config/database');
 const { SLA_DEFAULTS, PRIORITIES } = require('../config/constants');
 const logger = require('../utils/logger');
+const { addBusinessMinutes } = require('./businessHours');
 
 const CACHE_TTL_MS = 30 * 1000;
 const cache = new Map(); // key: orgId || '__global__' → { at, defs }
@@ -57,12 +58,12 @@ async function getEffectivePolicies(organizationId) {
 }
 
 async function resolveSLATargets(priority, organizationId) {
-  const fallback = SLA_DEFAULTS[priority] || SLA_DEFAULTS.P4;
+  const fallback = { ...(SLA_DEFAULTS[priority] || SLA_DEFAULTS.P4), businessHoursOnly: false };
   try {
     const policies = await getEffectivePolicies(organizationId || null);
     const p = policies.find((x) => x.priority === priority);
     if (!p) return fallback;
-    return { response: p.responseTimeMinutes, resolution: p.resolutionTimeMinutes };
+    return { response: p.responseTimeMinutes, resolution: p.resolutionTimeMinutes, businessHoursOnly: p.businessHoursOnly };
   } catch (err) {
     // Never block incident creation on a policy lookup failure
     logger.warn(`SLA policy lookup failed, using defaults: ${err.message}`);
@@ -70,9 +71,37 @@ async function resolveSLATargets(priority, organizationId) {
   }
 }
 
+const calendarCache = new Map(); // orgId → { at, calendar|null }
+
+async function loadCalendar(organizationId) {
+  if (!organizationId) return null;
+  const hit = calendarCache.get(organizationId);
+  if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.calendar;
+  const row = await prisma.businessHours.findUnique({ where: { organizationId } });
+  const calendar = row ? { timezone: row.timezone, schedule: row.schedule, holidays: row.holidays } : null;
+  calendarCache.set(organizationId, { at: Date.now(), calendar });
+  return calendar;
+}
+
+function invalidateCalendar(organizationId) {
+  calendarCache.delete(organizationId);
+}
+
 async function calculateSLATargetTimesForOrg(priority, createdAt, organizationId) {
   const sla = await resolveSLATargets(priority, organizationId);
   const base = new Date(createdAt);
+  if (sla.businessHoursOnly) {
+    try {
+      // No org calendar yet → Mon–Fri 09:00–18:00 in the platform default timezone
+      const calendar = (await loadCalendar(organizationId)) || { timezone: 'Asia/Kolkata' };
+      return {
+        slaTargetResponse: addBusinessMinutes(base, sla.response, calendar),
+        slaTargetResolution: addBusinessMinutes(base, sla.resolution, calendar),
+      };
+    } catch (err) {
+      logger.warn(`Business-hours SLA calculation failed, using wall clock: ${err.message}`);
+    }
+  }
   return {
     slaTargetResponse: new Date(base.getTime() + sla.response * 60000),
     slaTargetResolution: new Date(base.getTime() + sla.resolution * 60000),
@@ -112,4 +141,6 @@ module.exports = {
   upsertPolicy,
   resetPolicy,
   invalidate,
+  loadCalendar,
+  invalidateCalendar,
 };

@@ -23,6 +23,7 @@ enum Role {
   ENGINEER
   OPERATOR
   VIEWER
+  REQUESTER // end user: self-service portal only
 }
 
 enum UserStatus {
@@ -76,6 +77,7 @@ enum IncidentSource {
   EMAIL
   VOICE
   SLACK
+  PORTAL
 }
 
 enum ChangeType {
@@ -309,6 +311,11 @@ model Organization {
   voiceCallLogs      VoiceCallLog[]
   slackIntegrations  SlackIntegration[]
   subscription       Subscription?
+  catalogItems       ServiceCatalogItem[]
+  serviceRequests    ServiceRequest[]
+  knowledgeArticles  KnowledgeArticle[]
+  ciRelationships    CIRelationship[]
+  businessHours      BusinessHours?
 
   @@index([slug])
   @@index([isActive])
@@ -368,6 +375,12 @@ model User {
   linkedIncidentChanges  IncidentChange[]
   linkedIncidentProblems IncidentProblem[]
   chatMessages           ChatMessage[]
+  requestedRequests      ServiceRequest[]     @relation("RequestRequester")
+  assignedRequests       ServiceRequest[]     @relation("RequestAssignee")
+  requestApprovals       RequestApproval[]
+  requestComments        RequestComment[]
+  authoredArticles       KnowledgeArticle[]   @relation("ArticleAuthor")
+  articleFeedback        ArticleFeedback[]
 
   @@index([email])
   @@index([role])
@@ -403,16 +416,19 @@ model Team {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  organization       Organization?       @relation(fields: [organizationId], references: [id])
-  manager            User?               @relation("TeamManager", fields: [managerId], references: [id])
+  organization       Organization?        @relation(fields: [organizationId], references: [id])
+  manager            User?                @relation("TeamManager", fields: [managerId], references: [id])
   members            TeamMember[]
   assignedIncidents  Incident[]
   assignedChanges    Change[]
   assignedProblems   Problem[]
-  supportedCIs       ConfigurationItem[] @relation("CISupportGroup")
+  supportedCIs       ConfigurationItem[]  @relation("CISupportGroup")
   escalationPolicies EscalationPolicy[]
   onCallSchedules    OnCallSchedule[]
   chatMessages       ChatMessage[]
+  approvingCatalog   ServiceCatalogItem[] @relation("CatalogApproverTeam")
+  fulfillingCatalog  ServiceCatalogItem[] @relation("CatalogFulfillmentTeam")
+  fulfillingRequests ServiceRequest[]
 
   @@unique([name, organizationId])
   @@index([name])
@@ -481,6 +497,9 @@ model Incident {
   resolutionNotes     String?
   escalationLevel     Int            @default(0)
   lastEscalatedAt     DateTime?
+  csatScore           Int? // 1-5, from the person who raised it
+  csatComment         String?
+  csatAt              DateTime?
   organizationId      String?
   createdAt           DateTime       @default(now())
   updatedAt           DateTime       @updatedAt
@@ -669,13 +688,15 @@ model ConfigurationItem {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  organization Organization? @relation(fields: [organizationId], references: [id])
-  owner        User?         @relation("CIOwner", fields: [ownerId], references: [id])
-  supportGroup Team?         @relation("CISupportGroup", fields: [supportGroupId], references: [id])
-  incidents    Incident[]
-  changes      ChangeCI[]
-  alerts       Alert[]
-  activities   Activity[]
+  organization    Organization?    @relation(fields: [organizationId], references: [id])
+  owner           User?            @relation("CIOwner", fields: [ownerId], references: [id])
+  supportGroup    Team?            @relation("CISupportGroup", fields: [supportGroupId], references: [id])
+  incidents       Incident[]
+  changes         ChangeCI[]
+  alerts          Alert[]
+  activities      Activity[]
+  parentRelations CIRelationship[] @relation("CIRelParent")
+  childRelations  CIRelationship[] @relation("CIRelChild")
 
   @@index([type])
   @@index([status])
@@ -1207,4 +1228,199 @@ model PasswordResetToken {
   createdAt DateTime  @default(now())
 
   @@index([userId])
+}
+
+// ═══════════════════════════════════════════════════════════
+// Service requests, knowledge, CMDB relationships, business hours
+// ═══════════════════════════════════════════════════════════
+
+enum RequestState {
+  SUBMITTED
+  PENDING_APPROVAL
+  APPROVED
+  IN_FULFILLMENT
+  FULFILLED
+  REJECTED
+  CANCELLED
+}
+
+enum ArticleState {
+  DRAFT
+  IN_REVIEW
+  PUBLISHED
+  RETIRED
+}
+
+enum ArticleAudience {
+  INTERNAL // agents only
+  PORTAL // also visible to requesters
+}
+
+enum CIRelationType {
+  DEPENDS_ON
+  RUNS_ON
+  HOSTS
+  CONNECTS_TO
+  PART_OF
+}
+
+model ServiceCatalogItem {
+  id                String   @id @default(uuid())
+  name              String
+  description       String?
+  category          String?
+  // [{ key, label, type: text|textarea|select|number|date, required, options[] }]
+  formSchema        Json     @default("[]")
+  requiresApproval  Boolean  @default(false)
+  approverTeamId    String? // team LEADs approve; none = the org's admins and managers
+  fulfillmentTeamId String?
+  fulfillmentHours  Int? // target hours from approval to fulfilment
+  isActive          Boolean  @default(true)
+  organizationId    String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  organization    Organization?    @relation(fields: [organizationId], references: [id])
+  approverTeam    Team?            @relation("CatalogApproverTeam", fields: [approverTeamId], references: [id])
+  fulfillmentTeam Team?            @relation("CatalogFulfillmentTeam", fields: [fulfillmentTeamId], references: [id])
+  requests        ServiceRequest[]
+
+  @@index([organizationId, isActive])
+}
+
+model ServiceRequest {
+  id                String       @id @default(uuid())
+  number            String       @unique // REQ0000001
+  catalogItemId     String
+  title             String
+  description       String?
+  formData          Json         @default("{}")
+  state             RequestState @default(SUBMITTED)
+  requestedById     String
+  assignedToId      String?
+  fulfillmentTeamId String?
+  dueAt             DateTime?
+  approvedAt        DateTime?
+  fulfilledAt       DateTime?
+  closedAt          DateTime?
+  resolutionNotes   String?
+  csatScore         Int?
+  csatComment       String?
+  csatAt            DateTime?
+  organizationId    String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  catalogItem     ServiceCatalogItem @relation(fields: [catalogItemId], references: [id])
+  requestedBy     User               @relation("RequestRequester", fields: [requestedById], references: [id])
+  assignedTo      User?              @relation("RequestAssignee", fields: [assignedToId], references: [id])
+  fulfillmentTeam Team?              @relation(fields: [fulfillmentTeamId], references: [id])
+  organization    Organization?      @relation(fields: [organizationId], references: [id])
+  approvals       RequestApproval[]
+  comments        RequestComment[]
+
+  @@index([organizationId, state])
+  @@index([requestedById])
+  @@index([assignedToId])
+}
+
+model RequestApproval {
+  id         String        @id @default(uuid())
+  requestId  String
+  approverId String
+  state      ApprovalState @default(PENDING)
+  comments   String?
+  decidedAt  DateTime?
+  createdAt  DateTime      @default(now())
+
+  request  ServiceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  approver User           @relation(fields: [approverId], references: [id])
+
+  @@unique([requestId, approverId])
+  @@index([approverId, state])
+}
+
+model RequestComment {
+  id         String   @id @default(uuid())
+  requestId  String
+  authorId   String
+  body       String
+  isInternal Boolean  @default(false) // hidden from the requester
+  createdAt  DateTime @default(now())
+
+  request ServiceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  author  User           @relation(fields: [authorId], references: [id])
+
+  @@index([requestId])
+}
+
+model KnowledgeArticle {
+  id               String          @id @default(uuid())
+  number           String          @unique // KB0000001
+  title            String
+  body             String // markdown
+  category         String?
+  tags             String[]
+  state            ArticleState    @default(DRAFT)
+  audience         ArticleAudience @default(INTERNAL)
+  version          Int             @default(1)
+  authorId         String
+  reviewedById     String?
+  publishedAt      DateTime?
+  helpfulYes       Int             @default(0)
+  helpfulNo        Int             @default(0)
+  viewCount        Int             @default(0)
+  sourceIncidentId String?
+  organizationId   String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  author       User              @relation("ArticleAuthor", fields: [authorId], references: [id])
+  organization Organization?     @relation(fields: [organizationId], references: [id])
+  feedback     ArticleFeedback[]
+
+  @@index([organizationId, state])
+}
+
+model ArticleFeedback {
+  id        String   @id @default(uuid())
+  articleId String
+  userId    String
+  helpful   Boolean
+  createdAt DateTime @default(now())
+
+  article KnowledgeArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([articleId, userId])
+}
+
+model CIRelationship {
+  id             String         @id @default(uuid())
+  parentId       String
+  childId        String
+  type           CIRelationType
+  organizationId String?
+  createdAt      DateTime       @default(now())
+
+  parent       ConfigurationItem @relation("CIRelParent", fields: [parentId], references: [id], onDelete: Cascade)
+  child        ConfigurationItem @relation("CIRelChild", fields: [childId], references: [id], onDelete: Cascade)
+  organization Organization?     @relation(fields: [organizationId], references: [id])
+
+  @@unique([parentId, childId, type])
+  @@index([childId])
+  @@index([organizationId])
+}
+
+model BusinessHours {
+  id             String   @id @default(uuid())
+  organizationId String   @unique
+  timezone       String   @default("Asia/Kolkata")
+  // { "1": ["09:00","18:00"], ... } keyed by ISO weekday 1=Mon..7=Sun; a missing day is closed
+  schedule       Json
+  holidays       String[] // YYYY-MM-DD in the org's timezone
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 }

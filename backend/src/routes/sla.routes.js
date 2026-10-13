@@ -12,6 +12,8 @@ const router = Router();
 router.use(authenticate);
 
 router.get('/', ctrl.listPolicies);
+router.get('/business-hours', ctrl.getBusinessHours);
+router.put('/business-hours', authorize('ADMIN', 'MANAGER'), auditLog('BusinessHours'), ctrl.updateBusinessHours);
 router.put('/:priority', authorize('ADMIN', 'MANAGER'), auditLog('SLADefinition'), ctrl.updatePolicy);
 router.delete('/:priority', authorize('ADMIN', 'MANAGER'), auditLog('SLADefinition'), ctrl.resetPolicy);
 

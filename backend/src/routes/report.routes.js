@@ -4,7 +4,7 @@
 
 const { Router } = require('express');
 const { authenticate, authorize } = require('../middleware/auth');
-const { incidentReport, changeReport, teamPerformanceReport, executiveSummary, incidentTrend } = require('../controllers/report.controller');
+const { incidentReport, changeReport, teamPerformanceReport, executiveSummary, incidentTrend, csatReport } = require('../controllers/report.controller');
 
 const router = Router();
 
@@ -15,5 +15,6 @@ router.get('/incident-trend', incidentTrend);
 router.get('/changes', changeReport);
 router.get('/team-performance', authorize('ADMIN', 'MANAGER'), teamPerformanceReport);
 router.get('/executive-summary', executiveSummary);
+router.get('/csat', csatReport);
 
 module.exports = router;

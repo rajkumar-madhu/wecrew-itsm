@@ -57,7 +57,7 @@ const PROBLEM_TRANSITIONS = {
   CLOSED:           [],
 };
 
-const ROLES = ['ADMIN', 'MANAGER', 'ENGINEER', 'OPERATOR', 'VIEWER'];
+const ROLES = ['ADMIN', 'MANAGER', 'ENGINEER', 'OPERATOR', 'VIEWER', 'REQUESTER'];
 
 const PERMISSIONS = {
   ADMIN:    { incidents: 'crud', changes: 'crud', problems: 'crud', assets: 'crud', alerts: 'crud', teams: 'crud', integrations: 'crud', users: 'crud', reports: 'read' },
@@ -65,6 +65,19 @@ const PERMISSIONS = {
   ENGINEER: { incidents: 'cru', changes: 'cru', problems: 'cru', assets: 'cru', alerts: 'cru', teams: 'read', integrations: 'read', users: 'read', reports: 'read' },
   OPERATOR: { incidents: 'cru', changes: 'read', problems: 'read', assets: 'read', alerts: 'cru', teams: 'read', integrations: 'read', users: 'read', reports: 'read' },
   VIEWER:   { incidents: 'read', changes: 'read', problems: 'read', assets: 'read', alerts: 'read', teams: 'read', integrations: 'read', users: 'read', reports: 'read' },
+};
+
+// Roles that work tickets (everyone except portal-only requesters)
+const AGENT_ROLES = ['ADMIN', 'MANAGER', 'ENGINEER', 'OPERATOR', 'VIEWER'];
+
+const REQUEST_TRANSITIONS = {
+  SUBMITTED:        ['PENDING_APPROVAL', 'APPROVED', 'IN_FULFILLMENT', 'REJECTED', 'CANCELLED'],
+  PENDING_APPROVAL: ['APPROVED', 'REJECTED', 'CANCELLED'],
+  APPROVED:         ['IN_FULFILLMENT', 'FULFILLED', 'CANCELLED'],
+  IN_FULFILLMENT:   ['FULFILLED', 'CANCELLED'],
+  FULFILLED:        [],
+  REJECTED:         [],
+  CANCELLED:        [],
 };
 
 const ALLOWED_FILE_TYPES = [
@@ -84,5 +97,5 @@ module.exports = {
   INCIDENT_STATES, CHANGE_STATES, PROBLEM_STATES,
   PRIORITIES, IMPACTS, URGENCIES, PRIORITY_MATRIX, SLA_DEFAULTS,
   INCIDENT_TRANSITIONS, CHANGE_TRANSITIONS, PROBLEM_TRANSITIONS,
-  ROLES, PERMISSIONS, ALLOWED_FILE_TYPES, MAX_FILE_SIZE, PAGINATION,
+  ROLES, AGENT_ROLES, REQUEST_TRANSITIONS, PERMISSIONS, ALLOWED_FILE_TYPES, MAX_FILE_SIZE, PAGINATION,
 };

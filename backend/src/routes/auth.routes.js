@@ -43,7 +43,7 @@ router.post('/register', authenticate, authorize('ADMIN'), enforceSeatLimit, [
   body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
   body('firstName').trim().notEmpty(),
   body('lastName').trim().notEmpty(),
-  body('role').optional().isIn(['ADMIN', 'MANAGER', 'ENGINEER', 'OPERATOR', 'VIEWER']),
+  body('role').optional().isIn(['ADMIN', 'MANAGER', 'ENGINEER', 'OPERATOR', 'VIEWER', 'REQUESTER']),
   validate,
 ], ctrl.register);
 

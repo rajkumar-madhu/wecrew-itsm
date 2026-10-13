@@ -7,6 +7,8 @@ const { PRIORITIES } = require('../config/constants');
 const slaPolicy = require('../services/slaPolicyService');
 const logger = require('../utils/logger');
 const { isPlatformAdmin } = require('../middleware/tenant');
+const { prisma } = require('../config/database');
+const { validateSchedule, isValidTimeZone, DEFAULT_SCHEDULE } = require('../services/businessHours');
 
 const MAX_MINUTES = 60 * 24 * 90; // 90 days
 
@@ -81,4 +83,43 @@ async function resetPolicy(req, res) {
   }
 }
 
-module.exports = { listPolicies, updatePolicy, resetPolicy };
+// GET /api/v1/sla/business-hours — the org's working calendar (or the default)
+async function getBusinessHours(req, res) {
+  try {
+    if (!req.organizationId) return error(res, 'Select an organization to see its business hours', 400);
+    const row = await prisma.businessHours.findUnique({ where: { organizationId: req.organizationId } });
+    return success(res, row
+      ? { configured: true, timezone: row.timezone, schedule: row.schedule, holidays: row.holidays }
+      : { configured: false, timezone: 'Asia/Kolkata', schedule: DEFAULT_SCHEDULE, holidays: [] });
+  } catch (err) {
+    logger.error('getBusinessHours failed:', err);
+    return error(res, 'Failed to load business hours', 500);
+  }
+}
+
+// PUT /api/v1/sla/business-hours
+async function updateBusinessHours(req, res) {
+  try {
+    if (!req.organizationId) return error(res, 'Select an organization before changing business hours', 400);
+    const { timezone, schedule, holidays = [] } = req.body;
+    if (!timezone || !isValidTimeZone(timezone)) return error(res, 'timezone must be an IANA name such as Asia/Kolkata', 400);
+    const scheduleErr = validateSchedule(schedule);
+    if (scheduleErr) return error(res, scheduleErr, 400);
+    if (!Array.isArray(holidays) || holidays.length > 366 || holidays.some((d) => !/^\d{4}-\d{2}-\d{2}$/.test(d))) {
+      return error(res, 'holidays must be a list of YYYY-MM-DD dates', 400);
+    }
+    const data = { timezone, schedule, holidays: [...new Set(holidays)].sort() };
+    const row = await prisma.businessHours.upsert({
+      where: { organizationId: req.organizationId },
+      create: { ...data, organizationId: req.organizationId },
+      update: data,
+    });
+    slaPolicy.invalidateCalendar(req.organizationId);
+    return success(res, { configured: true, timezone: row.timezone, schedule: row.schedule, holidays: row.holidays });
+  } catch (err) {
+    logger.error('updateBusinessHours failed:', err);
+    return error(res, 'Failed to save business hours', 500);
+  }
+}
+
+module.exports = { listPolicies, updatePolicy, resetPolicy, getBusinessHours, updateBusinessHours };
