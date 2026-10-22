@@ -11,7 +11,7 @@ const mockPrisma = {
 jest.mock('../database', () => ({ prisma: mockPrisma }));
 
 const { emitToAll, _internal } = require('../socket');
-const { canJoinTeam, canJoinIncident, resolveEventOrg, setIO } = _internal;
+const { canJoinTeam, canJoinIncident, resolveEventOrg, roomsFor, setIO } = _internal;
 
 const ORG_ENGINEER = { id: 'u1', role: 'ENGINEER', organizationId: 'acme', isPlatformAdmin: false };
 const ORG_ADMIN = { id: 'u2', role: 'ADMIN', organizationId: 'acme', isPlatformAdmin: false };
@@ -37,6 +37,21 @@ describe('canJoinTeam', () => {
   it('rejects non-string ids without querying', async () => {
     expect(await canJoinTeam(ORG_ADMIN, { $ne: null })).toBe(false);
     expect(mockPrisma.team.findUnique).not.toHaveBeenCalled();
+  });
+});
+
+describe('requesters', () => {
+  const REQUESTER = { id: 'r1', role: 'REQUESTER', organizationId: 'acme', isPlatformAdmin: false };
+  it('join only their own user room, not the org broadcast room', () => {
+    expect(roomsFor(REQUESTER)).toEqual(['user:r1']);
+    expect(roomsFor(ORG_ENGINEER)).toEqual(['user:u1', 'org:acme']);
+    expect(roomsFor(PLATFORM)).toEqual(['user:p', 'org:wecrew', 'platform']);
+  });
+  it('cannot join team or incident rooms of their own org', async () => {
+    mockPrisma.team.findUnique.mockResolvedValue({ organizationId: 'acme', members: [{ userId: 'r1' }] });
+    mockPrisma.incident.findUnique.mockResolvedValue({ organizationId: 'acme' });
+    expect(await canJoinTeam(REQUESTER, 't1')).toBe(false);
+    expect(await canJoinIncident(REQUESTER, 'i1')).toBe(false);
   });
 });
 

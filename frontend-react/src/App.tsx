@@ -3,6 +3,7 @@ import { Suspense, lazy, useEffect } from 'react';
 import Layout from './components/Layout/Layout';
 import LoginPage from './components/Auth/LoginPage';
 const SignupPage = lazy(() => import('./components/Auth/SignupPage'));
+const SsoCallback = lazy(() => import('./components/Auth/SsoCallback'));
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 import { useAuthStore } from './stores/authStore';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -98,6 +99,7 @@ export default function App() {
       {/* Public routes */}
       <Route path="/" element={<HomeRoute />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/sso/callback" element={<Suspense fallback={<div style={{ background: '#F8FAFC', minHeight: '100vh' }} />}><SsoCallback /></Suspense>} />
       <Route path="/signup" element={<Suspense fallback={<div style={{ background: '#fff', minHeight: '100vh' }} />}><SignupPage /></Suspense>} />
       <Route path="/docs" element={<Suspense fallback={<div style={{ background: '#0F172A', minHeight: '100vh' }} />}><DeveloperDocs /></Suspense>} />
       <Route path="/status/:orgSlug" element={<Suspense fallback={<div style={{ background: '#030711', minHeight: '100vh' }} />}><StatusPage /></Suspense>} />

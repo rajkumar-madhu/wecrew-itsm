@@ -13,16 +13,64 @@ const { startTrial } = require('../services/billing.service');
 const { config } = require('../config/env');
 const passwordReset = require('../services/passwordReset.service');
 const mfa = require('../services/mfa.service');
+const { emailDomain } = require('../services/sso.service');
 
 const SALT_ROUNDS = 12;
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_DURATION = 15 * 60 * 1000; // 15 min
 
+async function ssoEnforcedFor(email) {
+  const domain = emailDomain(email);
+  if (!domain) return false;
+  const cfg = await prisma.ssoConfig.findFirst({ where: { enabled: true, enforce: true, domains: { has: domain } }, select: { id: true } });
+  return !!cfg;
+}
+
+// Issue tokens, record the session, set the refresh cookie and clear any
+// lockout. Shared by password login and SSO.
+async function startSession(req, res, user, extra = {}) {
+  const accessToken = generateAccessToken(user);
+  const refreshToken = generateRefreshToken(user);
+
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  await prisma.session.create({
+    data: {
+      token: accessToken, refreshToken, userId: user.id,
+      userAgent: req.get('user-agent'), ipAddress: req.ip, expiresAt,
+    },
+  });
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { lastLogin: new Date(), loginAttempts: 0, lockedUntil: null, status: 'ACTIVE', ...extra },
+  });
+
+  res.cookie('refreshToken', refreshToken, {
+    httpOnly: true, secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict', maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+
+  let organization = null;
+  if (user.organizationId) {
+    organization = await prisma.organization.findUnique({
+      where: { id: user.organizationId },
+      select: { id: true, name: true, slug: true, environment: true, fqdn: true },
+    });
+  }
+  return { accessToken, refreshToken, organization };
+}
+
 // POST /api/v1/auth/login
 async function login(req, res, next) {
   try {
     const { email, password } = req.body;
+    // An organization that enforces SSO has no password sign-in for its domains
+    // (checked by domain first, so the answer doesn't reveal whether the account exists).
+    const enforced = await ssoEnforcedFor(email);
     const user = await prisma.user.findUnique({ where: { email } });
+    if (enforced && !user?.isPlatformAdmin) {
+      return error(res, 'Your organization signs in with single sign-on', 403, { sso: true });
+    }
     if (!user) return error(res, 'Invalid credentials', 401);
 
     if (user.lockedUntil && user.lockedUntil > new Date()) {
@@ -84,36 +132,7 @@ async function login(req, res, next) {
       }
     }
 
-    const accessToken = generateAccessToken(user);
-    const refreshToken = generateRefreshToken(user);
-
-    // Create session
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    await prisma.session.create({
-      data: {
-        token: accessToken, refreshToken, userId: user.id,
-        userAgent: req.get('user-agent'), ipAddress: req.ip, expiresAt,
-      },
-    });
-
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { lastLogin: new Date(), loginAttempts: 0, lockedUntil: null, status: 'ACTIVE' },
-    });
-
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true, secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict', maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
-    // Fetch organization info if user belongs to one
-    let organization = null;
-    if (user.organizationId) {
-      organization = await prisma.organization.findUnique({
-        where: { id: user.organizationId },
-        select: { id: true, name: true, slug: true, environment: true, fqdn: true },
-      });
-    }
+    const { accessToken, refreshToken, organization } = await startSession(req, res, user);
 
     logger.info(`User logged in: ${user.email} (org: ${organization?.slug || 'none'})`);
     return success(res, {
@@ -407,6 +426,7 @@ async function mfaDisable(req, res, next) {
 }
 
 module.exports = {
+  startSession,
   login, signup, register, refresh, logout, getProfile, updateProfile, changePassword, listUsers,
   forgotPassword, resetPassword, mfaSetup, mfaEnable, mfaDisable,
 };

@@ -211,7 +211,7 @@ Automated incident response: Detect → Triage → Enrich → Act (SSH) → Noti
 - Integrated into `webhook.controller.js`: `processAlert()` called async after alert creation
 - Only CRITICAL/WARNING severity alerts auto-create incidents (INFO → alert only)
 
-## SLA Policies & MFA
+## SLA Policies, MFA & SSO
 
 - SLA targets come from `SLADefinition` rows via `services/slaPolicyService.js`: org policy → platform policy
   (`organizationId: null`) → `SLA_DEFAULTS`. Every incident creator uses `calculateSLATargetTimesForOrg()`.
@@ -219,6 +219,14 @@ Automated incident response: Detect → Triage → Enrich → Act (SSH) → Noti
 - TOTP MFA: `services/mfa.service.js` (speakeasy; secrets AES-256-GCM encrypted with `MFA_ENCRYPTION_KEY`,
   falling back to `JWT_SECRET`). Login returns `{ mfaRequired: true }` until the client re-posts with `mfaCode`.
   Enrol via `POST /auth/mfa/setup` → `/auth/mfa/enable`; `/auth/mfa/disable` needs password + code.
+- OIDC SSO: one `SsoConfig` per org (issuer, client id, AES-encrypted secret, email `domains`, `defaultRole`,
+  `autoProvision`, `enforce`). `services/sso.service.js` (discovery, PKCE, id_token verification, SSRF guard:
+  issuers must be public HTTPS unless `SSO_ALLOW_PRIVATE_ISSUERS=true`) + `controllers/sso.controller.js`.
+  Flow: `POST /auth/sso/discover` → `GET /auth/sso/start` → IdP → `GET /auth/sso/callback` (sets the refresh
+  cookie, redirects to `/sso/callback`; the SPA calls `/auth/refresh`). Tokens never appear in URLs. The IdP can
+  sign in only its own org's users, never platform admins; a domain belongs to one org. `enforce` makes password
+  login return 403 `{details:{sso:true}}`. Admin UI: Settings → Security → Single Sign-On.
+- Socket.IO rooms: `user:<id>`, `org:<id>` (not for REQUESTER), `platform`. `emitToAll` is org-scoped.
 
 ## Service Desk: Requests, Portal, Knowledge, CMDB
 
