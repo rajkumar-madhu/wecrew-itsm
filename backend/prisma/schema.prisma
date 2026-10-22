@@ -316,6 +316,7 @@ model Organization {
   knowledgeArticles  KnowledgeArticle[]
   ciRelationships    CIRelationship[]
   businessHours      BusinessHours?
+  ssoConfig          SsoConfig?
 
   @@index([slug])
   @@index([isActive])
@@ -1419,6 +1420,28 @@ model BusinessHours {
   // { "1": ["09:00","18:00"], ... } keyed by ISO weekday 1=Mon..7=Sun; a missing day is closed
   schedule       Json
   holidays       String[] // YYYY-MM-DD in the org's timezone
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+// ─── SINGLE SIGN-ON ───────────────────────────────────────
+
+// One OpenID Connect identity provider per organization. Users whose email
+// domain is listed sign in through it; `enforce` turns password login off for
+// them (platform admins excepted). clientSecret is AES-256-GCM encrypted.
+model SsoConfig {
+  id             String   @id @default(uuid())
+  organizationId String   @unique
+  enabled        Boolean  @default(false)
+  issuer         String
+  clientId       String
+  clientSecret   String
+  domains        String[]
+  defaultRole    Role     @default(REQUESTER)
+  autoProvision  Boolean  @default(true)
+  enforce        Boolean  @default(false)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

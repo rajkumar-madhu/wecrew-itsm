@@ -1,11 +1,29 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import {
   Eye, EyeOff, Shield, Zap, ArrowRight, Activity,
-  Server, Bell, Brain, Lock, ChevronRight,
-  CheckCircle2, Globe, Layers, BarChart3,
+  Bell, Brain, Lock, ChevronRight,
+  CheckCircle2, Globe,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
+import api from '../../lib/api';
+
+// Reasons the API's SSO callback sends back as ?sso_error=
+const SSO_ERRORS: Record<string, string> = {
+  not_configured: "Your organization hasn't set up single sign-on for this address.",
+  expired: 'The sign-in took too long. Please try again.',
+  state_mismatch: 'The sign-in could not be verified. Please try again.',
+  idp_error: 'Your identity provider declined the sign-in.',
+  domain_not_allowed: "That account's email domain isn't enabled for single sign-on.",
+  email_unverified: 'Your identity provider has not verified your email address.',
+  wrong_organization: 'This account belongs to a different organization.',
+  use_password: 'Platform administrators sign in with a password.',
+  inactive: 'Your account has been deactivated. Contact your administrator.',
+  identity_mismatch: 'This email is linked to a different identity. Contact your administrator.',
+  not_provisioned: "You don't have an account yet. Ask your administrator to add you.",
+  seat_limit: 'Your organization has no free seats. Contact your administrator.',
+};
+const ssoErrorText = (code: string) => SSO_ERRORS[code] || 'Single sign-on failed. Please try again or contact your administrator.';
 
 // ══════════════════════════════════════════════════════════════
 // Feature bullet for left panel
@@ -56,6 +74,23 @@ export default function LoginPage() {
   const [shake, setShake] = useState(false);
   const [mfaStep, setMfaStep] = useState(false);
   const [mfaCode, setMfaCode] = useState('');
+  const [ssoMode, setSsoMode] = useState(false);
+  const [searchParams] = useSearchParams();
+  const ssoError = searchParams.get('sso_error');
+
+  useEffect(() => {
+    if (ssoError) { setError(ssoErrorText(ssoError)); setSsoMode(true); }
+  }, [ssoError]);
+
+  // Ask the API whether this address signs in through an identity provider, and go there
+  async function startSso(address: string): Promise<boolean> {
+    const { data } = await api.post('/auth/sso/discover', { email: address });
+    if (data?.data?.sso && data.data.startUrl) {
+      window.location.assign(data.data.startUrl);
+      return true;
+    }
+    return false;
+  }
 
   useEffect(() => {
     if (isAuthenticated) navigate('/', { replace: true });
@@ -63,6 +98,20 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (ssoMode) {
+      if (!/^\S+@\S+\.\S+$/.test(email)) { setError('Enter your work email address'); return; }
+      setLoading(true);
+      setError('');
+      try {
+        if (!(await startSso(email))) setError(ssoErrorText('not_configured'));
+      } catch (err) {
+        const apiMessage = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+        setError(apiMessage || 'Could not reach the sign-in service. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
     if (!email || !password) { setError('Enter your email and password to continue'); setShake(true); setTimeout(() => setShake(false), 500); return; }
     if (mfaStep && !/^\d{6}$/.test(mfaCode)) { setError('Enter the 6-digit code from your authenticator app'); return; }
     setLoading(true);
@@ -72,6 +121,10 @@ export default function LoginPage() {
       if (mfaRequired) { setMfaStep(true); return; }
       navigate('/');
     } catch (err: any) {
+      // This address must use the organization's identity provider
+      if (err?.sso) {
+        try { if (await startSso(email)) return; } catch { /* fall through to the message */ }
+      }
       setError(err?.message || 'Invalid credentials. Please try again.');
       setShake(true);
       setTimeout(() => setShake(false), 500);
@@ -199,21 +252,28 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* SSO Button */}
-          <button className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 hover:border-stone-300 transition-all text-[13px] font-medium text-stone-700 shadow-sm mb-5 group">
+          {/* SSO */}
+          {!mfaStep && (<>
+          <button
+            type="button"
+            onClick={() => { setSsoMode((v) => !v); setError(''); }}
+            aria-pressed={ssoMode}
+            className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 hover:border-stone-300 transition-all text-[13px] font-medium text-stone-700 shadow-sm mb-5 group"
+          >
             <div className="w-5 h-5 rounded-md bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center">
               <Zap size={11} className="text-white" />
             </div>
-            Sign in with Keycloak SSO
+            {ssoMode ? 'Sign in with email and password' : 'Sign in with single sign-on (SSO)'}
             <ChevronRight size={13} className="text-stone-300 group-hover:text-stone-500 group-hover:translate-x-0.5 transition-all ml-auto" />
           </button>
 
           {/* Divider */}
           <div className="flex items-center gap-3 mb-5">
             <div className="flex-1 h-px bg-stone-200" />
-            <span className="text-[10px] font-mono text-stone-300 uppercase tracking-wider">or continue with email</span>
+            <span className="text-[10px] font-mono text-stone-500 uppercase tracking-wider">{ssoMode ? 'single sign-on' : 'or continue with email'}</span>
             <div className="flex-1 h-px bg-stone-200" />
           </div>
+          </>)}
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -242,8 +302,9 @@ export default function LoginPage() {
             ) : (<>
             {/* Email */}
             <div>
-              <label className="block text-[11px] font-semibold text-stone-500 uppercase tracking-wider mb-1.5">Email address</label>
+              <label htmlFor="login-email" className="block text-[11px] font-semibold text-stone-500 uppercase tracking-wider mb-1.5">{ssoMode ? 'Work email' : 'Email address'}</label>
               <input
+                id="login-email"
                 type="email"
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); setError(''); }}
@@ -255,6 +316,7 @@ export default function LoginPage() {
             </div>
 
             {/* Password */}
+            {!ssoMode && (
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-[11px] font-semibold text-stone-500 uppercase tracking-wider">Password</label>
@@ -281,10 +343,15 @@ export default function LoginPage() {
                 </button>
               </div>
             </div>
+            )}
+            {ssoMode && (
+              <p className="text-[12px] text-stone-600">We'll send you to your organization's sign-in page.</p>
+            )}
 
             </>)}
 
             {/* Remember me */}
+            {!ssoMode && (
             <label className="flex items-center gap-2.5 cursor-pointer group">
               <div className="relative">
                 <input
@@ -301,6 +368,7 @@ export default function LoginPage() {
               </div>
               <span className="text-[12px] text-stone-500 group-hover:text-stone-700 transition-colors">Keep me signed in for 30 days</span>
             </label>
+            )}
 
             {/* Submit */}
             <button
@@ -312,7 +380,7 @@ export default function LoginPage() {
                 <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
               ) : (
                 <>
-                  {mfaStep ? 'Verify and sign in' : 'Sign in'}
+                  {mfaStep ? 'Verify and sign in' : ssoMode ? 'Continue with SSO' : 'Sign in'}
                   <ArrowRight size={14} className="opacity-60" />
                 </>
               )}

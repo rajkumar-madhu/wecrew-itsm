@@ -8,8 +8,9 @@ const { body } = require('express-validator');
 const { validate } = require('../middleware/validator');
 const { authenticate, authorize } = require('../middleware/auth');
 const { enforceSeatLimit } = require('../middleware/billing.middleware');
-const { authLimiter } = require('../middleware/rateLimiter');
+const { authLimiter, apiLimiter } = require('../middleware/rateLimiter');
 const ctrl = require('../controllers/auth.controller');
+const ssoCtrl = require('../controllers/sso.controller');
 
 router.post('/login', authLimiter, [
   body('email').isEmail().normalizeEmail(),
@@ -69,5 +70,22 @@ router.post('/mfa/disable', authenticate, authLimiter, [
   body('code').isString().isLength({ min: 6, max: 10 }),
   validate,
 ], ctrl.mfaDisable);
+
+// Single sign-on (OpenID Connect). discover/start/callback are public.
+router.post('/sso/discover', apiLimiter, [body('email').isEmail().normalizeEmail(), validate], ssoCtrl.discover);
+router.get('/sso/start', apiLimiter, ssoCtrl.start);
+router.get('/sso/callback', apiLimiter, ssoCtrl.callback);
+router.get('/sso/config', authenticate, authorize('ADMIN'), ssoCtrl.getConfig);
+router.put('/sso/config', authenticate, authorize('ADMIN'), [
+  body('issuer').isString().isLength({ min: 8, max: 500 }),
+  body('clientId').isString().isLength({ min: 1, max: 300 }),
+  body('clientSecret').optional().isString().isLength({ max: 1000 }),
+  body('enabled').optional().isBoolean(),
+  body('enforce').optional().isBoolean(),
+  body('autoProvision').optional().isBoolean(),
+  validate,
+], ssoCtrl.putConfig);
+router.delete('/sso/config', authenticate, authorize('ADMIN'), ssoCtrl.deleteConfig);
+router.post('/sso/config/test', authenticate, authorize('ADMIN'), ssoCtrl.testConfig);
 
 module.exports = router;

@@ -10,6 +10,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useUpdateProfile, useChangePassword } from '../../hooks/useAuth';
 import { useOrganizations, useCreateOrganization, useUpdateOrganization } from '../../hooks/useOrganizations';
 import MfaPanel from './MfaPanel';
+import SsoPanel from './SsoPanel';
 
 const TIMEZONES = [
   'Asia/Kolkata', 'UTC', 'America/New_York', 'America/Chicago',
@@ -150,7 +151,7 @@ export default function SettingsPage() {
 
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User, desc: 'Personal information' },
-    { id: 'security', label: 'Security', icon: Shield, desc: 'Password & MFA' },
+    { id: 'security', label: 'Security', icon: Shield, desc: isAdmin ? 'Password, MFA & SSO' : 'Password & MFA' },
     { id: 'notifications', label: 'Notifications', icon: Bell, desc: 'Alert preferences' },
     { id: 'appearance', label: 'Appearance', icon: Palette, desc: 'Theme & display' },
     ...(isAdmin ? [{ id: 'organization', label: 'Organizations', icon: Building2, desc: 'Manage tenants' }] : []),
@@ -312,6 +313,13 @@ export default function SettingsPage() {
               <Section title="Two-Factor Authentication" description="Protect sign-in with a code from an authenticator app">
                 <MfaPanel />
               </Section>
+
+              {isAdmin && (<>
+                <div className="border-t border-[#F1F5F9]" />
+                <Section title="Single Sign-On" description="Let your organization sign in through its identity provider (OpenID Connect)">
+                  <SsoPanel />
+                </Section>
+              </>)}
             </div>
           )}
 

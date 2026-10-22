@@ -9,11 +9,13 @@ const mfa = require('../../services/mfa.service');
 const mockUserUpdate = jest.fn(async () => ({}));
 const mockSessionCreate = jest.fn(async () => ({}));
 let mockUser;
+let mockSsoConfig = null;
 jest.mock('../../config/database', () => ({
   prisma: {
     user: { findUnique: jest.fn(async () => mockUser), update: (...a) => mockUserUpdate(...a) },
     session: { create: (...a) => mockSessionCreate(...a) },
     organization: { findUnique: jest.fn(async () => null) },
+    ssoConfig: { findFirst: jest.fn(async () => mockSsoConfig) },
   },
 }));
 jest.mock('../../services/billing.service', () => ({ startTrial: jest.fn() }));
@@ -58,4 +60,27 @@ it('issues tokens with a valid code', async () => {
   await login(req({ email: 'ops@example.com', password: 'Secret123', mfaCode: code }), r, next);
   expect(r.status).toHaveBeenCalledWith(200);
   expect(r.json.mock.calls[0][0].data.accessToken).toBeTruthy();
+});
+
+describe('SSO enforcement', () => {
+  afterEach(() => { mockSsoConfig = null; });
+
+  it('refuses password sign-in for a domain whose organization enforces SSO', async () => {
+    mockSsoConfig = { id: 'sso1' };
+    const r = res();
+    await login(req({ email: 'ops@example.com', password: 'Secret123' }), r, next);
+    expect(r.status).toHaveBeenCalledWith(403);
+    expect(r.json.mock.calls[0][0]).toMatchObject({ success: false, details: { sso: true } });
+    expect(mockSessionCreate).not.toHaveBeenCalled();
+  });
+
+  it('still lets a platform admin use a password', async () => {
+    mockSsoConfig = { id: 'sso1' };
+    const saved = mockUser;
+    mockUser = { ...saved, isPlatformAdmin: true, mfaEnabled: false };
+    const r = res();
+    await login(req({ email: 'ops@example.com', password: 'Secret123' }), r, next);
+    mockUser = saved;
+    expect(r.json.mock.calls[0][0].data.accessToken).toBeTruthy();
+  });
 });

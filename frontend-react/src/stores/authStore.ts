@@ -38,6 +38,8 @@ interface AuthState {
   /** Resolves `{ mfaRequired: true }` when the account needs a 6-digit code; call again with it. */
   login: (email: string, password: string, mfaCode?: string) => Promise<{ mfaRequired: boolean }>;
   logout: () => void;
+  /** After the SSO redirect: trade the httpOnly refresh cookie for tokens and load the user. */
+  completeSsoLogin: () => Promise<User>;
   setUser: (user: User) => void;
   setTokens: (token: string, refreshToken: string) => void;
   setSelectedOrg: (orgId: string | null) => void;
@@ -59,7 +61,8 @@ export const useAuthStore = create<AuthState>()(
           const payload = await res.json().catch(() => ({}));
           if (!res.ok) {
             const msg = payload?.error || payload?.details?.[0]?.msg || 'Login failed';
-            throw new Error(msg);
+            // The org enforces SSO for this address: the caller redirects instead
+            throw Object.assign(new Error(msg), { sso: payload?.details?.sso === true });
           }
           if (payload?.data?.mfaRequired) {
             set({ isLoading: false });
@@ -80,7 +83,33 @@ export const useAuthStore = create<AuthState>()(
           return { mfaRequired: false };
         } catch (err: any) {
           set({ isLoading: false, isAuthenticated: false });
-          throw new Error(err?.message || 'Invalid credentials');
+          throw Object.assign(new Error(err?.message || 'Invalid credentials'), { sso: err?.sso === true });
+        }
+      },
+      completeSsoLogin: async () => {
+        set({ isLoading: true });
+        try {
+          const res = await fetch('/api/v1/auth/refresh', {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' }, body: '{}',
+          });
+          const payload = await res.json().catch(() => ({}));
+          if (!res.ok || !payload?.data?.accessToken) throw new Error(payload?.error || 'Single sign-on did not complete');
+          const token: string = payload.data.accessToken;
+          const me = await fetch('/api/v1/auth/me', { headers: { Authorization: `Bearer ${token}` } });
+          const mePayload = await me.json().catch(() => ({}));
+          if (!me.ok || !mePayload?.data) throw new Error('Could not load your profile');
+          const user: User = mePayload.data;
+          set({
+            user, token, refreshToken: payload.data.refreshToken,
+            organization: mePayload.data.organization || null,
+            selectedOrgId: user.organizationId || null,
+            isAuthenticated: true, isLoading: false,
+          });
+          return user;
+        } catch (err) {
+          set({ isLoading: false, isAuthenticated: false });
+          throw err;
         }
       },
       logout: () => {
