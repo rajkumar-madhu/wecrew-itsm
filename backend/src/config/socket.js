@@ -3,7 +3,8 @@
 //
 // Tenant isolation over WebSockets:
 //   - Each socket joins `user:<id>`, `org:<orgId>` and — platform staff only —
-//     `platform`. The user is re-read from the DB at connect, so a token
+//     `platform`. Requesters (portal end users) join only `user:<id>`: org rooms
+//     carry the agent queue (incident titles, alerts, changes) they may not read. The user is re-read from the DB at connect, so a token
 //     minted before a role/org change cannot widen access.
 //   - join:team / join:incident only admit rooms the user may read over REST.
 //   - emitToAll is kept as the call-site name but is NOT a global broadcast:
@@ -28,6 +29,7 @@ function isPlatform(user) {
 
 async function canJoinTeam(user, teamId) {
   if (typeof teamId !== 'string' || !teamId) return false;
+  if (user.role === 'REQUESTER') return false;
   const team = await db().team.findUnique({
     where: { id: teamId },
     select: { organizationId: true, members: { where: { userId: user.id }, select: { userId: true } } },
@@ -41,9 +43,17 @@ async function canJoinTeam(user, teamId) {
 
 async function canJoinIncident(user, incidentId) {
   if (typeof incidentId !== 'string' || !incidentId) return false;
+  if (user.role === 'REQUESTER') return false; // incident rooms carry agent work notes
   const inc = await db().incident.findUnique({ where: { id: incidentId }, select: { organizationId: true } });
   if (!inc) return false;
   return isPlatform(user) || (!!user.organizationId && inc.organizationId === user.organizationId);
+}
+
+function roomsFor(user) {
+  const rooms = [`user:${user.id}`];
+  if (user.organizationId && user.role !== 'REQUESTER') rooms.push(`org:${user.organizationId}`);
+  if (isPlatform(user)) rooms.push('platform');
+  return rooms;
 }
 
 function initSocket(httpServer, corsOrigins) {
@@ -79,9 +89,7 @@ function initSocket(httpServer, corsOrigins) {
   io.on('connection', (socket) => {
     const user = socket.user;
     const { id } = user;
-    socket.join(`user:${id}`);
-    if (user.organizationId) socket.join(`org:${user.organizationId}`);
-    if (isPlatform(user)) socket.join('platform');
+    roomsFor(user).forEach((room) => socket.join(room));
     console.log(`[WS] User ${id} connected`);
 
     socket.on('join:team', async (teamId) => {
@@ -167,5 +175,5 @@ function emitToIncident(incidentId, event, data) {
 module.exports = {
   initSocket, getIO, emitToUser, emitToTeam, emitToOrg, emitToAll, emitToIncident,
   // exported for tests
-  _internal: { resolveEventOrg, canJoinTeam, canJoinIncident, setIO: (x) => { io = x; } },
+  _internal: { resolveEventOrg, roomsFor, canJoinTeam, canJoinIncident, setIO: (x) => { io = x; } },
 };
